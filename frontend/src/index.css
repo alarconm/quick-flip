@@ -1,0 +1,104 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-orange: #e85d27;
+}
+
+body {
+  background-color: theme(colors.gray.50);
+  color: theme(colors.gray.900);
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  margin: 0;
+}
+
+/* Glass morphism effect */
+.glass {
+  background-color: rgb(255 255 255 / 0.8);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgb(255 255 255 / 0.2);
+}
+
+/* Card styles */
+.card {
+  background-color: white;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  border: 1px solid theme(colors.gray.100);
+}
+
+/* Button variants */
+.btn {
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  transition: all 200ms;
+  cursor: pointer;
+  display: inline-block;
+}
+
+.btn-primary {
+  background-color: theme(colors.orange.500);
+  color: white;
+}
+
+.btn-primary:hover {
+  background-color: theme(colors.orange.600);
+}
+
+.btn-primary:active {
+  background-color: theme(colors.orange.700);
+}
+
+.btn-secondary {
+  background-color: theme(colors.gray.100);
+  color: theme(colors.gray.700);
+}
+
+.btn-secondary:hover {
+  background-color: theme(colors.gray.200);
+}
+
+.btn-outline {
+  border: 2px solid theme(colors.orange.500);
+  color: theme(colors.orange.500);
+}
+
+.btn-outline:hover {
+  background-color: theme(colors.orange.500);
+  color: white;
+}
+
+/* Form inputs */
+.input {
+  width: 100%;
+  padding: 0.5rem 1rem;
+  border: 1px solid theme(colors.gray.200);
+  border-radius: 0.5rem;
+  outline: none;
+  transition: all 200ms;
+}
+
+.input:focus {
+  border-color: theme(colors.orange.500);
+  box-shadow: 0 0 0 3px rgb(249 115 22 / 0.2);
+}
+
+/* Tier cards */
+.tier-card {
+  background-color: white;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  border: 1px solid theme(colors.gray.100);
+  padding: 1.5rem;
+  transition: box-shadow 200ms;
+  cursor: pointer;
+}
+
+.tier-card:hover {
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+}
+
+.tier-card.selected {
+  box-shadow: 0 0 0 2px theme(colors.orange.500);
+  border-color: theme(colors.orange.500);
+}
