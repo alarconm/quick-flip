@@ -1,311 +1,513 @@
 """
-Shopify webhook handlers.
-Processes order/paid and product/create webhooks.
+Shopify Webhook Handler for TradeUp.
+
+Handles:
+1. order/created - Membership purchases and cashback processing
+2. customer/updated - Sync customer info to member records
+
+Membership Flow:
+1. Customer purchases membership product at POS (pays first month)
+2. Shopify sends order/created webhook
+3. We detect membership SKU (QFMEM-SILVER, QFMEM-GOLD, QFMEM-PLATINUM)
+4. Create member record
+5. Create Stripe customer + subscription with trial until 1st of next month
+6. Tag Shopify customer with membership tier
+7. Send welcome email with card setup link
+
+Cashback Flow:
+1. Member makes a purchase
+2. Shopify sends order/created webhook
+3. We check if customer is a member
+4. Calculate tier-based cashback + any active promotions
+5. Issue store credit
 """
-import hmac
-import hashlib
-import base64
+
+import json
 from datetime import datetime
 from decimal import Decimal
 from flask import Blueprint, request, jsonify, current_app
-from ..extensions import db
-from ..models import Tenant, TradeInItem, Member
-from ..services.trade_in_service import TradeInService
-from ..services.bonus_processor import BonusProcessor
 
-webhooks_bp = Blueprint('webhooks', __name__)
+from app import db
+from app.models.member import Member
+from app.services.stripe_service import stripe_service
+from app.services.email_service import email_service
+from app.services.shopify_client import shopify_client
+from app.services.store_credit_service import store_credit_service
 
 
-def verify_shopify_webhook(data: bytes, hmac_header: str, secret: str) -> bool:
+shopify_webhook_bp = Blueprint('shopify_webhook', __name__)
+
+# Membership product SKUs
+MEMBERSHIP_SKUS = {
+    'QFMEM-SILVER': 'SILVER',
+    'QFMEM-GOLD': 'GOLD',
+    'QFMEM-PLATINUM': 'PLATINUM'
+}
+
+
+@shopify_webhook_bp.route('/order-created', methods=['POST'])
+def handle_order_created():
     """
-    Verify Shopify webhook HMAC signature.
+    Handle Shopify order/created webhook.
+
+    1. Detects membership product purchases and creates member records
+    2. Processes cashback for existing member purchases
+    """
+    # Verify webhook signature
+    hmac_header = request.headers.get('X-Shopify-Hmac-SHA256', '')
+    if not shopify_client.verify_webhook(request.data, hmac_header):
+        current_app.logger.warning("Invalid webhook signature")
+        return jsonify({'error': 'Invalid signature'}), 401
+
+    try:
+        order_data = request.get_json()
+        order_name = order_data.get('name', 'unknown')
+        order_id = str(order_data.get('id'))
+        current_app.logger.info(f"Received order webhook: {order_name}")
+
+        result = {
+            'order': order_name,
+            'membership_processed': False,
+            'cashback_processed': False,
+        }
+
+        # 1. Check for membership products first
+        membership_items = find_membership_items(order_data)
+
+        if membership_items:
+            # Process each membership purchase
+            for item in membership_items:
+                membership_result = process_membership_purchase(order_data, item)
+                if membership_result.get('error'):
+                    current_app.logger.error(f"Error processing membership: {membership_result['error']}")
+                else:
+                    result['membership_processed'] = True
+                    result['member_id'] = membership_result.get('member_id')
+
+        # 2. Process cashback for member purchases (excluding membership products)
+        cashback_result = process_purchase_cashback(order_data, membership_items)
+        if cashback_result:
+            result['cashback_processed'] = True
+            result['cashback_amount'] = cashback_result.get('amount')
+
+        if not result['membership_processed'] and not result['cashback_processed']:
+            return jsonify({'status': 'skipped', 'reason': 'no_member_or_membership'}), 200
+
+        return jsonify({'status': 'processed', **result}), 200
+
+    except Exception as e:
+        current_app.logger.exception(f"Error processing order webhook: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+def process_purchase_cashback(order_data: dict, membership_items: list) -> dict:
+    """
+    Process cashback for a member's purchase.
 
     Args:
-        data: Raw request body
-        hmac_header: X-Shopify-Hmac-SHA256 header
-        secret: Webhook secret
+        order_data: Shopify order webhook payload
+        membership_items: List of membership items (excluded from cashback)
 
     Returns:
-        True if valid, False otherwise
+        Result dict with cashback details or None
     """
-    if not secret or not hmac_header:
-        return False
+    # Get customer info
+    customer = order_data.get('customer', {})
+    if not customer:
+        return None
 
-    computed_hmac = base64.b64encode(
-        hmac.new(
-            secret.encode('utf-8'),
-            data,
-            hashlib.sha256
-        ).digest()
-    ).decode()
+    shopify_customer_id = str(customer.get('id'))
 
-    return hmac.compare_digest(computed_hmac, hmac_header)
+    # Check if customer is a member
+    member = Member.query.filter_by(
+        shopify_customer_id=shopify_customer_id,
+        status='active'
+    ).first()
 
+    if not member:
+        current_app.logger.debug(f"Customer {shopify_customer_id} is not an active member")
+        return None
 
-def get_tenant_from_request() -> Tenant:
-    """Get tenant from webhook request headers or path."""
-    # Try X-Tenant-Slug header first
-    tenant_slug = request.headers.get('X-Tenant-Slug')
+    # Calculate order total excluding membership products
+    order_total = calculate_cashback_eligible_total(order_data, membership_items)
 
-    # Try path parameter
-    if not tenant_slug:
-        tenant_slug = request.view_args.get('tenant_slug')
+    if order_total <= 0:
+        current_app.logger.debug(f"No cashback-eligible items in order")
+        return None
 
-    # Default to ORB for MVP
-    if not tenant_slug:
-        tenant_slug = 'orb-sports-cards'
+    order_id = str(order_data.get('id'))
+    order_name = order_data.get('name', f'#{order_id}')
 
-    tenant = Tenant.query.filter_by(shop_slug=tenant_slug).first()
-    return tenant
-
-
-@webhooks_bp.route('/shopify/<tenant_slug>/order-paid', methods=['POST'])
-def handle_order_paid(tenant_slug):
-    """
-    Handle Shopify orders/paid webhook.
-    Detects quick flip sales and triggers bonus calculation.
-
-    Flow:
-    1. Verify webhook signature
-    2. Extract line items from order
-    3. Match products to trade-in items by Shopify product ID
-    4. Calculate days to sell and bonus eligibility
-    5. Queue bonus processing
-    """
-    tenant = Tenant.query.filter_by(shop_slug=tenant_slug).first()
-    if not tenant:
-        return jsonify({'error': 'Tenant not found'}), 404
-
-    # Verify webhook (skip in development)
-    if current_app.config.get('ENV') != 'development':
-        hmac_header = request.headers.get('X-Shopify-Hmac-SHA256', '')
-        if not verify_shopify_webhook(request.data, hmac_header, tenant.webhook_secret):
-            return jsonify({'error': 'Invalid signature'}), 401
+    # Determine channel (POS = in_store, web = online)
+    source_name = order_data.get('source_name', '')
+    channel = 'in_store' if source_name in ['pos', 'shopify_pos'] else 'online'
 
     try:
-        order_data = request.json
-        order_id = order_data.get('id')
-        line_items = order_data.get('line_items', [])
-
-        current_app.logger.info(f'Processing order {order_id} for {tenant_slug}')
-
-        processed_items = []
-        bonus_eligible = []
-
-        for line_item in line_items:
-            product_id = str(line_item.get('product_id'))
-            variant_id = str(line_item.get('variant_id'))
-            price = Decimal(str(line_item.get('price', 0)))
-
-            # Find matching trade-in item
-            trade_in_item = TradeInItem.query.filter_by(
-                shopify_product_id=product_id
-            ).first()
-
-            if not trade_in_item:
-                # Try variant ID
-                trade_in_item = TradeInItem.query.filter(
-                    TradeInItem.shopify_product_id.like(f'%{variant_id}%')
-                ).first()
-
-            if not trade_in_item:
-                continue
-
-            # Verify this belongs to the tenant
-            member = trade_in_item.batch.member
-            if member.tenant_id != tenant.id:
-                continue
-
-            # Record the sale
-            trade_in_item.sold_date = datetime.utcnow()
-            trade_in_item.sold_price = price
-            trade_in_item.shopify_order_id = str(order_id)
-
-            # Calculate days to sell
-            if trade_in_item.listed_date:
-                trade_in_item.days_to_sell = trade_in_item.calculate_days_to_sell()
-
-                # Check bonus eligibility
-                if member.tier:
-                    quick_flip_days = member.tier.quick_flip_days
-                    if trade_in_item.days_to_sell <= quick_flip_days:
-                        trade_in_item.eligible_for_bonus = True
-                        bonus_eligible.append({
-                            'item_id': trade_in_item.id,
-                            'product_title': trade_in_item.product_title,
-                            'days_to_sell': trade_in_item.days_to_sell,
-                            'sold_price': float(price)
-                        })
-
-            processed_items.append(trade_in_item.id)
-
-        db.session.commit()
-
-        # Process bonuses if any eligible
-        if bonus_eligible:
-            processor = BonusProcessor(tenant.id)
-            # Process immediately or queue for background job
-            # For MVP, process immediately
-            processor.process_pending_bonuses(created_by='webhook')
-
-        return jsonify({
-            'success': True,
-            'order_id': order_id,
-            'processed_items': len(processed_items),
-            'bonus_eligible': len(bonus_eligible)
-        })
-
-    except Exception as e:
-        current_app.logger.error(f'Error processing order webhook: {str(e)}')
-        return jsonify({'error': str(e)}), 500
-
-
-@webhooks_bp.route('/shopify/<tenant_slug>/product-created', methods=['POST'])
-def handle_product_created(tenant_slug):
-    """
-    Handle Shopify products/create webhook.
-    Captures listing date and updates trade-in items.
-
-    This webhook is triggered when items are listed in Shopify.
-    We look for the member tag (QF####) to link back to the trade-in item.
-    """
-    tenant = Tenant.query.filter_by(shop_slug=tenant_slug).first()
-    if not tenant:
-        return jsonify({'error': 'Tenant not found'}), 404
-
-    # Verify webhook (skip in development)
-    if current_app.config.get('ENV') != 'development':
-        hmac_header = request.headers.get('X-Shopify-Hmac-SHA256', '')
-        if not verify_shopify_webhook(request.data, hmac_header, tenant.webhook_secret):
-            return jsonify({'error': 'Invalid signature'}), 401
-
-    try:
-        product_data = request.json
-        product_id = str(product_data.get('id'))
-        title = product_data.get('title', '')
-        tags = product_data.get('tags', '')
-
-        current_app.logger.info(f'Product created: {product_id} - {title}')
-
-        # Parse tags to find member number (QF####)
-        member_number = None
-        tag_list = [t.strip() for t in tags.split(',')]
-        for tag in tag_list:
-            if tag.upper().startswith('QF'):
-                member_number = tag.upper()
-                break
-
-        if not member_number:
-            # No member tag, not a quick flip item
-            return jsonify({'success': True, 'message': 'No member tag found'})
-
-        # Find the member
-        member = Member.query.filter_by(
-            tenant_id=tenant.id,
-            member_number=member_number
-        ).first()
-
-        if not member:
-            current_app.logger.warning(f'Member not found: {member_number}')
-            return jsonify({'success': True, 'message': f'Member {member_number} not found'})
-
-        # Get the most recent pending batch for this member
-        # (Items are typically listed in batch order)
-        from ..models import TradeInBatch, TradeInItem
-
-        # Find unlisted items in member's batches
-        unlisted_item = (
-            TradeInItem.query
-            .join(TradeInBatch)
-            .filter(
-                TradeInBatch.member_id == member.id,
-                TradeInItem.listed_date.is_(None)
-            )
-            .order_by(TradeInItem.created_at)
-            .first()
+        # Process cashback through store credit service
+        entry = store_credit_service.process_purchase_cashback(
+            member_id=member.id,
+            order_total=Decimal(str(order_total)),
+            order_id=order_id,
+            order_name=order_name,
+            channel=channel,
         )
 
-        if unlisted_item:
-            # Get price from first variant
-            variants = product_data.get('variants', [])
-            listing_price = Decimal(variants[0].get('price', 0)) if variants else None
+        if entry:
+            current_app.logger.info(
+                f"Processed ${float(entry.amount):.2f} cashback for member {member.id} "
+                f"on order {order_name} (total: ${order_total:.2f})"
+            )
+            return {
+                'member_id': member.id,
+                'amount': float(entry.amount),
+                'ledger_id': entry.id,
+            }
 
-            unlisted_item.shopify_product_id = product_id
-            unlisted_item.product_title = title
-            unlisted_item.listing_price = listing_price
-            unlisted_item.listed_date = datetime.utcnow()
-
-            # Update batch status if all items listed
-            batch = unlisted_item.batch
-            remaining = TradeInItem.query.filter_by(
-                batch_id=batch.id,
-                listed_date=None
-            ).count()
-
-            if remaining == 0:
-                batch.status = 'listed'
-
-            db.session.commit()
-
-            return jsonify({
-                'success': True,
-                'linked_item_id': unlisted_item.id,
-                'member_number': member_number
-            })
-
-        return jsonify({
-            'success': True,
-            'message': f'No unlisted items for member {member_number}'
-        })
+        return None
 
     except Exception as e:
-        current_app.logger.error(f'Error processing product webhook: {str(e)}')
-        return jsonify({'error': str(e)}), 500
+        current_app.logger.error(f"Error processing cashback: {e}")
+        return None
 
 
-@webhooks_bp.route('/shopify/<tenant_slug>/order-refunded', methods=['POST'])
-def handle_order_refunded(tenant_slug):
+def calculate_cashback_eligible_total(order_data: dict, membership_items: list) -> float:
     """
-    Handle Shopify refunds/create webhook.
-    Reverses bonuses for refunded items.
+    Calculate the order total eligible for cashback.
+
+    Excludes:
+    - Membership products
+    - Shipping
+    - Gift cards (Shopify already excludes these from discounts)
+
+    Args:
+        order_data: Shopify order webhook payload
+        membership_items: List of membership line items to exclude
+
+    Returns:
+        Cashback-eligible total
     """
-    tenant = Tenant.query.filter_by(shop_slug=tenant_slug).first()
-    if not tenant:
-        return jsonify({'error': 'Tenant not found'}), 404
+    membership_skus = {item['sku'] for item in membership_items}
+
+    eligible_total = 0.0
+
+    for item in order_data.get('line_items', []):
+        sku = item.get('sku', '').upper()
+
+        # Skip membership products
+        if sku in membership_skus or sku in MEMBERSHIP_SKUS:
+            continue
+
+        # Skip gift cards
+        if item.get('gift_card', False):
+            continue
+
+        # Add line item price * quantity (after line discounts)
+        price = float(item.get('price', 0))
+        quantity = int(item.get('quantity', 1))
+        total_discount = sum(
+            float(d.get('amount', 0))
+            for d in item.get('discount_allocations', [])
+        )
+
+        line_total = (price * quantity) - total_discount
+        eligible_total += max(0, line_total)
+
+    return eligible_total
+
+
+def find_membership_items(order_data: dict) -> list:
+    """
+    Find membership products in order line items.
+
+    Args:
+        order_data: Shopify order webhook payload
+
+    Returns:
+        List of membership line items with tier info
+    """
+    membership_items = []
+
+    for item in order_data.get('line_items', []):
+        sku = item.get('sku', '').upper()
+
+        # Check if SKU matches a membership product
+        if sku in MEMBERSHIP_SKUS:
+            membership_items.append({
+                'sku': sku,
+                'tier': MEMBERSHIP_SKUS[sku],
+                'title': item.get('title'),
+                'quantity': item.get('quantity', 1),
+                'price': item.get('price')
+            })
+            continue
+
+        # Also check variant SKU
+        variant_sku = item.get('variant_title', '').upper()
+        if variant_sku in MEMBERSHIP_SKUS:
+            membership_items.append({
+                'sku': variant_sku,
+                'tier': MEMBERSHIP_SKUS[variant_sku],
+                'title': item.get('title'),
+                'quantity': item.get('quantity', 1),
+                'price': item.get('price')
+            })
+            continue
+
+        # Check product tags for membership indicator
+        properties = item.get('properties', [])
+        for prop in properties:
+            if prop.get('name', '').lower() == 'membership_tier':
+                tier = prop.get('value', '').upper()
+                if tier in ['SILVER', 'GOLD', 'PLATINUM']:
+                    membership_items.append({
+                        'sku': f'QFMEM-{tier}',
+                        'tier': tier,
+                        'title': item.get('title'),
+                        'quantity': item.get('quantity', 1),
+                        'price': item.get('price')
+                    })
+
+    return membership_items
+
+
+def process_membership_purchase(order_data: dict, membership_item: dict) -> dict:
+    """
+    Process a membership purchase.
+
+    Creates member record, Stripe subscription, and sends welcome email.
+
+    Args:
+        order_data: Shopify order webhook payload
+        membership_item: Membership line item info
+
+    Returns:
+        Result dict with member_id or error
+    """
+    tier = membership_item['tier']
+    shopify_order_id = str(order_data.get('id'))
+
+    # Get customer info
+    customer = order_data.get('customer', {})
+    shopify_customer_id = str(customer.get('id'))
+    email = customer.get('email') or order_data.get('email')
+    first_name = customer.get('first_name', '')
+    last_name = customer.get('last_name', '')
+    phone = customer.get('phone', '')
+
+    if not email:
+        return {'error': 'No email address found on order'}
+
+    current_app.logger.info(
+        f"Processing {tier} membership for {email} "
+        f"(Shopify customer: {shopify_customer_id})"
+    )
+
+    # Check if member already exists
+    existing = Member.query.filter_by(shopify_customer_id=shopify_customer_id).first()
+    if existing:
+        current_app.logger.info(f"Member already exists, updating tier to {tier}")
+        return handle_existing_member(existing, tier, shopify_order_id)
 
     try:
-        refund_data = request.json
-        order_id = str(refund_data.get('order_id'))
+        # 1. Create Stripe customer
+        stripe_customer = stripe_service.create_customer(
+            email=email,
+            name=f"{first_name} {last_name}".strip() or email,
+            phone=phone,
+            shopify_customer_id=shopify_customer_id
+        )
+        current_app.logger.info(f"Created Stripe customer: {stripe_customer.id}")
 
-        # Find trade-in items linked to this order
-        items = TradeInItem.query.filter_by(shopify_order_id=order_id).all()
+        # 2. Create subscription with trial until 1st of next month
+        # Customer already paid first month via Shopify POS
+        subscription = stripe_service.create_subscription_with_trial(
+            customer_id=stripe_customer.id,
+            tier=tier
+        )
+        current_app.logger.info(
+            f"Created Stripe subscription: {subscription.id} "
+            f"(trial ends: {datetime.fromtimestamp(subscription.trial_end)})"
+        )
 
-        reversed_count = 0
-        processor = BonusProcessor(tenant.id)
+        # 3. Create member record
+        member = Member(
+            shopify_customer_id=shopify_customer_id,
+            shopify_order_id=shopify_order_id,
+            stripe_customer_id=stripe_customer.id,
+            stripe_subscription_id=subscription.id,
+            email=email,
+            first_name=first_name,
+            last_name=last_name,
+            phone=phone,
+            tier=tier,
+            status='active',
+            joined_at=datetime.utcnow(),
+            current_period_start=datetime.utcnow(),
+            current_period_end=datetime.fromtimestamp(subscription.trial_end)
+        )
+        db.session.add(member)
+        db.session.commit()
+        current_app.logger.info(f"Created member record: {member.id}")
 
-        for item in items:
-            if item.bonus_status == 'issued':
-                # Find the bonus transaction
-                from ..models import BonusTransaction
-                transaction = BonusTransaction.query.filter_by(
-                    trade_in_item_id=item.id,
-                    transaction_type='credit'
-                ).first()
+        # 4. Tag Shopify customer
+        tag_customer_with_membership(shopify_customer_id, tier)
 
-                if transaction:
-                    processor.reverse_bonus(
-                        transaction_id=transaction.id,
-                        reason='Order refunded',
-                        created_by='webhook'
-                    )
-                    reversed_count += 1
+        # 5. Send welcome email with card setup link
+        card_setup_url = stripe_service.get_setup_intent_url(
+            customer_id=stripe_customer.id,
+            return_url='https://orbsportscards.com/quick-flip/welcome'
+        )
 
-        return jsonify({
-            'success': True,
-            'order_id': order_id,
-            'bonuses_reversed': reversed_count
-        })
+        email_sent = email_service.send_welcome_email(
+            to_email=email,
+            first_name=first_name or email.split('@')[0],
+            tier=tier,
+            card_setup_url=card_setup_url
+        )
+
+        if email_sent:
+            member.card_setup_sent_at = datetime.utcnow()
+            db.session.commit()
+
+        current_app.logger.info(
+            f"Membership setup complete for {email} - "
+            f"Member ID: {member.id}, Tier: {tier}"
+        )
+
+        return {
+            'member_id': member.id,
+            'stripe_customer_id': stripe_customer.id,
+            'stripe_subscription_id': subscription.id,
+            'email_sent': email_sent
+        }
 
     except Exception as e:
-        current_app.logger.error(f'Error processing refund webhook: {str(e)}')
+        current_app.logger.exception(f"Error creating membership: {e}")
+        db.session.rollback()
+        return {'error': str(e)}
+
+
+def handle_existing_member(member: Member, new_tier: str, order_id: str) -> dict:
+    """
+    Handle membership purchase for existing member (upgrade/reactivation).
+
+    Args:
+        member: Existing Member record
+        new_tier: New membership tier
+        order_id: Shopify order ID
+
+    Returns:
+        Result dict
+    """
+    try:
+        old_tier = member.tier
+
+        # If cancelled, reactivate
+        if member.status == 'cancelled':
+            # Create new subscription
+            subscription = stripe_service.create_subscription_with_trial(
+                customer_id=member.stripe_customer_id,
+                tier=new_tier
+            )
+            member.stripe_subscription_id = subscription.id
+            member.status = 'active'
+            member.cancelled_at = None
+            current_app.logger.info(f"Reactivated member {member.id} with new subscription")
+
+        # If different tier, upgrade/downgrade
+        elif member.tier != new_tier and member.stripe_subscription_id:
+            stripe_service.change_tier(
+                subscription_id=member.stripe_subscription_id,
+                new_tier=new_tier,
+                prorate=True
+            )
+            current_app.logger.info(f"Changed member {member.id} tier: {old_tier} -> {new_tier}")
+
+        member.tier = new_tier
+        member.shopify_order_id = order_id
+        db.session.commit()
+
+        # Update Shopify customer tags
+        tag_customer_with_membership(member.shopify_customer_id, new_tier, old_tier)
+
+        return {
+            'member_id': member.id,
+            'action': 'upgraded' if new_tier != old_tier else 'renewed',
+            'old_tier': old_tier,
+            'new_tier': new_tier
+        }
+
+    except Exception as e:
+        current_app.logger.exception(f"Error updating existing member: {e}")
+        db.session.rollback()
+        return {'error': str(e)}
+
+
+def tag_customer_with_membership(customer_id: str, tier: str, old_tier: str = None):
+    """
+    Update Shopify customer tags for membership.
+
+    Args:
+        customer_id: Shopify customer ID
+        tier: New membership tier
+        old_tier: Previous tier to remove (optional)
+    """
+    try:
+        # Add new tier tags
+        new_tags = [
+            'quick-flip-member',
+            f'qf-{tier.lower()}',
+            f'qf-discount-{get_tier_discount(tier)}pct'
+        ]
+        shopify_client.add_customer_tags(customer_id, new_tags)
+
+        # Remove old tier tags if upgrading/downgrading
+        if old_tier and old_tier != tier:
+            old_tags = [
+                f'qf-{old_tier.lower()}',
+                f'qf-discount-{get_tier_discount(old_tier)}pct'
+            ]
+            shopify_client.remove_customer_tags(customer_id, old_tags)
+
+        current_app.logger.info(f"Updated customer {customer_id} tags for {tier} membership")
+
+    except Exception as e:
+        current_app.logger.error(f"Error updating customer tags: {e}")
+
+
+def get_tier_discount(tier: str) -> int:
+    """Get discount percentage for tier."""
+    return {'SILVER': 10, 'GOLD': 15, 'PLATINUM': 20}.get(tier, 0)
+
+
+@shopify_webhook_bp.route('/customer-updated', methods=['POST'])
+def handle_customer_updated():
+    """
+    Handle Shopify customer update webhook.
+
+    Syncs customer info changes to member record.
+    """
+    hmac_header = request.headers.get('X-Shopify-Hmac-SHA256', '')
+    if not shopify_client.verify_webhook(request.data, hmac_header):
+        return jsonify({'error': 'Invalid signature'}), 401
+
+    try:
+        customer_data = request.get_json()
+        shopify_customer_id = str(customer_data.get('id'))
+
+        member = Member.query.filter_by(shopify_customer_id=shopify_customer_id).first()
+        if not member:
+            return jsonify({'status': 'skipped', 'reason': 'not_a_member'}), 200
+
+        # Update member info
+        member.email = customer_data.get('email', member.email)
+        member.first_name = customer_data.get('first_name', member.first_name)
+        member.last_name = customer_data.get('last_name', member.last_name)
+        member.phone = customer_data.get('phone', member.phone)
+        db.session.commit()
+
+        return jsonify({'status': 'updated', 'member_id': member.id}), 200
+
+    except Exception as e:
+        current_app.logger.exception(f"Error processing customer update: {e}")
         return jsonify({'error': str(e)}), 500
