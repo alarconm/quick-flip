@@ -335,10 +335,22 @@ class PartnerSyncService:
                 timeout=30
             )
 
+            # Parse JSON response, handling UTF-8 BOM if present
+            body = None
+            if response.headers.get('content-type', '').startswith('application/json'):
+                try:
+                    # Strip UTF-8 BOM if present and parse JSON
+                    text = response.text.lstrip('\ufeff')
+                    body = __import__('json').loads(text)
+                except Exception:
+                    body = {'text': response.text}
+            else:
+                body = {'text': response.text}
+
             return {
                 'success': response.status_code in [200, 201],
                 'status_code': response.status_code,
-                'body': response.json() if response.headers.get('content-type', '').startswith('application/json') else {'text': response.text},
+                'body': body,
                 'error': None if response.status_code in [200, 201] else f'HTTP {response.status_code}'
             }
 
