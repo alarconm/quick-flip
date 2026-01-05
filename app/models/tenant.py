@@ -55,8 +55,9 @@ class Tenant(db.Model):
             'shop_name': self.shop_name,
             'shop_slug': self.shop_slug,
             'shopify_domain': self.shopify_domain,
-            'subscription_tier': self.subscription_tier,
+            'subscription_plan': self.subscription_plan,
             'subscription_status': self.subscription_status,
+            'subscription_active': self.subscription_active,
             'is_active': self.is_active
         }
 

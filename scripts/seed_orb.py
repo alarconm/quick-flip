@@ -36,8 +36,11 @@ def seed_orb_tenant():
                 shop_name="ORB Sports Cards & Collectibles",
                 shop_slug="orb",
                 shopify_domain=os.getenv("SHOPIFY_DOMAIN", "uy288y-nx.myshopify.com"),
-                subscription_tier="enterprise",
+                subscription_plan="pro",
+                subscription_active=True,
                 monthly_price=Decimal("0"),  # Internal use
+                max_members=10000,  # Unlimited for ORB
+                max_tiers=10,
                 is_active=True,
             )
             db.session.add(tenant)
