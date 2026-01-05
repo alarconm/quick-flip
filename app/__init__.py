@@ -58,9 +58,10 @@ def create_app(config_name: str = None) -> Flask:
         shop = request.args.get('shop', '')
         host = request.args.get('host', '')
         api_key = os.getenv('SHOPIFY_CLIENT_ID', os.getenv('SHOPIFY_API_KEY', ''))
+        app_url = os.getenv('APP_URL', 'https://web-production-41bb1.up.railway.app')
 
         # Create response with cache-control headers to prevent Shopify iframe caching
-        response = make_response(get_spa_html(shop, host, api_key))
+        response = make_response(get_spa_html(shop, host, api_key, app_url))
         response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
         response.headers['Pragma'] = 'no-cache'
         response.headers['Expires'] = '0'
@@ -69,7 +70,7 @@ def create_app(config_name: str = None) -> Flask:
     return app
 
 
-def get_spa_html(shop: str, host: str, api_key: str) -> str:
+def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
     """Return the full SPA HTML for the TradeUp dashboard."""
     return f'''<!DOCTYPE html>
 <html lang="en" data-theme="dark">
@@ -586,7 +587,7 @@ def get_spa_html(shop: str, host: str, api_key: str) -> str:
             <span class="logo-icon">🚀</span>
             <div>
                 <div class="logo-text">TradeUp</div>
-                <div class="logo-sub">by Cardflow Labs v1.2</div>
+                <div class="logo-sub">by Cardflow Labs v1.3</div>
             </div>
         </div>
         <div class="header-actions">
@@ -854,7 +855,7 @@ def get_spa_html(shop: str, host: str, api_key: str) -> str:
         var currentPage = 'home';
         var membersData = [];
         var tiersData = [];
-        const API_BASE = '/api';
+        const API_BASE = '{app_url}/api';
 
         // Theme toggle
         function toggleTheme() {{
