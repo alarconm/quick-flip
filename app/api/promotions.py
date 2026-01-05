@@ -591,77 +591,102 @@ def update_tier(tier_id: int):
 @promotions_bp.route('/stats', methods=['GET'])
 def get_promotion_stats():
     """Get promotion and store credit statistics."""
-    now = datetime.utcnow()
-    thirty_days_ago = now - timedelta(days=30)
+    try:
+        now = datetime.utcnow()
+        thirty_days_ago = now - timedelta(days=30)
 
-    # Active promotions
-    active_promos = Promotion.query.filter(
-        and_(
-            Promotion.active == True,
-            Promotion.starts_at <= now,
-            Promotion.ends_at >= now,
-        )
-    ).all()
-    active_promos = [p for p in active_promos if p.is_active_now()]
+        # Active promotions
+        try:
+            active_promos = Promotion.query.filter(
+                and_(
+                    Promotion.active == True,
+                    Promotion.starts_at <= now,
+                    Promotion.ends_at >= now,
+                )
+            ).all()
+            active_promos = [p for p in active_promos if p.is_active_now()]
+        except Exception as e:
+            current_app.logger.warning(f"Error fetching active promos: {e}")
+            active_promos = []
 
-    # Upcoming promotions (next 7 days)
-    seven_days = now + timedelta(days=7)
-    upcoming_promos = Promotion.query.filter(
-        and_(
-            Promotion.active == True,
-            Promotion.starts_at > now,
-            Promotion.starts_at <= seven_days,
-        )
-    ).count()
+        # Upcoming promotions (next 7 days)
+        try:
+            seven_days = now + timedelta(days=7)
+            upcoming_promos = Promotion.query.filter(
+                and_(
+                    Promotion.active == True,
+                    Promotion.starts_at > now,
+                    Promotion.starts_at <= seven_days,
+                )
+            ).count()
+        except Exception as e:
+            current_app.logger.warning(f"Error fetching upcoming promos: {e}")
+            upcoming_promos = 0
 
-    # Credit issued in last 30 days
-    credit_stats = db.session.query(
-        func.sum(StoreCreditLedger.amount).filter(StoreCreditLedger.amount > 0),
-        func.count(StoreCreditLedger.id),
-    ).filter(StoreCreditLedger.created_at >= thirty_days_ago).first()
+        # Credit issued in last 30 days
+        try:
+            credit_stats = db.session.query(
+                func.sum(StoreCreditLedger.amount),
+                func.count(StoreCreditLedger.id),
+            ).filter(
+                and_(
+                    StoreCreditLedger.created_at >= thirty_days_ago,
+                    StoreCreditLedger.amount > 0,
+                )
+            ).first()
+        except Exception as e:
+            current_app.logger.warning(f"Error fetching credit stats: {e}")
+            credit_stats = (0, 0)
 
-    # Credit by type in last 30 days
-    credit_by_type = db.session.query(
-        StoreCreditLedger.event_type,
-        func.sum(StoreCreditLedger.amount),
-        func.count(StoreCreditLedger.id),
-    ).filter(
-        and_(
-            StoreCreditLedger.created_at >= thirty_days_ago,
-            StoreCreditLedger.amount > 0,
-        )
-    ).group_by(StoreCreditLedger.event_type).all()
+        # Credit by type in last 30 days
+        try:
+            credit_by_type = db.session.query(
+                StoreCreditLedger.event_type,
+                func.sum(StoreCreditLedger.amount),
+                func.count(StoreCreditLedger.id),
+            ).filter(
+                and_(
+                    StoreCreditLedger.created_at >= thirty_days_ago,
+                    StoreCreditLedger.amount > 0,
+                )
+            ).group_by(StoreCreditLedger.event_type).all()
+        except Exception as e:
+            current_app.logger.warning(f"Error fetching credit by type: {e}")
+            credit_by_type = []
 
-    # Top members by credit earned
-    top_earners = db.session.query(
-        MemberCreditBalance.member_id,
-        MemberCreditBalance.total_earned,
-        Member.email,
-        Member.first_name,
-        Member.last_name,
-    ).join(Member).order_by(
-        MemberCreditBalance.total_earned.desc()
-    ).limit(5).all()
+        # Top members by credit earned (simplified - no join)
+        try:
+            top_earners = MemberCreditBalance.query.order_by(
+                MemberCreditBalance.total_earned.desc()
+            ).limit(5).all()
+            top_earners_data = [
+                {
+                    'member_id': te.member_id,
+                    'total_earned': float(te.total_earned or 0),
+                }
+                for te in top_earners
+            ]
+        except Exception as e:
+            current_app.logger.warning(f"Error fetching top earners: {e}")
+            top_earners_data = []
 
-    return jsonify({
-        'active_promotions': len(active_promos),
-        'active_promo_list': [{'id': p.id, 'name': p.name, 'ends_at': p.ends_at.isoformat()} for p in active_promos],
-        'upcoming_promotions': upcoming_promos,
-        'credit_issued_30d': {
-            'total': float(credit_stats[0] or 0),
-            'transactions': credit_stats[1] or 0,
-        },
-        'credit_by_type': {
-            row[0]: {'amount': float(row[1] or 0), 'count': row[2]}
-            for row in credit_by_type
-        },
-        'top_earners': [
-            {
-                'member_id': row[0],
-                'total_earned': float(row[1] or 0),
-                'email': row[2],
-                'name': f"{row[3] or ''} {row[4] or ''}".strip() or row[2],
-            }
-            for row in top_earners
-        ],
-    }), 200
+        return jsonify({
+            'active_promotions': len(active_promos),
+            'active_promo_list': [{'id': p.id, 'name': p.name, 'ends_at': p.ends_at.isoformat()} for p in active_promos],
+            'upcoming_promotions': upcoming_promos,
+            'credit_issued_30d': {
+                'total': float(credit_stats[0] or 0),
+                'transactions': credit_stats[1] or 0,
+            },
+            'credit_by_type': {
+                row[0]: {'amount': float(row[1] or 0), 'count': row[2]}
+                for row in credit_by_type
+            },
+            'top_earners': top_earners_data,
+        }), 200
+    except Exception as e:
+        current_app.logger.error(f"Stats endpoint error: {e}")
+        return jsonify({
+            'error': 'Failed to fetch stats',
+            'message': str(e),
+        }), 500
