@@ -15,9 +15,9 @@ from ..extensions import db
 shopify_oauth_bp = Blueprint('shopify_oauth', __name__)
 
 # Shopify App credentials
-SHOPIFY_API_KEY = os.getenv('SHOPIFY_API_KEY', '')
-SHOPIFY_API_SECRET = os.getenv('SHOPIFY_API_SECRET', '')
-APP_URL = os.getenv('APP_URL', 'https://gettradeup.com')
+SHOPIFY_API_KEY = os.getenv('SHOPIFY_CLIENT_ID', os.getenv('SHOPIFY_API_KEY', ''))
+SHOPIFY_API_SECRET = os.getenv('SHOPIFY_CLIENT_SECRET', os.getenv('SHOPIFY_API_SECRET', ''))
+APP_URL = os.getenv('APP_URL', 'https://app.cardflowlabs.com')
 
 # Required scopes for TradeUp
 SCOPES = [
