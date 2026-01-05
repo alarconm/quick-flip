@@ -25,7 +25,7 @@ from ..models.promotions import (
     CreditEventType,
     TIER_CASHBACK,
 )
-from .shopify_client import shopify_client
+from .shopify_client import ShopifyClient
 
 
 class StoreCreditService:
@@ -167,6 +167,9 @@ class StoreCreditService:
         Uses Shopify's Store Credit API if available, otherwise metafield.
         """
         try:
+            # Create client for member's tenant
+            shopify_client = ShopifyClient(member.tenant_id)
+
             # Try native store credit first
             result = shopify_client.issue_store_credit(
                 customer_id=member.shopify_customer_id,
@@ -194,6 +197,9 @@ class StoreCreditService:
         Fall back to metafield-based store credit tracking.
         """
         try:
+            # Create client for member's tenant
+            shopify_client = ShopifyClient(member.tenant_id)
+
             balance = self.get_member_balance(entry.member_id)
             result = shopify_client.set_customer_metafield(
                 customer_id=member.shopify_customer_id,
