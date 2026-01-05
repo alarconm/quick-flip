@@ -12,6 +12,7 @@ Endpoints for:
 from datetime import datetime, timedelta
 from decimal import Decimal
 from flask import Blueprint, request, jsonify, current_app
+import sqlalchemy as sa
 from sqlalchemy import func, and_, or_
 
 from ..extensions import db
@@ -48,7 +49,18 @@ def init_database():
     """Initialize promotions database tables (for debugging)."""
     results = {}
     try:
-        # Try to create tables
+        # First, try to add missing columns if table exists
+        try:
+            db.session.execute(sa.text(
+                "ALTER TABLE tier_configurations ADD COLUMN IF NOT EXISTS icon VARCHAR(50) DEFAULT 'star'"
+            ))
+            db.session.commit()
+            results['add_icon_column'] = 'success or already exists'
+        except Exception as e:
+            db.session.rollback()
+            results['add_icon_column'] = f'skipped: {e}'
+
+        # Try to create tables (won't override existing)
         db.create_all()
         results['create_all'] = 'success'
 
