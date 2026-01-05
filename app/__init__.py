@@ -587,7 +587,7 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
             <span class="logo-icon">🚀</span>
             <div>
                 <div class="logo-text">TradeUp</div>
-                <div class="logo-sub">by Cardflow Labs v1.5</div>
+                <div class="logo-sub">by Cardflow Labs v1.7</div>
             </div>
         </div>
         <div class="header-actions">
@@ -858,7 +858,7 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
         const API_BASE = '{app_url}/api';
 
         // Debug: Confirm script execution
-        console.log('[TradeUp v1.6] Script loaded, API_BASE:', API_BASE);
+        console.log('[TradeUp v1.7] Script loaded, API_BASE:', API_BASE);
 
         // Theme toggle
         function toggleTheme() {{
@@ -918,42 +918,78 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
             setTimeout(() => toast.remove(), 3000);
         }}
 
-        // API helpers - using .then() for better debugging
+        // API helpers - using XMLHttpRequest (fetch doesn't work in Shopify iframes)
         function apiGet(endpoint) {{
             const url = API_BASE + endpoint;
-            console.log('[TradeUp v1.6] API GET starting:', url);
+            console.log('[TradeUp v1.7] API GET:', url);
 
             return new Promise((resolve, reject) => {{
-                console.log('[TradeUp v1.6] Creating fetch request...');
-                fetch(url, {{
-                    method: 'GET',
-                    headers: {{ 'X-Tenant-ID': '1' }},
-                    mode: 'cors'
-                }})
-                .then(res => {{
-                    console.log('[TradeUp v1.6] Response received, status:', res.status);
-                    return res.json();
-                }})
-                .then(data => {{
-                    console.log('[TradeUp v1.6] JSON parsed:', data);
-                    resolve(data);
-                }})
-                .catch(err => {{
-                    console.error('[TradeUp v1.6] Fetch failed:', err.message, err);
-                    reject(err);
-                }});
+                const xhr = new XMLHttpRequest();
+                xhr.open('GET', url, true);
+                xhr.setRequestHeader('X-Tenant-ID', '1');
+
+                xhr.onreadystatechange = function() {{
+                    if (xhr.readyState === 4) {{
+                        if (xhr.status === 200) {{
+                            try {{
+                                const data = JSON.parse(xhr.responseText);
+                                console.log('[TradeUp v1.7] API GET success:', endpoint);
+                                resolve(data);
+                            }} catch (e) {{
+                                console.error('[TradeUp v1.7] JSON parse error:', e);
+                                reject(e);
+                            }}
+                        }} else {{
+                            console.error('[TradeUp v1.7] API GET failed:', xhr.status);
+                            reject(new Error('API request failed: ' + xhr.status));
+                        }}
+                    }}
+                }};
+
+                xhr.onerror = function() {{
+                    console.error('[TradeUp v1.7] XHR network error');
+                    reject(new Error('Network error'));
+                }};
+
+                xhr.send();
             }});
         }}
 
-        async function apiPost(endpoint, data) {{
-            const res = await fetch(API_BASE + endpoint, {{
-                method: 'POST',
-                headers: {{ 'Content-Type': 'application/json', 'X-Tenant-ID': '1' }},
-                body: JSON.stringify(data)
+        function apiPost(endpoint, data) {{
+            const url = API_BASE + endpoint;
+            console.log('[TradeUp v1.7] API POST:', url);
+
+            return new Promise((resolve, reject) => {{
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', url, true);
+                xhr.setRequestHeader('Content-Type', 'application/json');
+                xhr.setRequestHeader('X-Tenant-ID', '1');
+
+                xhr.onreadystatechange = function() {{
+                    if (xhr.readyState === 4) {{
+                        try {{
+                            const json = JSON.parse(xhr.responseText);
+                            if (xhr.status >= 200 && xhr.status < 300) {{
+                                console.log('[TradeUp v1.7] API POST success:', endpoint);
+                                resolve(json);
+                            }} else {{
+                                console.error('[TradeUp v1.7] API POST failed:', xhr.status, json);
+                                reject(new Error(json.error || 'API request failed'));
+                            }}
+                        }} catch (e) {{
+                            console.error('[TradeUp v1.7] JSON parse error:', e);
+                            reject(e);
+                        }}
+                    }}
+                }};
+
+                xhr.onerror = function() {{
+                    console.error('[TradeUp v1.7] XHR network error');
+                    reject(new Error('Network error'));
+                }};
+
+                xhr.send(JSON.stringify(data));
             }});
-            const json = await res.json();
-            if (!res.ok) throw new Error(json.error || 'API request failed');
-            return json;
         }}
 
         // Format helpers
@@ -982,41 +1018,41 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
 
         // Load dashboard stats - using XHR as fallback for debugging
         function loadDashboardStats() {{
-            console.log('[TradeUp v1.6] loadDashboardStats() called');
+            console.log('[TradeUp v1.7] loadDashboardStats() called');
             const url = API_BASE + '/dashboard/stats';
-            console.log('[TradeUp v1.6] Using XHR for:', url);
+            console.log('[TradeUp v1.7] Using XHR for:', url);
 
             const xhr = new XMLHttpRequest();
             xhr.open('GET', url, true);
             xhr.setRequestHeader('X-Tenant-ID', '1');
 
             xhr.onreadystatechange = function() {{
-                console.log('[TradeUp v1.6] XHR readyState:', xhr.readyState);
+                console.log('[TradeUp v1.7] XHR readyState:', xhr.readyState);
                 if (xhr.readyState === 4) {{
-                    console.log('[TradeUp v1.6] XHR status:', xhr.status);
+                    console.log('[TradeUp v1.7] XHR status:', xhr.status);
                     if (xhr.status === 200) {{
                         try {{
                             const stats = JSON.parse(xhr.responseText);
-                            console.log('[TradeUp v1.6] Stats loaded:', stats);
+                            console.log('[TradeUp v1.7] Stats loaded:', stats);
                             document.getElementById('stat-members').textContent = stats.members?.total || 0;
                             document.getElementById('stat-credit').textContent = formatCurrency(stats.bonuses_this_month?.total || 0);
                             document.getElementById('stat-tradeins').textContent = stats.trade_ins_this_month || 0;
                             document.getElementById('stat-bonuses').textContent = formatCurrency(stats.bonuses_this_month?.total || 0);
-                            console.log('[TradeUp v1.6] Stats applied to DOM!');
+                            console.log('[TradeUp v1.7] Stats applied to DOM!');
                         }} catch (e) {{
-                            console.error('[TradeUp v1.6] JSON parse error:', e);
+                            console.error('[TradeUp v1.7] JSON parse error:', e);
                         }}
                     }} else {{
-                        console.error('[TradeUp v1.6] XHR failed with status:', xhr.status);
+                        console.error('[TradeUp v1.7] XHR failed with status:', xhr.status);
                     }}
                 }}
             }};
 
             xhr.onerror = function() {{
-                console.error('[TradeUp v1.6] XHR network error');
+                console.error('[TradeUp v1.7] XHR network error');
             }};
 
-            console.log('[TradeUp v1.6] Sending XHR...');
+            console.log('[TradeUp v1.7] Sending XHR...');
             xhr.send();
         }}
 
@@ -1283,16 +1319,16 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
         }}
 
         // Initialize
-        console.log('[TradeUp v1.6] Setting up DOMContentLoaded listener, readyState:', document.readyState);
+        console.log('[TradeUp v1.7] Setting up DOMContentLoaded listener, readyState:', document.readyState);
         document.addEventListener('DOMContentLoaded', () => {{
-            console.log('[TradeUp v1.6] DOMContentLoaded fired!');
+            console.log('[TradeUp v1.7] DOMContentLoaded fired!');
             loadDashboardStats();
             loadRecentMembers();
         }});
 
         // Fallback if DOMContentLoaded already fired
         if (document.readyState === 'complete' || document.readyState === 'interactive') {{
-            console.log('[TradeUp v1.6] DOM already ready, calling init directly');
+            console.log('[TradeUp v1.7] DOM already ready, calling init directly');
             setTimeout(() => {{
                 loadDashboardStats();
                 loadRecentMembers();
