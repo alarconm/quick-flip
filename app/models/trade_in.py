@@ -27,6 +27,9 @@ class TradeInBatch(db.Model):
     # Status tracking
     status = db.Column(db.String(20), default='pending')  # pending, listed, completed, cancelled
 
+    # Category (matches ORB categories: sports, pokemon, magic, riftbound, tcg_other, other)
+    category = db.Column(db.String(50), default='other')
+
     # Metadata
     notes = db.Column(db.Text)
     created_by = db.Column(db.String(100))  # Employee who processed the trade-in
@@ -50,6 +53,7 @@ class TradeInBatch(db.Model):
             'total_items': self.total_items,
             'total_trade_value': float(self.total_trade_value),
             'status': self.status,
+            'category': self.category,
             'notes': self.notes,
             'created_by': self.created_by,
             'created_at': self.created_at.isoformat()

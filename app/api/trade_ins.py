@@ -66,11 +66,27 @@ def create_batch():
         batch = service.create_batch(
             member_id=data['member_id'],
             notes=data.get('notes'),
-            created_by=data.get('created_by', 'API')
+            created_by=data.get('created_by', 'API'),
+            category=data.get('category', 'other')
         )
         return jsonify(batch.to_dict()), 201
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
+
+
+@trade_ins_bp.route('/categories', methods=['GET'])
+def get_categories():
+    """Get available trade-in categories."""
+    return jsonify({
+        'categories': [
+            {'id': 'sports', 'icon': '🏈', 'name': 'Sports'},
+            {'id': 'pokemon', 'icon': '⚡', 'name': 'Pokemon'},
+            {'id': 'magic', 'icon': '🔮', 'name': 'Magic'},
+            {'id': 'riftbound', 'icon': '🌀', 'name': 'Riftbound'},
+            {'id': 'tcg_other', 'icon': '🎴', 'name': 'TCG Other'},
+            {'id': 'other', 'icon': '📦', 'name': 'Other'},
+        ]
+    })
 
 
 @trade_ins_bp.route('/<int:batch_id>/items', methods=['POST'])

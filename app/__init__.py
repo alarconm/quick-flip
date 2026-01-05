@@ -565,6 +565,30 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
         .settings-label {{ font-size: 0.9rem; }}
         .settings-value {{ color: var(--text-secondary); font-size: 0.85rem; }}
 
+        /* Category Grid */
+        .category-grid {{
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: var(--space-sm);
+            margin-bottom: var(--space-md);
+        }}
+        .category-item {{
+            background: var(--bg-card);
+            border: 2px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: var(--space-md);
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }}
+        .category-item:hover {{ border-color: var(--brand); transform: translateY(-2px); }}
+        .category-item.selected {{
+            border-color: var(--brand);
+            background: linear-gradient(135deg, rgba(232, 93, 39, 0.1) 0%, rgba(255, 122, 66, 0.1) 100%);
+        }}
+        .category-icon {{ font-size: 1.75rem; margin-bottom: var(--space-xs); }}
+        .category-name {{ font-size: 0.8rem; font-weight: 600; }}
+
         /* Utility */
         .text-center {{ text-align: center; }}
         .text-success {{ color: var(--success); }}
@@ -800,6 +824,36 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
                         <select class="form-input form-select" name="member_id" id="tradein-member-select" required>
                             <option value="">Select member...</option>
                         </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Category *</label>
+                        <input type="hidden" name="category" id="tradein-category" value="other">
+                        <div class="category-grid" id="category-grid">
+                            <div class="category-item" data-category="sports" onclick="selectCategory('sports')">
+                                <div class="category-icon">🏈</div>
+                                <div class="category-name">Sports</div>
+                            </div>
+                            <div class="category-item" data-category="pokemon" onclick="selectCategory('pokemon')">
+                                <div class="category-icon">⚡</div>
+                                <div class="category-name">Pokemon</div>
+                            </div>
+                            <div class="category-item" data-category="magic" onclick="selectCategory('magic')">
+                                <div class="category-icon">🔮</div>
+                                <div class="category-name">Magic</div>
+                            </div>
+                            <div class="category-item" data-category="riftbound" onclick="selectCategory('riftbound')">
+                                <div class="category-icon">🌀</div>
+                                <div class="category-name">Riftbound</div>
+                            </div>
+                            <div class="category-item" data-category="tcg_other" onclick="selectCategory('tcg_other')">
+                                <div class="category-icon">🎴</div>
+                                <div class="category-name">TCG Other</div>
+                            </div>
+                            <div class="category-item selected" data-category="other" onclick="selectCategory('other')">
+                                <div class="category-icon">📦</div>
+                                <div class="category-name">Other</div>
+                            </div>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Item Description *</label>
@@ -1170,6 +1224,20 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
             }}
         }}
 
+        // Category icons mapping
+        const CATEGORY_ICONS = {{
+            'sports': '🏈',
+            'pokemon': '⚡',
+            'magic': '🔮',
+            'riftbound': '🌀',
+            'tcg_other': '🎴',
+            'other': '📦'
+        }};
+
+        function getCategoryIcon(category) {{
+            return CATEGORY_ICONS[category] || CATEGORY_ICONS['other'];
+        }}
+
         // Load trade-ins
         async function loadTradeIns() {{
             try {{
@@ -1186,8 +1254,8 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
                     <div class="item-card">
                         <div class="item-header">
                             <div>
-                                <div class="item-title">${{t.member_name || t.batch_reference}}</div>
-                                <div class="item-meta">${{formatDate(t.created_at)}}</div>
+                                <div class="item-title">${{getCategoryIcon(t.category)}} ${{t.member_name || t.batch_reference}}</div>
+                                <div class="item-meta">${{formatDate(t.created_at)}} · ${{t.batch_reference}}</div>
                             </div>
                             <div class="item-amount amount-positive">${{formatCurrency(t.total_trade_value)}}</div>
                         </div>
@@ -1418,12 +1486,43 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
                 '<div class="text-muted text-center" style="padding: 20px;">Enter a search term to find customers</div>';
         }}
 
+        // Category selection
+        let selectedCategory = 'other';
+
+        function selectCategory(category) {{
+            selectedCategory = category;
+            document.getElementById('tradein-category').value = category;
+
+            // Update visual selection
+            document.querySelectorAll('.category-item').forEach(item => {{
+                if (item.dataset.category === category) {{
+                    item.classList.add('selected');
+                }} else {{
+                    item.classList.remove('selected');
+                }}
+            }});
+        }}
+
+        // Reset category when opening modal
+        function resetCategorySelection() {{
+            selectedCategory = 'other';
+            document.getElementById('tradein-category').value = 'other';
+            document.querySelectorAll('.category-item').forEach(item => {{
+                if (item.dataset.category === 'other') {{
+                    item.classList.add('selected');
+                }} else {{
+                    item.classList.remove('selected');
+                }}
+            }});
+        }}
+
         // Submit new trade-in
         async function submitNewTradeIn(e) {{
             e.preventDefault();
             const form = e.target;
             const data = Object.fromEntries(new FormData(form));
             data.member_id = parseInt(data.member_id);
+            data.category = selectedCategory;
             data.items = [{{
                 description: data.description,
                 trade_value: parseFloat(data.value),
@@ -1435,6 +1534,7 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
                 showToast('Trade-in created!');
                 closeModal('new-tradein');
                 form.reset();
+                resetCategorySelection();
                 loadDashboardStats();
                 if (currentPage === 'tradeins') loadTradeIns();
             }} catch (e) {{
@@ -1490,8 +1590,9 @@ def register_blueprints(app: Flask) -> None:
     # Webhooks
     from .webhooks.shopify import webhooks_bp
     from .webhooks.shopify_billing import shopify_billing_webhook_bp
-    # Note: Stripe webhooks kept for migration period
-    from .webhooks.stripe import stripe_webhook_bp
+    from .webhooks.customer_lifecycle import customer_lifecycle_bp
+    from .webhooks.order_lifecycle import order_lifecycle_bp
+    from .webhooks.app_lifecycle import app_lifecycle_bp
 
     # Core API routes
     app.register_blueprint(members_bp, url_prefix='/api/members')
@@ -1518,8 +1619,9 @@ def register_blueprints(app: Flask) -> None:
     # Webhook routes
     app.register_blueprint(webhooks_bp, url_prefix='/webhook')
     app.register_blueprint(shopify_billing_webhook_bp, url_prefix='/webhook/shopify-billing')
-    # Stripe webhooks (deprecated - kept for migration)
-    app.register_blueprint(stripe_webhook_bp, url_prefix='/webhook/stripe')
+    app.register_blueprint(customer_lifecycle_bp, url_prefix='/webhook')
+    app.register_blueprint(order_lifecycle_bp, url_prefix='/webhook')
+    app.register_blueprint(app_lifecycle_bp, url_prefix='/webhook')
 
 
 def register_error_handlers(app: Flask) -> None:

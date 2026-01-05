@@ -14,11 +14,22 @@ class TradeInService:
     def __init__(self, tenant_id: int):
         self.tenant_id = tenant_id
 
+    # Category choices matching ORB Sports Cards
+    CATEGORIES = {
+        'sports': {'icon': '🏈', 'name': 'Sports'},
+        'pokemon': {'icon': '⚡', 'name': 'Pokemon'},
+        'magic': {'icon': '🔮', 'name': 'Magic'},
+        'riftbound': {'icon': '🌀', 'name': 'Riftbound'},
+        'tcg_other': {'icon': '🎴', 'name': 'TCG Other'},
+        'other': {'icon': '📦', 'name': 'Other'},
+    }
+
     def create_batch(
         self,
         member_id: int,
         notes: Optional[str] = None,
-        created_by: Optional[str] = None
+        created_by: Optional[str] = None,
+        category: Optional[str] = None
     ) -> TradeInBatch:
         """
         Create a new trade-in batch for a member.
@@ -27,6 +38,7 @@ class TradeInService:
             member_id: ID of the member trading in items
             notes: Optional notes about the batch
             created_by: Employee who processed the trade-in
+            category: Category of items (sports, pokemon, magic, riftbound, tcg_other, other)
 
         Returns:
             Created TradeInBatch object
@@ -41,6 +53,9 @@ class TradeInService:
         if member.status != 'active':
             raise ValueError('Member is not active')
 
+        # Validate category
+        valid_category = category if category in self.CATEGORIES else 'other'
+
         batch_reference = TradeInBatch.generate_batch_reference(self.tenant_id)
 
         batch = TradeInBatch(
@@ -48,6 +63,7 @@ class TradeInService:
             batch_reference=batch_reference,
             trade_in_date=datetime.utcnow(),
             status='pending',
+            category=valid_category,
             notes=notes,
             created_by=created_by
         )
