@@ -21,11 +21,18 @@ class Tenant(db.Model):
     shopify_access_token = db.Column(db.Text)  # Encrypted in production
     webhook_secret = db.Column(db.String(100))
 
-    # Subscription info
-    subscription_tier = db.Column(db.String(20), default='basic')  # basic, pro, enterprise
-    subscription_status = db.Column(db.String(20), default='trial')  # trial, active, cancelled
+    # Shopify Billing (App Store)
+    shopify_subscription_id = db.Column(db.String(255))  # gid://shopify/AppSubscription/...
+    subscription_plan = db.Column(db.String(50), default='starter')  # starter, growth, pro
+    subscription_status = db.Column(db.String(20), default='pending')  # pending, active, cancelled, expired
+    subscription_active = db.Column(db.Boolean, default=False)
     trial_ends_at = db.Column(db.DateTime)
+    current_period_end = db.Column(db.DateTime)
     monthly_price = db.Column(db.Numeric(10, 2))
+
+    # Usage limits based on plan
+    max_members = db.Column(db.Integer, default=100)
+    max_tiers = db.Column(db.Integer, default=3)
 
     # Settings (JSON for flexibility)
     settings = db.Column(db.JSON, default=dict)

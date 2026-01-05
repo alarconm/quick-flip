@@ -1,14 +1,23 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { createPortalSession, getSubscriptionStatus } from '../api/membership';
-import type { SubscriptionStatus } from '../api/membership';
+import {
+  createPortalSession,
+  getSubscriptionStatus,
+  getStoreCredit,
+  getBonusHistory,
+  linkShopifyAccount
+} from '../api/membership';
+import type { SubscriptionStatus, BonusTransaction, StoreCreditBalance } from '../api/membership';
 
 export default function Dashboard() {
   const { member, logout, refreshMember } = useAuth();
   const [searchParams] = useSearchParams();
   const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus | null>(null);
+  const [storeCredit, setStoreCredit] = useState<StoreCreditBalance | null>(null);
+  const [bonusHistory, setBonusHistory] = useState<BonusTransaction[]>([]);
   const [loading, setLoading] = useState(false);
+  const [linkingShopify, setLinkingShopify] = useState(false);
 
   const isWelcome = searchParams.get('welcome') === '1';
 
@@ -19,6 +28,16 @@ export default function Dashboard() {
     // Get subscription status
     getSubscriptionStatus()
       .then(setSubscriptionStatus)
+      .catch(console.error);
+
+    // Get store credit balance
+    getStoreCredit()
+      .then(setStoreCredit)
+      .catch(console.error);
+
+    // Get bonus history
+    getBonusHistory(5, 0)
+      .then(res => setBonusHistory(res.transactions))
       .catch(console.error);
   }, []);
 
@@ -102,8 +121,41 @@ export default function Dashboard() {
           {/* Store Credit */}
           <div className="card p-6">
             <h3 className="text-sm text-gray-500 mb-1">Store Credit Balance</h3>
-            <p className="text-2xl font-bold text-green-600">$0.00</p>
-            <p className="text-sm text-gray-500">Visit store to use credit</p>
+            {storeCredit ? (
+              <>
+                <p className="text-2xl font-bold text-green-600">
+                  ${storeCredit.balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </p>
+                <p className="text-sm text-gray-500">
+                  {storeCredit.message || 'Use at checkout'}
+                </p>
+              </>
+            ) : member?.shopify_customer_id ? (
+              <p className="text-gray-500">Loading...</p>
+            ) : (
+              <>
+                <p className="text-xl text-gray-400">Not linked</p>
+                <button
+                  onClick={async () => {
+                    setLinkingShopify(true);
+                    try {
+                      const result = await linkShopifyAccount();
+                      setStoreCredit({ balance: result.store_credit_balance, currency: 'USD' });
+                      refreshMember();
+                    } catch (err) {
+                      console.error('Failed to link Shopify:', err);
+                      alert('Could not link your Shopify account. Make sure you have made a purchase with this email.');
+                    } finally {
+                      setLinkingShopify(false);
+                    }
+                  }}
+                  disabled={linkingShopify}
+                  className="text-sm text-orange-500 hover:underline mt-1"
+                >
+                  {linkingShopify ? 'Linking...' : 'Link Shopify Account'}
+                </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -173,10 +225,36 @@ export default function Dashboard() {
         {/* Recent Activity */}
         <div className="card p-6 mt-6">
           <h3 className="text-lg font-semibold mb-4">Recent Bonus Activity</h3>
-          <div className="text-center py-8 text-gray-500">
-            <p>No bonus activity yet.</p>
-            <p className="text-sm">Trade in some cards to earn Quick Flip bonuses!</p>
-          </div>
+          {bonusHistory.length > 0 ? (
+            <div className="space-y-3">
+              {bonusHistory.map((tx) => (
+                <div
+                  key={tx.id}
+                  className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0"
+                >
+                  <div>
+                    <p className="font-medium">
+                      {tx.transaction_type === 'credit' ? 'Quick Flip Bonus' : tx.transaction_type}
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      {tx.reason || tx.notes || 'Bonus credit'}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      {new Date(tx.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div className={`text-lg font-semibold ${tx.bonus_amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {tx.bonus_amount >= 0 ? '+' : ''}${Math.abs(tx.bonus_amount).toFixed(2)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              <p>No bonus activity yet.</p>
+              <p className="text-sm">Trade in some cards to earn Quick Flip bonuses!</p>
+            </div>
+          )}
         </div>
       </main>
     </div>

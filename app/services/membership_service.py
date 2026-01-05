@@ -1,17 +1,33 @@
 """
 Membership service for managing members and tiers.
 """
+import os
 from datetime import date
-from typing import Optional
+from typing import Optional, Dict, Any, List
 from ..extensions import db
 from ..models import Member, MembershipTier
+from .shopify_client import ShopifyClient
+
+
+def get_shopify_client() -> Optional[ShopifyClient]:
+    """Create Shopify client from environment."""
+    shop_domain = os.getenv('SHOPIFY_DOMAIN')
+    access_token = os.getenv('SHOPIFY_ACCESS_TOKEN')
+    if not shop_domain or not access_token:
+        return None
+    return ShopifyClient(shop_domain, access_token)
 
 
 class MembershipService:
     """Service for membership operations."""
 
-    def __init__(self, tenant_id: int):
+    # Tag prefixes for Shopify
+    TIER_TAG_PREFIX = 'qf-tier-'
+    MEMBER_TAG_PREFIX = 'qf-member-'
+
+    def __init__(self, tenant_id: int, shopify_client: Optional[ShopifyClient] = None):
         self.tenant_id = tenant_id
+        self.shopify_client = shopify_client or get_shopify_client()
 
     def create_member(
         self,
@@ -191,3 +207,259 @@ class MembershipService:
             db.session.add(tier)
 
         db.session.commit()
+
+    # ==================== Shopify Sync Methods ====================
+
+    def link_shopify_customer(self, member: Member) -> Dict[str, Any]:
+        """
+        Link a member to their Shopify customer account by email.
+        Also syncs their tier tag to the Shopify customer.
+
+        Args:
+            member: Member to link
+
+        Returns:
+            Dict with linking result
+        """
+        if not self.shopify_client:
+            return {'success': False, 'error': 'Shopify not configured'}
+
+        if member.shopify_customer_id:
+            return {
+                'success': True,
+                'already_linked': True,
+                'customer_id': member.shopify_customer_id
+            }
+
+        # Find customer by email
+        customer = self.shopify_client.get_customer_by_email(member.email)
+        if not customer:
+            return {
+                'success': False,
+                'error': f'No Shopify customer found with email {member.email}'
+            }
+
+        # Link the customer
+        member.shopify_customer_id = customer['id']
+        db.session.commit()
+
+        # Sync tier tags
+        self.sync_member_tags(member)
+
+        return {
+            'success': True,
+            'customer_id': customer['id'],
+            'customer_name': f"{customer.get('first_name', '')} {customer.get('last_name', '')}".strip()
+        }
+
+    def sync_member_tags(self, member: Member) -> Dict[str, Any]:
+        """
+        Sync member's tier tags to Shopify customer.
+        Adds member number tag and tier-specific tag.
+
+        Args:
+            member: Member to sync
+
+        Returns:
+            Dict with sync result
+        """
+        if not self.shopify_client:
+            return {'success': False, 'error': 'Shopify not configured'}
+
+        if not member.shopify_customer_id:
+            return {'success': False, 'error': 'Member not linked to Shopify'}
+
+        tags_to_add = []
+
+        # Add member number tag (e.g., qf-member-1001)
+        member_tag = f'{self.MEMBER_TAG_PREFIX}{member.member_number[2:]}'  # Remove QF prefix
+        tags_to_add.append(member_tag)
+
+        # Add tier tag if member has a tier (e.g., qf-tier-gold)
+        if member.tier:
+            tier_tag = f'{self.TIER_TAG_PREFIX}{member.tier.name.lower()}'
+            tags_to_add.append(tier_tag)
+
+        # Add tags to Shopify
+        try:
+            for tag in tags_to_add:
+                self.shopify_client.add_customer_tag(member.shopify_customer_id, tag)
+
+            return {
+                'success': True,
+                'tags_added': tags_to_add
+            }
+        except Exception as e:
+            return {
+                'success': False,
+                'error': str(e)
+            }
+
+    def remove_tier_tag(self, member: Member, tier_name: str) -> bool:
+        """
+        Remove a tier tag from Shopify customer.
+
+        Args:
+            member: Member whose tag to remove
+            tier_name: Name of tier to remove
+
+        Returns:
+            True if successful
+        """
+        if not self.shopify_client or not member.shopify_customer_id:
+            return False
+
+        tag_to_remove = f'{self.TIER_TAG_PREFIX}{tier_name.lower()}'
+
+        # We need to remove the tag via Shopify API
+        # First get current tags, then update without this tag
+        try:
+            customer = self.shopify_client.get_customer_by_email(member.email)
+            if customer:
+                current_tags = customer.get('tags', [])
+                new_tags = [t for t in current_tags if t != tag_to_remove]
+
+                # Update customer with new tags
+                mutation = """
+                mutation customerUpdate($input: CustomerInput!) {
+                    customerUpdate(input: $input) {
+                        customer { id tags }
+                        userErrors { field message }
+                    }
+                }
+                """
+                variables = {
+                    'input': {
+                        'id': member.shopify_customer_id,
+                        'tags': new_tags
+                    }
+                }
+                self.shopify_client._execute_query(mutation, variables)
+                return True
+        except Exception:
+            pass
+        return False
+
+    def update_tier_with_sync(self, member_id: int, tier_id: int) -> Member:
+        """
+        Update member's tier and sync to Shopify.
+        Removes old tier tag and adds new tier tag.
+
+        Args:
+            member_id: Member ID
+            tier_id: New tier ID
+
+        Returns:
+            Updated member
+        """
+        member = Member.query.get(member_id)
+        if not member or member.tenant_id != self.tenant_id:
+            raise ValueError('Member not found')
+
+        old_tier = member.tier
+        new_tier = MembershipTier.query.get(tier_id)
+        if not new_tier or new_tier.tenant_id != self.tenant_id:
+            raise ValueError('Tier not found')
+
+        # Update tier
+        member.tier_id = tier_id
+        db.session.commit()
+
+        # Sync to Shopify
+        if member.shopify_customer_id and self.shopify_client:
+            # Remove old tier tag
+            if old_tier:
+                self.remove_tier_tag(member, old_tier.name)
+
+            # Add new tier tag
+            self.sync_member_tags(member)
+
+        return member
+
+    def sync_all_members(self) -> Dict[str, Any]:
+        """
+        Sync all active members to Shopify.
+        Useful for initial sync or re-sync.
+
+        Returns:
+            Dict with sync results
+        """
+        if not self.shopify_client:
+            return {'success': False, 'error': 'Shopify not configured'}
+
+        members = Member.query.filter_by(
+            tenant_id=self.tenant_id,
+            status='active'
+        ).all()
+
+        results = {
+            'total': len(members),
+            'linked': 0,
+            'synced': 0,
+            'failed': 0,
+            'errors': []
+        }
+
+        for member in members:
+            try:
+                # Link if not already linked
+                if not member.shopify_customer_id:
+                    link_result = self.link_shopify_customer(member)
+                    if link_result.get('success'):
+                        results['linked'] += 1
+                    else:
+                        results['failed'] += 1
+                        results['errors'].append({
+                            'member': member.member_number,
+                            'error': link_result.get('error')
+                        })
+                        continue
+
+                # Sync tags
+                sync_result = self.sync_member_tags(member)
+                if sync_result.get('success'):
+                    results['synced'] += 1
+                else:
+                    results['failed'] += 1
+                    results['errors'].append({
+                        'member': member.member_number,
+                        'error': sync_result.get('error')
+                    })
+
+            except Exception as e:
+                results['failed'] += 1
+                results['errors'].append({
+                    'member': member.member_number,
+                    'error': str(e)
+                })
+
+        return results
+
+    def get_shopify_customer_info(self, member: Member) -> Optional[Dict[str, Any]]:
+        """
+        Get Shopify customer info for a member.
+
+        Args:
+            member: Member to get info for
+
+        Returns:
+            Customer info or None
+        """
+        if not self.shopify_client or not member.shopify_customer_id:
+            return None
+
+        try:
+            customer = self.shopify_client.get_customer_by_email(member.email)
+            if customer:
+                balance = self.shopify_client.get_store_credit_balance(customer['id'])
+                return {
+                    'id': customer['id'],
+                    'name': f"{customer.get('first_name', '')} {customer.get('last_name', '')}".strip(),
+                    'email': customer.get('email'),
+                    'tags': customer.get('tags', []),
+                    'store_credit_balance': balance['balance'],
+                    'store_credit_currency': balance['currency']
+                }
+        except Exception:
+            pass
+        return None

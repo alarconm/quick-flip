@@ -6,10 +6,20 @@ import os
 from flask import Blueprint, request, jsonify
 from .auth import get_current_member
 from ..extensions import db
-from ..models import Member, MembershipTier
+from ..models import Member, MembershipTier, BonusTransaction
 from ..services.stripe_service import StripeService
+from ..services.shopify_client import ShopifyClient
 
 membership_bp = Blueprint('membership', __name__)
+
+
+def get_shopify_client():
+    """Create Shopify client from environment."""
+    shop_domain = os.getenv('SHOPIFY_DOMAIN')
+    access_token = os.getenv('SHOPIFY_ACCESS_TOKEN')
+    if not shop_domain or not access_token:
+        return None
+    return ShopifyClient(shop_domain, access_token)
 
 
 @membership_bp.route('/tiers', methods=['GET'])
@@ -317,3 +327,126 @@ def get_subscription_status():
 
     except Exception as e:
         return jsonify({'error': f'Could not fetch status: {str(e)}'}), 500
+
+
+@membership_bp.route('/store-credit', methods=['GET'])
+def get_store_credit():
+    """
+    Get member's store credit balance from Shopify.
+
+    Returns:
+        Store credit balance and currency
+    """
+    member = get_current_member()
+    if not member:
+        return jsonify({'error': 'Not authenticated'}), 401
+
+    if not member.shopify_customer_id:
+        return jsonify({
+            'balance': 0,
+            'currency': 'USD',
+            'message': 'No Shopify account linked'
+        })
+
+    client = get_shopify_client()
+    if not client:
+        return jsonify({'error': 'Shopify not configured'}), 500
+
+    try:
+        result = client.get_store_credit_balance(member.shopify_customer_id)
+        return jsonify({
+            'balance': result['balance'],
+            'currency': result['currency'],
+            'account_id': result.get('account_id')
+        })
+    except Exception as e:
+        return jsonify({'error': f'Could not fetch balance: {str(e)}'}), 500
+
+
+@membership_bp.route('/bonus-history', methods=['GET'])
+def get_bonus_history():
+    """
+    Get member's bonus transaction history.
+
+    Query params:
+        limit: int (optional, default 20)
+        offset: int (optional, default 0)
+
+    Returns:
+        List of bonus transactions
+    """
+    member = get_current_member()
+    if not member:
+        return jsonify({'error': 'Not authenticated'}), 401
+
+    limit = request.args.get('limit', 20, type=int)
+    offset = request.args.get('offset', 0, type=int)
+
+    transactions = (
+        BonusTransaction.query
+        .filter_by(member_id=member.id)
+        .order_by(BonusTransaction.created_at.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+
+    total = BonusTransaction.query.filter_by(member_id=member.id).count()
+
+    return jsonify({
+        'transactions': [t.to_dict() for t in transactions],
+        'total': total,
+        'limit': limit,
+        'offset': offset
+    })
+
+
+@membership_bp.route('/link-shopify', methods=['POST'])
+def link_shopify_customer():
+    """
+    Link member to their Shopify customer account by email.
+    Also syncs their tier to Shopify customer tags.
+
+    Returns:
+        Linked customer info
+    """
+    member = get_current_member()
+    if not member:
+        return jsonify({'error': 'Not authenticated'}), 401
+
+    client = get_shopify_client()
+    if not client:
+        return jsonify({'error': 'Shopify not configured'}), 500
+
+    try:
+        # Find customer by email
+        customer = client.get_customer_by_email(member.email)
+
+        if not customer:
+            return jsonify({
+                'error': 'No Shopify customer found with this email. Please make a purchase first.'
+            }), 404
+
+        # Link the customer
+        member.shopify_customer_id = customer['id']
+        db.session.commit()
+
+        # Add membership tag
+        if member.tier:
+            tier_tag = f'qf-{member.tier.name.lower()}'
+            client.add_customer_tag(customer['id'], tier_tag)
+            client.add_customer_tag(customer['id'], f'QF{member.member_number[2:]}')
+
+        # Get their store credit balance
+        balance = client.get_store_credit_balance(customer['id'])
+
+        return jsonify({
+            'success': True,
+            'customer_id': customer['id'],
+            'customer_name': f"{customer.get('first_name', '')} {customer.get('last_name', '')}".strip(),
+            'store_credit_balance': balance['balance'],
+            'tags': customer.get('tags', [])
+        })
+
+    except Exception as e:
+        return jsonify({'error': f'Failed to link account: {str(e)}'}), 500

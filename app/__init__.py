@@ -57,8 +57,22 @@ def register_blueprints(app: Flask) -> None:
     from .api.auth import auth_bp
     from .api.membership import membership_bp
 
+    # Shopify OAuth
+    from .api.shopify_oauth import shopify_oauth_bp
+
+    # Store Credit Events
+    from .api.store_credit_events import store_credit_events_bp
+
+    # Admin API
+    from .api.admin import admin_bp
+
+    # Billing (Shopify Billing API - replaces Stripe)
+    from .api.billing import billing_bp
+
     # Webhooks
     from .webhooks.shopify import webhooks_bp
+    from .webhooks.shopify_billing import shopify_billing_webhook_bp
+    # Note: Stripe webhooks kept for migration period
     from .webhooks.stripe import stripe_webhook_bp
 
     # Core API routes
@@ -71,8 +85,22 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(membership_bp, url_prefix='/api/membership')
 
+    # Shopify OAuth routes
+    app.register_blueprint(shopify_oauth_bp, url_prefix='/api/shopify')
+
+    # Store Credit Events routes
+    app.register_blueprint(store_credit_events_bp, url_prefix='/api/store-credit-events')
+
+    # Admin API routes
+    app.register_blueprint(admin_bp, url_prefix='/api/admin')
+
+    # Billing API routes (Shopify Billing)
+    app.register_blueprint(billing_bp, url_prefix='/api/billing')
+
     # Webhook routes
     app.register_blueprint(webhooks_bp, url_prefix='/webhook')
+    app.register_blueprint(shopify_billing_webhook_bp, url_prefix='/webhook/shopify-billing')
+    # Stripe webhooks (deprecated - kept for migration)
     app.register_blueprint(stripe_webhook_bp, url_prefix='/webhook/stripe')
 
 

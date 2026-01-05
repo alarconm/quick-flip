@@ -1,0 +1,38 @@
+# Cardflow Labs - TradeUp Shopify App Configuration
+# https://shopify.dev/docs/apps/tools/cli/configuration
+#
+# Cardflow Labs: Built by card shop owners. For card shop owners.
+# https://cardflowlabs.com
+
+name = "TradeUp by Cardflow Labs"
+client_id = ""  # Fill in after creating app in Partners Dashboard
+
+[access_scopes]
+scopes = "read_customers,write_customers,read_orders,read_products,write_products,read_inventory,read_fulfillments"
+
+[auth]
+redirect_urls = [
+  "https://cardflowlabs.com/api/shopify/callback",
+  "https://app.cardflowlabs.com/api/shopify/callback",
+  "https://localhost:3000/api/shopify/callback"
+]
+
+[webhooks]
+api_version = "2024-01"
+
+  [[webhooks.subscriptions]]
+  topics = ["orders/paid"]
+  uri = "/webhook/shopify/orders/paid"
+
+  [[webhooks.subscriptions]]
+  topics = ["app_subscriptions/update"]
+  uri = "/webhook/shopify-billing/subscriptions"
+
+[build]
+automatically_update_urls_on_dev = true
+
+[application_url]
+application_url = "https://app.cardflowlabs.com"
+
+[embedded_app]
+embedded = true
