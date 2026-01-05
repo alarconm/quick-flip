@@ -845,10 +845,10 @@ def get_spa_html(shop: str, host: str, api_key: str) -> str:
             }}
         }} catch (e) {{ console.log('App Bridge not available, running standalone'); }}
 
-        // State
-        let currentPage = 'home';
-        let membersData = [];
-        let tiersData = [];
+        // State (using var to avoid temporal dead zone in embedded contexts)
+        var currentPage = 'home';
+        var membersData = [];
+        var tiersData = [];
         const API_BASE = '/api';
 
         // Theme toggle
