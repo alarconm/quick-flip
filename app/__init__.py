@@ -587,7 +587,7 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
             <span class="logo-icon">🚀</span>
             <div>
                 <div class="logo-text">TradeUp</div>
-                <div class="logo-sub">by Cardflow Labs v1.3</div>
+                <div class="logo-sub">by Cardflow Labs v1.4</div>
             </div>
         </div>
         <div class="header-actions">
@@ -857,6 +857,9 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
         var tiersData = [];
         const API_BASE = '{app_url}/api';
 
+        // Debug: Confirm script execution
+        console.log('[TradeUp v1.4] Script loaded, API_BASE:', API_BASE);
+
         // Theme toggle
         function toggleTheme() {{
             const html = document.documentElement;
@@ -917,12 +920,21 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
 
         // API helpers
         async function apiGet(endpoint) {{
-            const res = await fetch(API_BASE + endpoint, {{
-                headers: {{ 'X-Tenant-ID': '1' }}
-            }});
-            const json = await res.json();
-            if (!res.ok) throw new Error(json.error || 'API request failed');
-            return json;
+            const url = API_BASE + endpoint;
+            console.log('[TradeUp] API GET:', url);
+            try {{
+                const res = await fetch(url, {{
+                    headers: {{ 'X-Tenant-ID': '1' }}
+                }});
+                console.log('[TradeUp] Response status:', res.status);
+                const json = await res.json();
+                console.log('[TradeUp] Response data:', json);
+                if (!res.ok) throw new Error(json.error || 'API request failed');
+                return json;
+            }} catch (err) {{
+                console.error('[TradeUp] Fetch error:', err);
+                throw err;
+            }}
         }}
 
         async function apiPost(endpoint, data) {{
@@ -962,19 +974,23 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
 
         // Load dashboard stats
         async function loadDashboardStats() {{
+            console.log('[TradeUp] loadDashboardStats() called');
             try {{
                 const stats = await apiGet('/dashboard/stats');
+                console.log('[TradeUp] Stats loaded:', stats);
                 document.getElementById('stat-members').textContent = stats.members?.total || 0;
                 document.getElementById('stat-credit').textContent = formatCurrency(stats.bonuses_this_month?.total || 0);
                 document.getElementById('stat-tradeins').textContent = stats.trade_ins_this_month || 0;
                 document.getElementById('stat-bonuses').textContent = formatCurrency(stats.bonuses_this_month?.total || 0);
+                console.log('[TradeUp] Stats applied to DOM');
             }} catch (e) {{
-                console.error('Failed to load stats:', e);
+                console.error('[TradeUp] Failed to load stats:', e);
             }}
         }}
 
         // Load recent members
         async function loadRecentMembers() {{
+            console.log('[TradeUp] loadRecentMembers() called');
             try {{
                 const data = await apiGet('/members?per_page=5');
                 membersData = data.members || [];
@@ -1235,10 +1251,21 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
         }}
 
         // Initialize
+        console.log('[TradeUp v1.4] Setting up DOMContentLoaded listener, readyState:', document.readyState);
         document.addEventListener('DOMContentLoaded', () => {{
+            console.log('[TradeUp v1.4] DOMContentLoaded fired!');
             loadDashboardStats();
             loadRecentMembers();
         }});
+
+        // Fallback if DOMContentLoaded already fired
+        if (document.readyState === 'complete' || document.readyState === 'interactive') {{
+            console.log('[TradeUp v1.4] DOM already ready, calling init directly');
+            setTimeout(() => {{
+                loadDashboardStats();
+                loadRecentMembers();
+            }}, 100);
+        }}
     </script>
 </body>
 </html>'''
