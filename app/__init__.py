@@ -581,7 +581,7 @@ def get_spa_html(shop: str, host: str, api_key: str) -> str:
             <span class="logo-icon">🚀</span>
             <div>
                 <div class="logo-text">TradeUp</div>
-                <div class="logo-sub">by Cardflow Labs</div>
+                <div class="logo-sub">by Cardflow Labs v1.1</div>
             </div>
         </div>
         <div class="header-actions">
