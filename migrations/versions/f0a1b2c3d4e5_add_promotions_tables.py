@@ -1,6 +1,6 @@
 """Add promotions and store credit tables
 
-Revision ID: e9f0a1b2c3d4
+Revision ID: f0a1b2c3d4e5
 Revises: d8e9f0a1b2c3
 Create Date: 2026-01-05
 
@@ -10,13 +10,21 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'e9f0a1b2c3d4'
+revision = 'f0a1b2c3d4e5'
 down_revision = 'd8e9f0a1b2c3'
 branch_labels = None
 depends_on = None
 
 
 def upgrade():
+    # Drop tables if they exist (from potentially failed previous migration)
+    conn = op.get_bind()
+    conn.execute(sa.text('DROP TABLE IF EXISTS tier_configurations CASCADE'))
+    conn.execute(sa.text('DROP TABLE IF EXISTS bulk_credit_operations CASCADE'))
+    conn.execute(sa.text('DROP TABLE IF EXISTS member_credit_balances CASCADE'))
+    conn.execute(sa.text('DROP TABLE IF EXISTS store_credit_ledger CASCADE'))
+    conn.execute(sa.text('DROP TABLE IF EXISTS promotions CASCADE'))
+
     # Create promotions table
     op.create_table('promotions',
         sa.Column('id', sa.Integer(), nullable=False),
