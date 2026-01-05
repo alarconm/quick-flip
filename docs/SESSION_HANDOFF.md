@@ -1,18 +1,73 @@
 # Cardflow Labs - Session Handoff
 
-*Updated: January 4, 2026 - 7:30 PM*
+*Updated: January 5, 2026 - 12:45 AM*
 
 ---
 
-## CURRENT STATUS
+## CURRENT STATUS: FULLY WORKING ✅
+
+### TradeUp Embedded App: v1.7 WORKING
+- App loads and displays correctly inside Shopify Admin iframe
+- All API calls working (uses XMLHttpRequest, not fetch)
+- Dashboard shows real data from Shopify
+- Test member: Michael Alarcon (michael.alarconii@gmail.com)
 
 ### Railway Deployment: WORKING
-- Health endpoint returns 200: `https://web-production-41bb1.up.railway.app/health`
-- Fixed missing database columns with migration `add_shopify_billing_columns.py`
-- Custom domain `app.cardflowlabs.com` added to Railway
+- Health endpoint: `https://web-production-41bb1.up.railway.app/health`
+- App URL: `https://web-production-41bb1.up.railway.app/app?shop=uy288y-nx.myshopify.com`
 
-### DNS Configuration: PENDING USER ACTION
-Configure in Namecheap DNS settings:
+### Access in Shopify Admin
+- Navigate to: Apps → TradeUp
+- Direct URL: `https://admin.shopify.com/store/uy288y-nx/apps/tradeup-2`
+
+---
+
+## COMPLETED THIS SESSION
+
+### 1. Fixed Shopify Iframe API Issue
+- **Problem**: `fetch()` calls hang inside Shopify embedded iframes (never resolve)
+- **Solution**: Converted all API calls to use `XMLHttpRequest` instead
+- **Result**: All API calls now complete successfully
+
+### 2. TradeUp Dashboard Features Working
+- Dashboard stats (members, credit, trade-ins, bonuses)
+- Recent members list with real Shopify customer data
+- Quick action buttons (Add Member, New Trade-In, Bonuses, Settings)
+- Bottom navigation (Home, Members, Trade-Ins, Bonuses, Settings)
+- Light/dark mode toggle
+- Mobile-optimized responsive design
+
+### 3. Test Data
+- Member: Michael Alarcon (michael.alarconii@gmail.com)
+- Member ID: QF1001
+- Tier: Silver
+- Store Credit: $0
+
+---
+
+## KEY TECHNICAL FIX
+
+**fetch() vs XMLHttpRequest in Shopify iframes:**
+
+```javascript
+// DON'T USE fetch() - it hangs in Shopify iframes:
+fetch(url, { headers: {...} })  // ❌ Never resolves
+
+// USE XMLHttpRequest instead:
+const xhr = new XMLHttpRequest();  // ✅ Works
+xhr.open('GET', url, true);
+xhr.setRequestHeader('X-Tenant-ID', '1');
+xhr.onreadystatechange = function() {...};
+xhr.send();
+```
+
+This is documented in `app/__init__.py` around line 921.
+
+---
+
+## NEXT STEPS
+
+### 1. Configure DNS in Namecheap (Manual)
 ```
 Type: CNAME
 Name: app
@@ -20,57 +75,15 @@ Value: 20du0xvq.up.railway.app
 TTL: Automatic
 ```
 
----
+### 2. Build Out Remaining Features
+- Add Member form functionality
+- New Trade-In workflow
+- Bonuses management
+- Settings page with tier configuration
 
-## COMPLETED THIS SESSION
-
-### 1. Shopify App Created in Partners Dashboard
-- **App Name**: TradeUp by Cardflow Labs
-- **Client ID**: `f27841c5cf965100dfa81a212d7d9c10`
-- **Client Secret**: (in .env file - do not commit)
-- **Version**: v1.0.0-cardflow-labs (Active)
-- **App URL**: https://app.cardflowlabs.com
-- **Scopes**: read_customers,write_customers,read_orders,read_products,write_products,read_inventory,read_fulfillments
-
-### 2. All Code Committed & Pushed
-- 48 files, 12,139 lines of Cardflow Labs branding
-- `shopify.app.toml` updated with client_id
-- `.env` updated with Shopify app credentials
-- Repo: github.com/alarconm/quick-flip
-
-### 3. Railway Deployment Fixed
-- **Issue**: Database missing Shopify billing columns
-- **Fix**: Created migration `add_shopify_billing_columns.py`
-- **Result**: Health endpoint now returns 200
-
-### 4. Custom Domain Configured in Railway
-- Added `app.cardflowlabs.com` to Railway project
-- Port: 8080 (gunicorn)
-- Awaiting DNS propagation after Namecheap configuration
-
----
-
-## NEXT STEPS
-
-### 1. Configure DNS in Namecheap (Manual)
-1. Log into Namecheap
-2. Go to Domain List → cardflowlabs.com → Manage
-3. Advanced DNS tab
-4. Add new record:
-   - Type: CNAME
-   - Host: app
-   - Value: 20du0xvq.up.railway.app
-   - TTL: Automatic
-5. Wait for propagation (5-30 minutes)
-
-### 2. Install on ORB Shopify
-- OAuth install URL: `https://app.cardflowlabs.com/shopify/install?shop=uy288y-nx.myshopify.com`
-- (Use Railway URL until DNS propagates: `https://web-production-41bb1.up.railway.app/shopify/install?shop=uy288y-nx.myshopify.com`)
-
-### 3. Test OAuth Flow
-- Complete install flow
-- Verify redirect and token exchange
-- Check tenant created in database
+### 3. Shopify Billing Integration
+- Already have billing columns in database
+- Need to implement App Bridge billing flow
 
 ---
 
@@ -105,4 +118,4 @@ C:\Users\malar\OneDrive\Documents\Coding Projects\quick-flip
 
 ---
 
-*Next: Configure DNS in Namecheap, then install TradeUp on ORB Shopify*
+*App is now functional! Next: Add form functionality and billing integration.*
