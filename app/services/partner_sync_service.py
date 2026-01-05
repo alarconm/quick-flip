@@ -2,7 +2,7 @@
 Partner Sync Service.
 Handles synchronization of data with external partner systems.
 """
-import httpx
+import requests
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 from ..extensions import db
@@ -328,21 +328,21 @@ class PartnerSyncService:
             headers['Authorization'] = f'Bearer {integration.api_token}'
 
         try:
-            with httpx.Client(timeout=30.0) as client:
-                response = client.post(
-                    endpoint,
-                    json=payload,
-                    headers=headers
-                )
+            response = requests.post(
+                endpoint,
+                json=payload,
+                headers=headers,
+                timeout=30
+            )
 
-                return {
-                    'success': response.status_code in [200, 201],
-                    'status_code': response.status_code,
-                    'body': response.json() if response.headers.get('content-type', '').startswith('application/json') else {'text': response.text},
-                    'error': None if response.status_code in [200, 201] else f'HTTP {response.status_code}'
-                }
+            return {
+                'success': response.status_code in [200, 201],
+                'status_code': response.status_code,
+                'body': response.json() if response.headers.get('content-type', '').startswith('application/json') else {'text': response.text},
+                'error': None if response.status_code in [200, 201] else f'HTTP {response.status_code}'
+            }
 
-        except httpx.TimeoutException:
+        except requests.Timeout:
             return {
                 'success': False,
                 'status_code': None,
