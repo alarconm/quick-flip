@@ -15,13 +15,17 @@ TradeUp is a Shopify app for trade-in programs and store credit management.
 
 ```bash
 # Windows
-scripts\validate.bat     # Validate locally
-scripts\push.bat         # Validate + push
+scripts\validate.bat         # Validate locally
+scripts\push.bat             # Validate + push
+scripts\push.bat --verify    # Push + wait + verify deployment
+scripts\status.bat           # Quick production health check
 
 # Unix/Mac (or Git Bash)
 make validate            # Validate locally
 make push                # Validate + push
-make status              # Check production health
+make push-verify         # Push + wait + verify deployment
+make status              # Quick production health check
+make verify              # Full deployment verification
 ```
 
 ### First-Time Setup

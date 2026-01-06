@@ -1,7 +1,7 @@
 # TradeUp Development Makefile
 # Usage: make <command>
 
-.PHONY: help validate test dev install-hooks push deploy logs
+.PHONY: help validate test dev install-hooks push deploy logs status verify
 
 # Default target
 help:
@@ -9,18 +9,19 @@ help:
 	@echo "============================"
 	@echo ""
 	@echo "  make validate     - Run pre-deployment validation"
-	@echo "  make test         - Run tests"
-	@echo "  make dev          - Start local development server"
-	@echo "  make install-hooks - Install git pre-push hook"
 	@echo "  make push         - Validate and push to main"
-	@echo "  make deploy       - Full validation + push (same as push)"
+	@echo "  make push-verify  - Push and wait to verify deployment"
+	@echo "  make status       - Quick check of production health"
+	@echo "  make verify       - Full deployment verification"
+	@echo ""
+	@echo "  make dev          - Start local development server"
+	@echo "  make test         - Run tests"
+	@echo "  make install-hooks - Install git pre-push hook"
 	@echo "  make logs         - View Railway logs"
-	@echo "  make status       - Check production health"
 	@echo ""
 
 # Run validation before deploy
 validate:
-	@echo "Running pre-deployment validation..."
 	@python scripts/validate.py
 
 # Run tests
@@ -47,7 +48,15 @@ push: validate
 	@git push origin main
 	@echo ""
 	@echo "Pushed! Railway will auto-deploy."
-	@echo "Monitor at: https://railway.app"
+	@echo "Run 'make status' or 'make verify' to check deployment."
+
+# Push and wait to verify
+push-verify: validate
+	@echo ""
+	@echo "Validation passed! Pushing to main..."
+	@git push origin main
+	@echo ""
+	@python scripts/verify_deploy.py
 
 # Alias for push
 deploy: push
@@ -56,10 +65,10 @@ deploy: push
 logs:
 	@railway logs
 
-# Check production health
+# Quick status check
 status:
-	@echo "Checking production status..."
-	@curl -s https://quick-flip-production.up.railway.app/ | python -m json.tool
-	@echo ""
-	@echo "Checking promotions API..."
-	@curl -s https://quick-flip-production.up.railway.app/api/promotions/health | python -m json.tool
+	@python scripts/verify_deploy.py --quick --retries 1
+
+# Full deployment verification with retries
+verify:
+	@python scripts/verify_deploy.py --quick

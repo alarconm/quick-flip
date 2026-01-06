@@ -1576,7 +1576,7 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
                 'events': 'Events',
                 'vip_perks': 'VIP Perks'
             }};
-            return names[key] || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            return names[key] || key.replace(/_/g, ' ').replace(/\\b\\w/g, l => l.toUpperCase());
         }}
 
         // Tier CRUD functions
