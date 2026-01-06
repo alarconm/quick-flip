@@ -160,15 +160,9 @@ def mark_item_sold(item_id):
     item.sold_price = data['sold_price']
     item.shopify_order_id = data.get('shopify_order_id')
 
-    # Calculate days to sell
+    # Calculate days to sell (for analytics)
     if item.listed_date:
         item.days_to_sell = item.calculate_days_to_sell()
-
-        # Check bonus eligibility
-        member = item.batch.member
-        if member and member.tier:
-            quick_flip_days = member.tier.quick_flip_days
-            item.eligible_for_bonus = item.days_to_sell <= quick_flip_days
 
     db.session.commit()
 
@@ -183,3 +177,57 @@ def get_item_by_product(shopify_product_id):
     ).first_or_404()
 
     return jsonify(item.to_dict())
+
+
+@trade_ins_bp.route('/<int:batch_id>/preview-bonus', methods=['GET'])
+def preview_batch_bonus(batch_id):
+    """
+    Preview the tier bonus for a batch (without issuing it).
+
+    Returns:
+        Bonus calculation based on member's tier
+    """
+    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+    service = TradeInService(tenant_id)
+
+    try:
+        result = service.preview_batch_bonus(batch_id)
+        return jsonify(result)
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 404
+
+
+@trade_ins_bp.route('/<int:batch_id>/complete', methods=['POST'])
+def complete_batch(batch_id):
+    """
+    Complete a trade-in batch and issue tier bonus credit.
+
+    This marks the batch as completed and issues store credit
+    based on the member's tier bonus rate.
+
+    Bonus = total_trade_value × tier.bonus_rate
+
+    Request body (optional):
+        created_by: string - Who completed the batch
+
+    Returns:
+        Completion details with bonus info
+    """
+    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+    staff_email = request.headers.get('X-Staff-Email', 'API')
+
+    data = request.json or {}
+    created_by = data.get('created_by', staff_email)
+
+    service = TradeInService(tenant_id)
+
+    try:
+        result = service.complete_batch(
+            batch_id=batch_id,
+            created_by=created_by
+        )
+        return jsonify(result)
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': f'Failed to complete batch: {str(e)}'}), 500

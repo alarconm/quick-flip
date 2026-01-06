@@ -22,8 +22,8 @@ class MembershipService:
     """Service for membership operations."""
 
     # Tag prefixes for Shopify
-    TIER_TAG_PREFIX = 'qf-tier-'
-    MEMBER_TAG_PREFIX = 'qf-member-'
+    TIER_TAG_PREFIX = 'tu-tier-'
+    MEMBER_TAG_PREFIX = 'tu-member-'
 
     def __init__(self, tenant_id: int, shopify_client: Optional[ShopifyClient] = None):
         self.tenant_id = tenant_id
@@ -37,7 +37,7 @@ class MembershipService:
         notes: Optional[str] = None
     ) -> Member:
         """
-        Enroll an existing Shopify customer as a Quick Flip member.
+        Enroll an existing Shopify customer as a TradeUp member.
         Pulls name/email/phone from Shopify - no manual input.
 
         Args:
@@ -223,13 +223,16 @@ class MembershipService:
 
     def get_member_by_number(self, member_number: str) -> Optional[Member]:
         """Get member by member number."""
-        # Normalize member number
-        if not member_number.upper().startswith('QF'):
-            member_number = f'QF{member_number}'
+        # Normalize member number - support both TU and legacy QF prefixes
+        upper_num = member_number.upper()
+        if not upper_num.startswith('TU') and not upper_num.startswith('QF'):
+            member_number = f'TU{member_number}'
+        else:
+            member_number = upper_num
 
         return Member.query.filter_by(
             tenant_id=self.tenant_id,
-            member_number=member_number.upper()
+            member_number=member_number
         ).first()
 
     def get_member_by_email(self, email: str) -> Optional[Member]:
@@ -314,25 +317,22 @@ class MembershipService:
         default_tiers = [
             {
                 'name': 'Silver',
-                'monthly_price': 10.00,
-                'bonus_rate': 0.10,
-                'quick_flip_days': 7,
+                'monthly_price': 0.00,  # Free tier
+                'bonus_rate': 0.05,  # 5% trade-in bonus
                 'benefits': {'discount_percent': 5},
                 'display_order': 1
             },
             {
                 'name': 'Gold',
-                'monthly_price': 25.00,
-                'bonus_rate': 0.20,
-                'quick_flip_days': 7,
+                'monthly_price': 0.00,
+                'bonus_rate': 0.10,  # 10% trade-in bonus
                 'benefits': {'discount_percent': 10, 'free_shipping_threshold': 50},
                 'display_order': 2
             },
             {
                 'name': 'Platinum',
-                'monthly_price': 50.00,
-                'bonus_rate': 0.30,
-                'quick_flip_days': 7,
+                'monthly_price': 0.00,
+                'bonus_rate': 0.15,  # 15% trade-in bonus
                 'benefits': {'discount_percent': 15, 'free_shipping': True},
                 'display_order': 3
             }
@@ -407,11 +407,13 @@ class MembershipService:
 
         tags_to_add = []
 
-        # Add member number tag (e.g., qf-member-1001)
-        member_tag = f'{self.MEMBER_TAG_PREFIX}{member.member_number[2:]}'  # Remove QF prefix
+        # Add member number tag (e.g., tu-member-1001)
+        # Remove TU or legacy QF prefix to get numeric portion
+        member_num = member.member_number.upper().replace('TU', '').replace('QF', '')
+        member_tag = f'{self.MEMBER_TAG_PREFIX}{member_num}'
         tags_to_add.append(member_tag)
 
-        # Add tier tag if member has a tier (e.g., qf-tier-gold)
+        # Add tier tag if member has a tier (e.g., tu-tier-gold)
         if member.tier:
             tier_tag = f'{self.TIER_TAG_PREFIX}{member.tier.name.lower()}'
             tags_to_add.append(tier_tag)

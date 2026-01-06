@@ -19,13 +19,13 @@ class MembershipTier(db.Model):
     name = db.Column(db.String(50), nullable=False)  # 'Silver', 'Gold', 'Platinum'
     monthly_price = db.Column(db.Numeric(10, 2), nullable=False)
 
-    # Stripe integration
-    stripe_product_id = db.Column(db.String(50))  # prod_xxxxx
-    stripe_price_id = db.Column(db.String(50))    # price_xxxxx (monthly)
+    # Shopify selling plan integration (for subscription products)
+    shopify_selling_plan_id = db.Column(db.String(100))  # gid://shopify/SellingPlan/xxx
 
-    # Quick Flip bonus configuration
-    bonus_rate = db.Column(db.Numeric(5, 4), nullable=False)  # 0.10, 0.20, 0.30
-    quick_flip_days = db.Column(db.Integer, default=7)
+    # Trade-in bonus configuration
+    # bonus_rate: Percentage of trade-in value given as bonus credit
+    # e.g., 0.05 = 5% bonus, 0.10 = 10% bonus
+    bonus_rate = db.Column(db.Numeric(5, 4), nullable=False)  # 0.05, 0.10, 0.15
 
     # Other benefits (JSON for flexibility)
     benefits = db.Column(db.JSON, default=dict)
@@ -48,17 +48,15 @@ class MembershipTier(db.Model):
             'name': self.name,
             'monthly_price': float(self.monthly_price),
             'bonus_rate': float(self.bonus_rate),
-            'quick_flip_days': self.quick_flip_days,
             'benefits': self.benefits,
             'is_active': self.is_active,
-            'stripe_product_id': self.stripe_product_id,
-            'stripe_price_id': self.stripe_price_id
+            'shopify_selling_plan_id': self.shopify_selling_plan_id
         }
 
 
 class Member(db.Model):
     """
-    Member of the Quick Flip program.
+    Member of the TradeUp program.
     MUST be linked to a Shopify customer - no standalone members.
     """
     __tablename__ = 'members'
@@ -68,22 +66,21 @@ class Member(db.Model):
     tier_id = db.Column(db.Integer, db.ForeignKey('membership_tiers.id'))
 
     # Member identification - Shopify customer is REQUIRED
-    member_number = db.Column(db.String(20), nullable=False)  # QF1001, QF1002, etc.
+    member_number = db.Column(db.String(20), nullable=False)  # TU1001, TU1002, etc.
     shopify_customer_id = db.Column(db.String(50), nullable=False)  # Numeric ID (required)
     shopify_customer_gid = db.Column(db.String(100))  # Full GID: gid://shopify/Customer/123
 
     # Partner integration fields (e.g., ORB# from ORB Sports Cards)
     partner_customer_id = db.Column(db.String(50))  # e.g., "ORB1050"
 
-    # Stripe integration (for customer membership billing)
-    stripe_customer_id = db.Column(db.String(50))      # cus_xxxxx
-    stripe_subscription_id = db.Column(db.String(50))  # sub_xxxxx
-    payment_status = db.Column(db.String(20), default='pending')  # pending, active, past_due, cancelled
+    # Shopify subscription integration (for paid membership products)
+    shopify_subscription_contract_id = db.Column(db.String(100))  # gid://shopify/SubscriptionContract/xxx
+    subscription_status = db.Column(db.String(20), default='none')  # none, active, paused, cancelled
 
-    # Subscription tracking
-    current_period_start = db.Column(db.DateTime)
-    current_period_end = db.Column(db.DateTime)
-    cancel_at_period_end = db.Column(db.Boolean, default=False)
+    # Tier assignment tracking (tiers can be staff-assigned OR earned)
+    tier_assigned_by = db.Column(db.String(100))  # 'staff:email@example.com', 'system:purchase', 'system:activity'
+    tier_assigned_at = db.Column(db.DateTime)
+    tier_expires_at = db.Column(db.DateTime)  # NULL = never expires
 
     # Contact info (synced from Shopify customer)
     email = db.Column(db.String(255), nullable=False)
@@ -100,6 +97,12 @@ class Member(db.Model):
     total_trade_ins = db.Column(db.Integer, default=0)
     total_trade_value = db.Column(db.Numeric(12, 2), default=Decimal('0'))
 
+    # Referral program
+    referral_code = db.Column(db.String(20), unique=True)  # Unique code for sharing
+    referred_by_id = db.Column(db.Integer, db.ForeignKey('members.id'))  # Who referred this member
+    referral_count = db.Column(db.Integer, default=0)  # How many people they've referred
+    referral_earnings = db.Column(db.Numeric(12, 2), default=Decimal('0'))  # Total credit earned from referrals
+
     # Metadata
     notes = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -108,6 +111,7 @@ class Member(db.Model):
     # Relationships
     trade_in_batches = db.relationship('TradeInBatch', backref='member', lazy='dynamic')
     bonus_transactions = db.relationship('BonusTransaction', backref='member', lazy='dynamic')
+    referred_by = db.relationship('Member', remote_side='Member.id', backref='referrals', foreign_keys=[referred_by_id])
 
     # Unique constraint per tenant
     __table_args__ = (
@@ -119,7 +123,7 @@ class Member(db.Model):
     def __repr__(self):
         return f'<Member {self.member_number}>'
 
-    def to_dict(self, include_stats=False, include_subscription=False):
+    def to_dict(self, include_stats=False, include_subscription=False, include_referrals=False):
         data = {
             'id': self.id,
             'member_number': self.member_number,
@@ -144,12 +148,19 @@ class Member(db.Model):
 
         if include_subscription:
             data['subscription'] = {
-                'stripe_customer_id': self.stripe_customer_id,
-                'stripe_subscription_id': self.stripe_subscription_id,
-                'payment_status': self.payment_status,
-                'current_period_start': self.current_period_start.isoformat() if self.current_period_start else None,
-                'current_period_end': self.current_period_end.isoformat() if self.current_period_end else None,
-                'cancel_at_period_end': self.cancel_at_period_end
+                'shopify_subscription_contract_id': self.shopify_subscription_contract_id,
+                'subscription_status': self.subscription_status,
+                'tier_assigned_by': self.tier_assigned_by,
+                'tier_assigned_at': self.tier_assigned_at.isoformat() if self.tier_assigned_at else None,
+                'tier_expires_at': self.tier_expires_at.isoformat() if self.tier_expires_at else None
+            }
+
+        if include_referrals:
+            data['referral'] = {
+                'referral_code': self.referral_code,
+                'referral_count': self.referral_count or 0,
+                'referral_earnings': float(self.referral_earnings or 0),
+                'referred_by': self.referred_by.member_number if self.referred_by else None
             }
 
         return data
@@ -162,13 +173,32 @@ class Member(db.Model):
         ).first()
 
         if last_member:
-            # Extract number from QF1001 -> 1001
+            # Extract number from TU1001 -> 1001 (also handles legacy QF prefix)
             try:
-                last_num = int(last_member.member_number.replace('QF', ''))
+                num_str = last_member.member_number.replace('TU', '').replace('QF', '')
+                last_num = int(num_str)
                 next_num = last_num + 1
             except (ValueError, AttributeError):
                 next_num = 1001
         else:
             next_num = 1001
 
-        return f'QF{next_num}'
+        return f'TU{next_num}'
+
+    @staticmethod
+    def generate_referral_code() -> str:
+        """Generate a unique referral code."""
+        import secrets
+        import string
+        chars = string.ascii_uppercase + string.digits
+        while True:
+            code = ''.join(secrets.choice(chars) for _ in range(8))
+            existing = Member.query.filter_by(referral_code=code).first()
+            if not existing:
+                return code
+
+    def ensure_referral_code(self):
+        """Ensure member has a referral code, generate if missing."""
+        if not self.referral_code:
+            self.referral_code = Member.generate_referral_code()
+        return self.referral_code

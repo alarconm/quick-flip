@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TradeUp - Get More for Your Cards | Membership Rewards for Collectors</title>
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --orange: #e85d27;
+            --gold: #fbbf24;
+            --purple: #8b5cf6;
+            --dark: #0a0a0a;
+            --surface: #141414;
+            --surface-2: #1f1f1f;
+            --border: #2a2a2a;
+            --text: #ffffff;
+            --muted: #888;
+        }
+
+        body {
+            font-family: 'Rubik', sans-serif;
+            background: var(--dark);
+            color: var(--text);
+            line-height: 1.5;
+        }
+
+        .container { max-width: 500px; margin: 0 auto; padding: 0 20px; }
+
+        /* Mobile-optimized Nav */
+        nav {
+            padding: 16px 0;
+            position: fixed;
+            top: 0;
+            width: 100%;
+            background: rgba(10, 10, 10, 0.95);
+            backdrop-filter: blur(10px);
+            z-index: 100;
+            border-bottom: 1px solid var(--border);
+        }
+        nav .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo {
+            font-size: 20px;
+            font-weight: 800;
+        }
+        .nav-cta {
+            background: var(--orange);
+            color: #fff;
+            padding: 10px 18px;
+            border-radius: 24px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        /* Hero - Mobile First */
+        .hero {
+            padding: 100px 0 60px;
+            text-align: center;
+        }
+        .hero-emoji {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+        .hero h1 {
+            font-size: 32px;
+            font-weight: 800;
+            line-height: 1.2;
+            margin-bottom: 16px;
+        }
+        .hero h1 span {
+            background: linear-gradient(135deg, var(--orange), var(--gold));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .hero p {
+            font-size: 16px;
+            color: var(--muted);
+            margin-bottom: 32px;
+        }
+        .hero-btn {
+            display: block;
+            background: var(--orange);
+            color: #fff;
+            padding: 18px 32px;
+            border-radius: 32px;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 18px;
+            text-align: center;
+            margin-bottom: 16px;
+        }
+        .hero-subtext {
+            font-size: 13px;
+            color: var(--muted);
+        }
+
+        /* Tier Cards - Swipeable */
+        .tiers-section {
+            padding: 60px 0;
+        }
+        .section-header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+        .section-header h2 {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        .section-header p { color: var(--muted); font-size: 14px; }
+
+        .tiers-scroll {
+            display: flex;
+            gap: 16px;
+            overflow-x: auto;
+            padding: 0 20px 20px;
+            margin: 0 -20px;
+            scroll-snap-type: x mandatory;
+            -webkit-overflow-scrolling: touch;
+        }
+        .tiers-scroll::-webkit-scrollbar { display: none; }
+
+        .tier-card {
+            min-width: 280px;
+            background: var(--surface);
+            border-radius: 24px;
+            padding: 28px;
+            border: 2px solid var(--border);
+            scroll-snap-align: center;
+            flex-shrink: 0;
+        }
+        .tier-card.bronze { border-color: #cd7f32; }
+        .tier-card.silver { border-color: #c0c0c0; }
+        .tier-card.gold { border-color: #ffd700; }
+        .tier-card.platinum { border-color: #e5e4e2; }
+
+        .tier-emoji { font-size: 40px; margin-bottom: 16px; }
+        .tier-name { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+        .tier-rate {
+            font-size: 48px;
+            font-weight: 800;
+            margin-bottom: 4px;
+        }
+        .tier-card.bronze .tier-rate { color: #cd7f32; }
+        .tier-card.silver .tier-rate { color: #c0c0c0; }
+        .tier-card.gold .tier-rate { color: #ffd700; }
+        .tier-card.platinum .tier-rate { color: #e5e4e2; }
+
+        .tier-label { font-size: 13px; color: var(--muted); margin-bottom: 20px; }
+        .tier-perks { list-style: none; }
+        .tier-perks li {
+            padding: 10px 0;
+            font-size: 14px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .tier-perks li:last-child { border-bottom: none; }
+        .tier-perks .perk-icon { font-size: 18px; }
+
+        /* Quick Flip Explainer */
+        .quick-flip {
+            padding: 60px 0;
+            background: var(--surface);
+        }
+        .quick-flip h2 {
+            text-align: center;
+            font-size: 24px;
+            margin-bottom: 32px;
+        }
+        .quick-flip h2 span { color: var(--gold); }
+
+        .flip-example {
+            background: var(--dark);
+            border-radius: 20px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+        .flip-step {
+            display: flex;
+            gap: 16px;
+            padding: 16px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .flip-step:last-child { border-bottom: none; }
+        .step-num {
+            width: 32px;
+            height: 32px;
+            background: var(--orange);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+        .step-content h4 { font-size: 16px; margin-bottom: 4px; }
+        .step-content p { font-size: 14px; color: var(--muted); }
+
+        .flip-result {
+            background: linear-gradient(135deg, rgba(251, 191, 36, 0.1), rgba(251, 191, 36, 0.05));
+            border: 1px solid rgba(251, 191, 36, 0.3);
+            border-radius: 16px;
+            padding: 24px;
+            text-align: center;
+        }
+        .flip-result h3 { color: var(--gold); font-size: 20px; margin-bottom: 8px; }
+        .flip-result .big-number {
+            font-size: 48px;
+            font-weight: 800;
+            color: var(--gold);
+        }
+        .flip-result p { color: var(--muted); font-size: 14px; margin-top: 8px; }
+
+        /* Find a Shop */
+        .find-shop {
+            padding: 60px 0;
+        }
+        .search-box {
+            background: var(--surface);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+        .search-input {
+            width: 100%;
+            background: var(--dark);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            color: var(--text);
+            font-size: 16px;
+            font-family: inherit;
+        }
+        .search-input::placeholder { color: var(--muted); }
+        .search-btn {
+            width: 100%;
+            background: var(--orange);
+            color: #fff;
+            padding: 16px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 700;
+            margin-top: 12px;
+            cursor: pointer;
+        }
+
+        .shop-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .shop-item {
+            background: var(--surface);
+            border-radius: 16px;
+            padding: 16px;
+            display: flex;
+            gap: 16px;
+            align-items: center;
+        }
+        .shop-logo {
+            width: 56px;
+            height: 56px;
+            background: linear-gradient(135deg, var(--orange), #ff7b47);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+        .shop-info { flex: 1; }
+        .shop-info h4 { font-size: 16px; margin-bottom: 4px; }
+        .shop-info p { font-size: 13px; color: var(--muted); }
+        .shop-arrow { color: var(--muted); font-size: 20px; }
+
+        /* Download CTA */
+        .download-cta {
+            padding: 60px 0;
+            text-align: center;
+            background: linear-gradient(180deg, var(--surface) 0%, var(--dark) 100%);
+        }
+        .download-cta h2 {
+            font-size: 28px;
+            margin-bottom: 12px;
+        }
+        .download-cta p {
+            color: var(--muted);
+            margin-bottom: 24px;
+        }
+        .app-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .app-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            background: var(--text);
+            color: var(--dark);
+            padding: 14px 24px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .app-btn .icon { font-size: 24px; }
+
+        /* Benefits Bar */
+        .benefits-bar {
+            padding: 32px 0;
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+        }
+        .benefit-scroll {
+            display: flex;
+            gap: 24px;
+            overflow-x: auto;
+            padding: 0 20px;
+            margin: 0 -20px;
+        }
+        .benefit-scroll::-webkit-scrollbar { display: none; }
+        .benefit-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .benefit-item .icon {
+            width: 36px;
+            height: 36px;
+            background: rgba(232, 93, 39, 0.1);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .benefit-item span { font-size: 14px; font-weight: 500; }
+
+        /* Footer */
+        footer {
+            padding: 40px 0;
+            text-align: center;
+        }
+        footer p { color: var(--muted); font-size: 13px; }
+        footer a { color: var(--orange); text-decoration: none; }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="container">
+            <div class="logo">TradeUp</div>
+            <a href="#" class="nav-cta">Join Free</a>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <div class="container">
+            <div class="hero-emoji">💳</div>
+            <h1>Get <span>More</span> for Your Cards</h1>
+            <p>Join your local card shop's membership program and earn better trade-in rates, bonuses, and exclusive perks.</p>
+            <a href="#" class="hero-btn">Find a Shop Near Me</a>
+            <p class="hero-subtext">Free to join. No credit card required.</p>
+        </div>
+    </section>
+
+    <div class="benefits-bar">
+        <div class="benefit-scroll">
+            <div class="benefit-item">
+                <div class="icon">💰</div>
+                <span>Better trade-in rates</span>
+            </div>
+            <div class="benefit-item">
+                <div class="icon">⚡</div>
+                <span>Quick Flip Bonuses</span>
+            </div>
+            <div class="benefit-item">
+                <div class="icon">🎁</div>
+                <span>Exclusive perks</span>
+            </div>
+            <div class="benefit-item">
+                <div class="icon">📈</div>
+                <span>Level up tiers</span>
+            </div>
+        </div>
+    </div>
+
+    <section class="tiers-section">
+        <div class="section-header">
+            <h2>Membership Tiers</h2>
+            <p>The more you trade, the more you earn</p>
+        </div>
+
+        <div class="tiers-scroll">
+            <div class="tier-card bronze">
+                <div class="tier-emoji">🥉</div>
+                <div class="tier-name">Bronze</div>
+                <div class="tier-rate">65%</div>
+                <div class="tier-label">Trade-In Value</div>
+                <ul class="tier-perks">
+                    <li><span class="perk-icon">✓</span> 10% Quick Flip Bonus</li>
+                    <li><span class="perk-icon">✓</span> Member pricing</li>
+                    <li><span class="perk-icon">✓</span> Points on purchases</li>
+                </ul>
+            </div>
+
+            <div class="tier-card silver">
+                <div class="tier-emoji">🥈</div>
+                <div class="tier-name">Silver</div>
+                <div class="tier-rate">70%</div>
+                <div class="tier-label">Trade-In Value</div>
+                <ul class="tier-perks">
+                    <li><span class="perk-icon">✓</span> 20% Quick Flip Bonus</li>
+                    <li><span class="perk-icon">✓</span> Priority notifications</li>
+                    <li><span class="perk-icon">✓</span> 5% off purchases</li>
+                </ul>
+            </div>
+
+            <div class="tier-card gold">
+                <div class="tier-emoji">🥇</div>
+                <div class="tier-name">Gold</div>
+                <div class="tier-rate">75%</div>
+                <div class="tier-label">Trade-In Value</div>
+                <ul class="tier-perks">
+                    <li><span class="perk-icon">✓</span> 30% Quick Flip Bonus</li>
+                    <li><span class="perk-icon">✓</span> Early event access</li>
+                    <li><span class="perk-icon">✓</span> 10% off purchases</li>
+                </ul>
+            </div>
+
+            <div class="tier-card platinum">
+                <div class="tier-emoji">💎</div>
+                <div class="tier-name">Platinum</div>
+                <div class="tier-rate">80%</div>
+                <div class="tier-label">Trade-In Value</div>
+                <ul class="tier-perks">
+                    <li><span class="perk-icon">✓</span> 40% Quick Flip Bonus</li>
+                    <li><span class="perk-icon">✓</span> VIP events</li>
+                    <li><span class="perk-icon">✓</span> 15% off purchases</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <section class="quick-flip">
+        <div class="container">
+            <h2>The <span>Quick Flip</span> Bonus</h2>
+
+            <div class="flip-example">
+                <div class="flip-step">
+                    <div class="step-num">1</div>
+                    <div class="step-content">
+                        <h4>Trade in your cards</h4>
+                        <p>Get $70 store credit for a card</p>
+                    </div>
+                </div>
+                <div class="flip-step">
+                    <div class="step-num">2</div>
+                    <div class="step-content">
+                        <h4>Shop lists it for sale</h4>
+                        <p>They price it at $100</p>
+                    </div>
+                </div>
+                <div class="flip-step">
+                    <div class="step-num">3</div>
+                    <div class="step-content">
+                        <h4>It sells fast!</h4>
+                        <p>Sells for $95 in 5 days</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flip-result">
+                <h3>Your Quick Flip Bonus</h3>
+                <div class="big-number">+$7.50</div>
+                <p>30% of the $25 profit as Gold member</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="find-shop">
+        <div class="container">
+            <div class="section-header">
+                <h2>Find a TradeUp Shop</h2>
+                <p>Join your local shop's membership program</p>
+            </div>
+
+            <div class="search-box">
+                <input type="text" class="search-input" placeholder="Enter your ZIP code">
+                <button class="search-btn">Search</button>
+            </div>
+
+            <div class="shop-list">
+                <div class="shop-item">
+                    <div class="shop-logo">ORB</div>
+                    <div class="shop-info">
+                        <h4>ORB Sports Cards</h4>
+                        <p>Kent, WA - 2.3 miles away</p>
+                    </div>
+                    <span class="shop-arrow">→</span>
+                </div>
+                <div class="shop-item">
+                    <div class="shop-logo">CK</div>
+                    <div class="shop-info">
+                        <h4>Card Kingdom</h4>
+                        <p>Seattle, WA - 15.1 miles away</p>
+                    </div>
+                    <span class="shop-arrow">→</span>
+                </div>
+                <div class="shop-item">
+                    <div class="shop-logo">PT</div>
+                    <div class="shop-info">
+                        <h4>Prime Time Cards</h4>
+                        <p>Tacoma, WA - 18.7 miles away</p>
+                    </div>
+                    <span class="shop-arrow">→</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="download-cta">
+        <div class="container">
+            <h2>Download the App</h2>
+            <p>Track your tier, see bonuses, and find shops on the go</p>
+            <div class="app-buttons">
+                <a href="#" class="app-btn">
+                    <span class="icon">🍎</span>
+                    Download for iOS
+                </a>
+                <a href="#" class="app-btn">
+                    <span class="icon">🤖</span>
+                    Download for Android
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2026 <a href="#">Cardflow Labs</a></p>
+            <p>Built by card shop owners, for card collectors.</p>
+        </div>
+    </footer>
+</body>
+</html>

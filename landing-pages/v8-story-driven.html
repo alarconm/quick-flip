@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TradeUp - Built by Card Shop Owners, For Card Shop Owners</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Source+Sans+3:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --orange: #e85d27;
+            --cream: #faf8f5;
+            --dark: #1a1a1a;
+            --text: #333;
+            --muted: #666;
+        }
+
+        body {
+            font-family: 'Source Sans 3', sans-serif;
+            background: var(--cream);
+            color: var(--text);
+            line-height: 1.7;
+        }
+
+        h1, h2, h3, .serif { font-family: 'Playfair Display', serif; }
+        .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+
+        /* Nav */
+        nav {
+            padding: 24px 0;
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+        }
+        nav .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo {
+            font-family: 'Playfair Display', serif;
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--dark);
+        }
+        .nav-cta {
+            background: var(--orange);
+            color: #fff;
+            padding: 12px 24px;
+            border-radius: 4px;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        /* Hero Story */
+        .hero {
+            padding: 120px 0 80px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .hero-eyebrow {
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            color: var(--orange);
+            margin-bottom: 24px;
+        }
+        .hero h1 {
+            font-size: clamp(40px, 6vw, 64px);
+            font-weight: 400;
+            line-height: 1.2;
+            margin-bottom: 32px;
+        }
+        .hero h1 em {
+            font-style: italic;
+            color: var(--orange);
+        }
+        .hero-intro {
+            font-size: 22px;
+            color: var(--muted);
+            border-left: 3px solid var(--orange);
+            padding-left: 24px;
+            margin-bottom: 48px;
+        }
+
+        /* Story Section */
+        .story {
+            padding: 80px 0;
+            background: #fff;
+        }
+        .story-content {
+            max-width: 700px;
+            margin: 0 auto;
+        }
+        .story h2 {
+            font-size: 36px;
+            font-weight: 400;
+            margin-bottom: 32px;
+        }
+        .story p {
+            font-size: 18px;
+            margin-bottom: 24px;
+            color: var(--text);
+        }
+        .story-quote {
+            background: var(--cream);
+            padding: 40px;
+            border-radius: 8px;
+            margin: 48px 0;
+            position: relative;
+        }
+        .story-quote::before {
+            content: '"';
+            font-family: 'Playfair Display', serif;
+            font-size: 80px;
+            color: var(--orange);
+            opacity: 0.3;
+            position: absolute;
+            top: 10px;
+            left: 20px;
+        }
+        .story-quote p {
+            font-family: 'Playfair Display', serif;
+            font-size: 24px;
+            font-style: italic;
+            line-height: 1.5;
+            margin: 0;
+            position: relative;
+            z-index: 1;
+        }
+        .story-quote cite {
+            display: block;
+            margin-top: 16px;
+            font-style: normal;
+            font-size: 14px;
+            color: var(--muted);
+        }
+
+        /* Photo Section */
+        .photo-section {
+            padding: 80px 0;
+        }
+        .photo-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 32px;
+            align-items: center;
+        }
+        @media (max-width: 768px) { .photo-grid { grid-template-columns: 1fr; } }
+
+        .photo-placeholder {
+            background: linear-gradient(135deg, #ddd, #eee);
+            aspect-ratio: 4/3;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #999;
+            font-size: 14px;
+        }
+        .photo-text h3 {
+            font-size: 32px;
+            font-weight: 400;
+            margin-bottom: 16px;
+        }
+        .photo-text p {
+            font-size: 18px;
+            color: var(--muted);
+        }
+
+        /* The Problem */
+        .the-problem {
+            padding: 100px 0;
+            background: var(--dark);
+            color: #fff;
+        }
+        .problem-content {
+            max-width: 700px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        .the-problem h2 {
+            font-size: 40px;
+            font-weight: 400;
+            margin-bottom: 32px;
+        }
+        .the-problem p {
+            font-size: 20px;
+            color: rgba(255,255,255,0.7);
+            margin-bottom: 24px;
+        }
+        .problem-list {
+            list-style: none;
+            text-align: left;
+            max-width: 500px;
+            margin: 48px auto;
+        }
+        .problem-list li {
+            padding: 16px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            gap: 16px;
+            align-items: flex-start;
+        }
+        .problem-list li:last-child { border-bottom: none; }
+        .problem-list .icon {
+            color: var(--orange);
+            font-size: 20px;
+        }
+
+        /* The Solution */
+        .the-solution {
+            padding: 100px 0;
+        }
+        .solution-content {
+            max-width: 700px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        .the-solution h2 {
+            font-size: 40px;
+            font-weight: 400;
+            margin-bottom: 24px;
+        }
+        .the-solution h2 em { color: var(--orange); font-style: italic; }
+        .the-solution p {
+            font-size: 20px;
+            color: var(--muted);
+            margin-bottom: 48px;
+        }
+
+        .solution-features {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 32px;
+            text-align: left;
+        }
+        @media (max-width: 768px) { .solution-features { grid-template-columns: 1fr; } }
+
+        .solution-feature h4 {
+            font-family: 'Playfair Display', serif;
+            font-size: 20px;
+            margin-bottom: 8px;
+        }
+        .solution-feature p {
+            font-size: 16px;
+            color: var(--muted);
+            margin: 0;
+        }
+
+        /* Testimonial */
+        .founder-note {
+            padding: 80px 0;
+            background: #fff;
+        }
+        .note-card {
+            max-width: 700px;
+            margin: 0 auto;
+            background: var(--cream);
+            padding: 60px;
+            border-radius: 12px;
+        }
+        .note-card .salutation {
+            font-style: italic;
+            color: var(--muted);
+            margin-bottom: 24px;
+        }
+        .note-card p {
+            font-size: 18px;
+            margin-bottom: 20px;
+        }
+        .note-card .signature {
+            margin-top: 32px;
+        }
+        .note-card .signature strong {
+            display: block;
+            font-size: 18px;
+        }
+        .note-card .signature span {
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        /* CTA */
+        .cta {
+            padding: 120px 0;
+            text-align: center;
+        }
+        .cta h2 {
+            font-size: 48px;
+            font-weight: 400;
+            margin-bottom: 24px;
+        }
+        .cta p {
+            font-size: 20px;
+            color: var(--muted);
+            margin-bottom: 40px;
+        }
+        .btn-primary {
+            display: inline-block;
+            background: var(--orange);
+            color: #fff;
+            padding: 18px 48px;
+            border-radius: 4px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 18px;
+            transition: all 0.3s;
+        }
+        .btn-primary:hover { background: #d54d1a; }
+
+        /* Footer */
+        footer {
+            padding: 40px 0;
+            border-top: 1px solid rgba(0,0,0,0.1);
+            text-align: center;
+            color: var(--muted);
+        }
+        footer a { color: var(--orange); text-decoration: none; }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="container">
+            <div class="logo">TradeUp</div>
+            <a href="#" class="nav-cta">Get Started</a>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <div class="container">
+            <div class="hero-eyebrow">Our Story</div>
+            <h1>We got tired of software that didn't understand <em>our</em> business.</h1>
+            <p class="hero-intro">TradeUp wasn't built in a Silicon Valley office. It was built in the back of a card shop in Kent, Washington.</p>
+        </div>
+    </section>
+
+    <section class="story">
+        <div class="container">
+            <div class="story-content">
+                <h2>It started with a problem</h2>
+                <p>We're Mike and Brandon, owners of ORB Sports Cards. Every week, we'd watch customers walk in, sell us their cards, and never come back. They had no reason to.</p>
+                <p>GameStop has PowerUp Rewards. Best Buy has their membership. Why didn't card shops have something similar?</p>
+                <p>We looked for software to solve this. What we found were generic loyalty apps that didn't understand trade-ins, or expensive enterprise solutions that cost more than our rent.</p>
+
+                <div class="story-quote">
+                    <p>We didn't want to build a tech company. We just wanted to solve our problem. But once we built it, other shop owners kept asking if they could use it too.</p>
+                    <cite>— Mike Alarcon, Co-Founder</cite>
+                </div>
+
+                <p>So we built TradeUp. Not as a startup play, but as a tool we needed for our own shop. It worked so well that we decided to share it.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="photo-section">
+        <div class="container">
+            <div class="photo-grid">
+                <div class="photo-placeholder">
+                    [Photo: ORB Sports Cards storefront]
+                </div>
+                <div class="photo-text">
+                    <h3>Built in the shop.<br>Refined in the lab.</h3>
+                    <p>Every feature in TradeUp exists because we needed it ourselves. No bloat. No features built for investor demos. Just tools that actually help you run your business.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="the-problem">
+        <div class="container">
+            <div class="problem-content">
+                <h2>The problems we faced</h2>
+                <p>Sound familiar?</p>
+
+                <ul class="problem-list">
+                    <li>
+                        <span class="icon">→</span>
+                        <span>Customers selling once and never returning</span>
+                    </li>
+                    <li>
+                        <span class="icon">→</span>
+                        <span>Losing trade-ins to GameStop and big-box stores</span>
+                    </li>
+                    <li>
+                        <span class="icon">→</span>
+                        <span>Generic loyalty apps that don't understand cards</span>
+                    </li>
+                    <li>
+                        <span class="icon">→</span>
+                        <span>No way to reward your best customers</span>
+                    </li>
+                    <li>
+                        <span class="icon">→</span>
+                        <span>Competing on location alone</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <section class="the-solution">
+        <div class="container">
+            <div class="solution-content">
+                <h2>So we built <em>something better</em></h2>
+                <p>A trade-in membership platform designed specifically for card shops. By card shop owners.</p>
+
+                <div class="solution-features">
+                    <div class="solution-feature">
+                        <h4>Tiered Membership</h4>
+                        <p>Bronze, Silver, Gold, Platinum. Better rates for your best customers.</p>
+                    </div>
+                    <div class="solution-feature">
+                        <h4>Quick Flip Bonus</h4>
+                        <p>Share profits when trade-ins sell fast. Customers actually root for sales.</p>
+                    </div>
+                    <div class="solution-feature">
+                        <h4>Shopify Native</h4>
+                        <p>One-click install. Works with your existing store. No technical headaches.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="founder-note">
+        <div class="container">
+            <div class="note-card">
+                <p class="salutation">A note from our founders,</p>
+                <p>We're not trying to be the next unicorn startup. We're two guys running a card shop who built something useful and want to share it with other shop owners.</p>
+                <p>When you have questions, you're not talking to a support bot. You're talking to people who understand your business because we run one too.</p>
+                <p>We built TradeUp because we needed it. We think you will too.</p>
+                <div class="signature">
+                    <strong>Mike & Brandon</strong>
+                    <span>Co-Founders, Cardflow Labs<br>Owners, ORB Sports Cards</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="cta">
+        <div class="container">
+            <h2>Ready to try it?</h2>
+            <p>Start free. Built by shop owners, for shop owners.</p>
+            <a href="#" class="btn-primary">Get Started Free</a>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2026 <a href="#">Cardflow Labs</a>. A division of ORB Sports Cards LLC.</p>
+        </div>
+    </footer>
+</body>
+</html>

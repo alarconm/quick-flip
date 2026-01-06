@@ -13,21 +13,18 @@ import {
   BlockStack,
   Badge,
   Button,
-  TextField,
-  Filters,
   DataTable,
   Pagination,
   Banner,
   Spinner,
   EmptyState,
   Modal,
-  ChoiceList,
   Box,
   Tabs,
 } from '@shopify/polaris';
 import { ViewIcon } from '@shopify/polaris-icons';
 import { useQuery } from '@tanstack/react-query';
-import { getApiUrl, getTenantParam } from '../../hooks/useShopifyBridge';
+import { getApiUrl, authFetch } from '../../hooks/useShopifyBridge';
 
 interface TradeInsProps {
   shop: string | null;
@@ -73,12 +70,11 @@ async function fetchTradeIns(
   status: string
 ): Promise<TradeInsResponse> {
   const params = new URLSearchParams();
-  if (shop) params.set('shop', shop);
   params.set('page', String(page));
   params.set('per_page', '20');
   if (status && status !== 'all') params.set('status', status);
 
-  const response = await fetch(`${getApiUrl()}/trade-ins?${params}`);
+  const response = await authFetch(`${getApiUrl()}/trade-ins?${params}`, shop);
   if (!response.ok) throw new Error('Failed to fetch trade-ins');
   return response.json();
 }
@@ -124,13 +120,13 @@ export function EmbeddedTradeIns({ shop }: TradeInsProps) {
   };
 
   const getStatusBadge = (status: string) => {
-    const tones: Record<string, 'success' | 'warning' | 'critical' | 'info' | 'subdued'> = {
+    const tones: Record<string, 'success' | 'warning' | 'critical' | 'info' | undefined> = {
       pending: 'warning',
       approved: 'info',
       completed: 'success',
       rejected: 'critical',
     };
-    return <Badge tone={tones[status] || 'subdued'}>{status}</Badge>;
+    return <Badge tone={tones[status]}>{status}</Badge>;
   };
 
   const tabs = [
@@ -243,7 +239,7 @@ export function EmbeddedTradeIns({ shop }: TradeInsProps) {
         secondaryActions={[
           { content: 'Close', onAction: () => setDetailTradeIn(null) },
         ]}
-        large
+        size="large"
       >
         {detailTradeIn && (
           <Modal.Section>

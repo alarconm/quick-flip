@@ -1,9 +1,13 @@
 """
 Trade-in service for managing batches and items.
+
+Handles trade-in batches, items, and tier-based bonus credit.
+Bonus = trade_in_value × tier.bonus_rate
 """
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional, List, Dict, Any
+from flask import current_app
 from ..extensions import db
 from ..models import Member, TradeInBatch, TradeInItem
 
@@ -13,6 +17,15 @@ class TradeInService:
 
     def __init__(self, tenant_id: int):
         self.tenant_id = tenant_id
+        self._store_credit_service = None
+
+    @property
+    def store_credit_service(self):
+        """Lazy load store credit service."""
+        if self._store_credit_service is None:
+            from .store_credit_service import store_credit_service
+            self._store_credit_service = store_credit_service
+        return self._store_credit_service
 
     # Category choices matching ORB Sports Cards
     CATEGORIES = {
@@ -79,6 +92,17 @@ class TradeInService:
         except Exception as e:
             # Log but don't fail the trade-in creation
             print(f"Partner sync error (non-blocking): {e}")
+
+        # Send trade-in created email notification
+        try:
+            from .notification_service import notification_service
+            notification_service.send_trade_in_created(
+                tenant_id=self.tenant_id,
+                batch_id=batch.id
+            )
+        except Exception as e:
+            # Log but don't fail the trade-in creation
+            print(f"Notification error (non-blocking): {e}")
 
         return batch
 
@@ -243,15 +267,9 @@ class TradeInService:
         item.sold_price = sold_price
         item.shopify_order_id = shopify_order_id
 
-        # Calculate days to sell
+        # Calculate days to sell (for analytics)
         if item.listed_date:
             item.days_to_sell = item.calculate_days_to_sell()
-
-            # Check bonus eligibility
-            member = item.batch.member
-            if member and member.tier:
-                quick_flip_days = member.tier.quick_flip_days
-                item.eligible_for_bonus = item.days_to_sell <= quick_flip_days
 
         db.session.commit()
 
@@ -262,18 +280,21 @@ class TradeInService:
         Get trade-in batches by member number tag.
 
         Args:
-            member_number: Member number (QF1001)
+            member_number: Member number (TU1001 or legacy QF1001)
 
         Returns:
             List of TradeInBatch objects
         """
-        # Normalize member number
-        if not member_number.upper().startswith('QF'):
-            member_number = f'QF{member_number}'
+        # Normalize member number - support both TU and legacy QF prefixes
+        upper_num = member_number.upper()
+        if not upper_num.startswith('TU') and not upper_num.startswith('QF'):
+            member_number = f'TU{member_number}'
+        else:
+            member_number = upper_num
 
         member = Member.query.filter_by(
             tenant_id=self.tenant_id,
-            member_number=member_number.upper()
+            member_number=member_number
         ).first()
 
         if not member:
@@ -294,3 +315,162 @@ class TradeInService:
             )
             .all()
         )
+
+    def complete_batch(
+        self,
+        batch_id: int,
+        created_by: str = 'system'
+    ) -> Dict[str, Any]:
+        """
+        Complete a trade-in batch and issue tier bonus credit.
+
+        When a batch is completed:
+        1. Calculate bonus based on total trade value × tier.bonus_rate
+        2. Issue bonus as store credit (synced to Shopify)
+        3. Update member stats
+        4. Mark batch as completed
+
+        Args:
+            batch_id: ID of the batch to complete
+            created_by: Who completed the batch
+
+        Returns:
+            Dict with completion details and bonus info
+        """
+        batch = TradeInBatch.query.get(batch_id)
+        if not batch:
+            raise ValueError('Batch not found')
+
+        if batch.status == 'completed':
+            raise ValueError('Batch is already completed')
+
+        member = batch.member
+        if not member:
+            raise ValueError('Batch has no associated member')
+
+        # Calculate bonus
+        bonus_info = self.calculate_tier_bonus(batch)
+
+        # Issue bonus credit if member has a tier with bonus
+        bonus_entry = None
+        if bonus_info['bonus_amount'] > 0:
+            from ..models.promotions import CreditEventType
+            bonus_entry = self.store_credit_service.add_credit(
+                member_id=member.id,
+                amount=Decimal(str(bonus_info['bonus_amount'])),
+                event_type=CreditEventType.TRADE_IN.value,
+                description=f"Trade-in bonus ({bonus_info['tier_name']} tier {bonus_info['bonus_percent']}%)",
+                source_type='trade_in',
+                source_id=str(batch.id),
+                source_reference=batch.batch_reference,
+                created_by=created_by,
+                sync_to_shopify=True
+            )
+
+        # Update batch
+        batch.status = 'completed'
+        batch.completed_at = datetime.utcnow()
+        batch.completed_by = created_by
+        batch.bonus_amount = Decimal(str(bonus_info['bonus_amount']))
+
+        # Update member stats
+        member.total_trade_ins = (member.total_trade_ins or 0) + 1
+        member.total_trade_value = (member.total_trade_value or Decimal('0')) + batch.total_trade_value
+        if bonus_info['bonus_amount'] > 0:
+            member.total_bonus_earned = (member.total_bonus_earned or Decimal('0')) + Decimal(str(bonus_info['bonus_amount']))
+
+        db.session.commit()
+
+        # Send completion email notification
+        try:
+            from .notification_service import notification_service
+            notification_service.send_trade_in_completed(
+                tenant_id=self.tenant_id,
+                batch_id=batch.id,
+                bonus_amount=float(bonus_info['bonus_amount'])
+            )
+        except Exception as e:
+            # Log but don't fail the completion
+            print(f"Failed to send trade-in completion email: {e}")
+
+        return {
+            'success': True,
+            'batch_id': batch.id,
+            'batch_reference': batch.batch_reference,
+            'trade_value': float(batch.total_trade_value),
+            'bonus': bonus_info,
+            'bonus_credit_entry': bonus_entry.to_dict() if bonus_entry else None,
+            'member': {
+                'id': member.id,
+                'member_number': member.member_number,
+                'total_bonus_earned': float(member.total_bonus_earned)
+            }
+        }
+
+    def calculate_tier_bonus(self, batch: TradeInBatch) -> Dict[str, Any]:
+        """
+        Calculate tier-based bonus for a trade-in batch.
+
+        Bonus = total_trade_value × tier.bonus_rate
+
+        Args:
+            batch: TradeInBatch to calculate bonus for
+
+        Returns:
+            Dict with bonus calculation details
+        """
+        member = batch.member
+        if not member or not member.tier:
+            return {
+                'eligible': False,
+                'reason': 'Member has no active tier',
+                'tier_name': None,
+                'bonus_percent': 0,
+                'bonus_amount': 0,
+                'trade_value': float(batch.total_trade_value or 0)
+            }
+
+        tier = member.tier
+        trade_value = batch.total_trade_value or Decimal('0')
+        bonus_rate = tier.bonus_rate or Decimal('0')
+        bonus_amount = trade_value * bonus_rate
+
+        # Round to 2 decimal places
+        bonus_amount = Decimal(str(round(float(bonus_amount), 2)))
+
+        return {
+            'eligible': True,
+            'reason': f'{tier.name} tier bonus',
+            'tier_name': tier.name,
+            'tier_id': tier.id,
+            'bonus_percent': float(bonus_rate * 100),
+            'bonus_rate': float(bonus_rate),
+            'trade_value': float(trade_value),
+            'bonus_amount': float(bonus_amount)
+        }
+
+    def preview_batch_bonus(self, batch_id: int) -> Dict[str, Any]:
+        """
+        Preview the bonus that would be issued for a batch.
+        Does NOT issue the bonus - just calculates it.
+
+        Args:
+            batch_id: ID of the batch
+
+        Returns:
+            Dict with bonus preview
+        """
+        batch = TradeInBatch.query.get(batch_id)
+        if not batch:
+            raise ValueError('Batch not found')
+
+        bonus_info = self.calculate_tier_bonus(batch)
+
+        return {
+            'batch_id': batch.id,
+            'batch_reference': batch.batch_reference,
+            'status': batch.status,
+            'total_items': batch.total_items,
+            'trade_value': float(batch.total_trade_value or 0),
+            'bonus': bonus_info
+        }

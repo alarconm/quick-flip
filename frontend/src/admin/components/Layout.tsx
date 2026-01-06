@@ -1,4 +1,4 @@
-import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
+import { Link, NavLink, Outlet } from 'react-router-dom'
 import {
   LayoutDashboard,
   Users,
@@ -34,8 +34,6 @@ const settingsNav = [
 ]
 
 export default function Layout() {
-  const location = useLocation()
-
   return (
     <div className="min-h-screen flex">
       {/* Sidebar */}

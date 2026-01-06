@@ -1,67 +1,41 @@
 /**
  * Membership API calls
+ *
+ * Note: Tier management is now handled by staff assignment, not Stripe payments.
+ * All billing goes through Shopify for app subscriptions.
  */
 import api from './client';
 import type { Tier, Member } from './auth';
 
-export interface CheckoutSession {
-  session_id: string;
-  url: string;
+export interface MembershipStatus {
+  status: string;
+  tier: Tier | null;
+  subscription_status: string;
+  tier_assigned_by: string | null;
+  tier_assigned_at: string | null;
+  tier_expires_at: string | null;
+  member_number: string;
+  stats: {
+    total_bonus_earned: number;
+    total_trade_ins: number;
+    total_trade_value: number;
+  };
 }
 
-export interface SubscriptionStatus {
-  status: string;
-  current_period_start: string;
-  current_period_end: string;
-  cancel_at_period_end: boolean;
-  tier: Tier | null;
-  member_status: string;
-}
+// For backwards compatibility - alias to MembershipStatus
+export type SubscriptionStatus = MembershipStatus;
 
 export async function getTiers(): Promise<{ tiers: Tier[] }> {
   return api.get('/api/membership/tiers');
 }
 
-export async function createCheckout(
-  tierId: number,
-  successUrl?: string,
-  cancelUrl?: string
-): Promise<CheckoutSession> {
-  return api.post('/api/membership/checkout', {
-    tier_id: tierId,
-    success_url: successUrl,
-    cancel_url: cancelUrl,
-  });
-}
-
-export async function createPortalSession(returnUrl?: string): Promise<{ url: string }> {
-  return api.post('/api/membership/portal', { return_url: returnUrl });
-}
-
-export async function changeTier(tierId: number): Promise<{
-  message: string;
-  new_tier: Tier;
-  subscription: unknown;
-}> {
-  return api.post('/api/membership/change-tier', { tier_id: tierId });
-}
-
-export async function cancelSubscription(immediate?: boolean): Promise<{
-  message: string;
-  subscription: unknown;
-}> {
-  return api.post('/api/membership/cancel', { immediate });
-}
-
-export async function reactivateSubscription(): Promise<{
-  message: string;
-  subscription: unknown;
-}> {
-  return api.post('/api/membership/reactivate');
-}
-
-export async function getSubscriptionStatus(): Promise<SubscriptionStatus> {
+export async function getMembershipStatus(): Promise<MembershipStatus> {
   return api.get('/api/membership/status');
+}
+
+// Backwards compatibility alias
+export async function getSubscriptionStatus(): Promise<MembershipStatus> {
+  return getMembershipStatus();
 }
 
 // Store Credit

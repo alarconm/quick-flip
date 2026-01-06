@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TradeUp ROI Calculator - See Your Revenue Potential</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --orange: #e85d27;
+            --green: #10b981;
+            --dark: #0c0c0c;
+            --surface: #171717;
+            --surface-2: #262626;
+            --border: #404040;
+            --text: #fafafa;
+            --muted: #a3a3a3;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--dark);
+            color: var(--text);
+            line-height: 1.6;
+        }
+
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+
+        /* Nav */
+        nav {
+            padding: 20px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        nav .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo {
+            font-size: 24px;
+            font-weight: 800;
+        }
+        .nav-cta {
+            background: var(--orange);
+            color: #fff;
+            padding: 12px 24px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        /* Hero */
+        .hero {
+            padding: 80px 0 60px;
+            text-align: center;
+        }
+        .hero h1 {
+            font-size: clamp(36px, 5vw, 56px);
+            font-weight: 800;
+            margin-bottom: 16px;
+        }
+        .hero h1 span { color: var(--green); }
+        .hero p {
+            font-size: 20px;
+            color: var(--muted);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* Calculator Section */
+        .calculator-section {
+            padding: 60px 0 100px;
+        }
+        .calculator-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 48px;
+        }
+        @media (max-width: 900px) { .calculator-grid { grid-template-columns: 1fr; } }
+
+        .calculator-inputs {
+            background: var(--surface);
+            border-radius: 24px;
+            padding: 40px;
+            border: 1px solid var(--border);
+        }
+        .calc-title {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 32px;
+        }
+
+        .input-group {
+            margin-bottom: 28px;
+        }
+        .input-group label {
+            display: block;
+            font-size: 14px;
+            color: var(--muted);
+            margin-bottom: 8px;
+        }
+        .input-wrapper {
+            position: relative;
+        }
+        .input-prefix {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--muted);
+            font-size: 18px;
+        }
+        .input-group input[type="number"],
+        .input-group input[type="range"] {
+            width: 100%;
+        }
+        .input-group input[type="number"] {
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px 16px 16px 40px;
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--text);
+            font-family: inherit;
+        }
+        .input-group input[type="number"]:focus {
+            outline: none;
+            border-color: var(--orange);
+        }
+
+        .slider-wrapper {
+            margin-top: 8px;
+        }
+        input[type="range"] {
+            -webkit-appearance: none;
+            background: var(--surface-2);
+            height: 8px;
+            border-radius: 4px;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 24px;
+            height: 24px;
+            background: var(--orange);
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        .slider-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: var(--muted);
+            margin-top: 8px;
+        }
+
+        .calculator-results {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .result-card {
+            background: var(--surface);
+            border-radius: 20px;
+            padding: 32px;
+            border: 1px solid var(--border);
+        }
+        .result-card.highlight {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(16, 185, 129, 0.05));
+            border-color: rgba(16, 185, 129, 0.3);
+        }
+        .result-label {
+            font-size: 14px;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+        .result-value {
+            font-size: 48px;
+            font-weight: 800;
+            line-height: 1;
+        }
+        .result-card.highlight .result-value { color: var(--green); }
+        .result-note {
+            font-size: 14px;
+            color: var(--muted);
+            margin-top: 12px;
+        }
+
+        .breakdown-card {
+            background: var(--surface);
+            border-radius: 20px;
+            padding: 32px;
+            border: 1px solid var(--border);
+        }
+        .breakdown-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 20px;
+        }
+        .breakdown-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .breakdown-row:last-child { border-bottom: none; }
+        .breakdown-row span:first-child { color: var(--muted); }
+        .breakdown-row span:last-child { font-weight: 600; }
+        .breakdown-row.total {
+            border-top: 2px solid var(--border);
+            margin-top: 12px;
+            padding-top: 20px;
+        }
+        .breakdown-row.total span { font-size: 20px; }
+        .breakdown-row.total span:last-child { color: var(--green); }
+
+        /* How We Calculate */
+        .methodology {
+            padding: 80px 0;
+            background: var(--surface);
+        }
+        .method-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 24px;
+        }
+        @media (max-width: 900px) { .method-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 500px) { .method-grid { grid-template-columns: 1fr; } }
+
+        .method-card {
+            background: var(--dark);
+            border-radius: 16px;
+            padding: 24px;
+            border: 1px solid var(--border);
+            text-align: center;
+        }
+        .method-icon {
+            width: 48px;
+            height: 48px;
+            background: rgba(232, 93, 39, 0.1);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 16px;
+            font-size: 24px;
+        }
+        .method-card h3 { font-size: 16px; margin-bottom: 8px; }
+        .method-card p { font-size: 14px; color: var(--muted); }
+
+        .section-title {
+            text-align: center;
+            margin-bottom: 48px;
+        }
+        .section-title h2 {
+            font-size: 36px;
+            font-weight: 800;
+            margin-bottom: 12px;
+        }
+        .section-title p { color: var(--muted); }
+
+        /* CTA */
+        .cta {
+            padding: 100px 0;
+            text-align: center;
+        }
+        .cta h2 {
+            font-size: 40px;
+            font-weight: 800;
+            margin-bottom: 16px;
+        }
+        .cta p {
+            color: var(--muted);
+            font-size: 20px;
+            margin-bottom: 32px;
+        }
+        .btn-primary {
+            display: inline-block;
+            background: var(--orange);
+            color: #fff;
+            padding: 18px 36px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 18px;
+            transition: all 0.3s;
+        }
+        .btn-primary:hover { transform: translateY(-3px); }
+
+        /* Footer */
+        footer {
+            padding: 40px 0;
+            border-top: 1px solid var(--border);
+            text-align: center;
+            color: var(--muted);
+        }
+        footer a { color: var(--orange); text-decoration: none; }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="container">
+            <div class="logo">TradeUp</div>
+            <a href="#" class="nav-cta">Get Started</a>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <div class="container">
+            <h1>Calculate Your <span>Revenue Potential</span></h1>
+            <p>See how much additional revenue TradeUp's membership program can generate for your card shop.</p>
+        </div>
+    </section>
+
+    <section class="calculator-section">
+        <div class="container">
+            <div class="calculator-grid">
+                <div class="calculator-inputs">
+                    <h2 class="calc-title">Your Numbers</h2>
+
+                    <div class="input-group">
+                        <label>Monthly Trade-Ins (without membership)</label>
+                        <div class="input-wrapper">
+                            <span class="input-prefix">$</span>
+                            <input type="number" id="monthlyTradeins" value="5000" min="0" step="500">
+                        </div>
+                    </div>
+
+                    <div class="input-group">
+                        <label>Average Profit Margin on Trade-Ins</label>
+                        <div class="slider-wrapper">
+                            <input type="range" id="profitMargin" min="10" max="50" value="25">
+                            <div class="slider-labels">
+                                <span>10%</span>
+                                <span id="marginValue">25%</span>
+                                <span>50%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="input-group">
+                        <label>Estimated Members (Year 1)</label>
+                        <div class="input-wrapper">
+                            <input type="number" id="memberCount" value="100" min="0" step="10">
+                        </div>
+                    </div>
+
+                    <div class="input-group">
+                        <label>Expected Trade-In Increase with Membership</label>
+                        <div class="slider-wrapper">
+                            <input type="range" id="volumeIncrease" min="10" max="100" value="40">
+                            <div class="slider-labels">
+                                <span>10%</span>
+                                <span id="volumeValue">40%</span>
+                                <span>100%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="calculator-results">
+                    <div class="result-card highlight">
+                        <div class="result-label">Additional Annual Revenue</div>
+                        <div class="result-value" id="additionalRevenue">$24,000</div>
+                        <div class="result-note">From increased trade-in volume</div>
+                    </div>
+
+                    <div class="result-card">
+                        <div class="result-label">ROI on TradeUp</div>
+                        <div class="result-value" id="roiValue">40x</div>
+                        <div class="result-note">vs $49/mo Growth plan</div>
+                    </div>
+
+                    <div class="breakdown-card">
+                        <h3 class="breakdown-title">Revenue Breakdown</h3>
+                        <div class="breakdown-row">
+                            <span>Current Monthly Trade-Ins</span>
+                            <span id="currentMonthly">$5,000</span>
+                        </div>
+                        <div class="breakdown-row">
+                            <span>With TradeUp (+40%)</span>
+                            <span id="projectedMonthly">$7,000</span>
+                        </div>
+                        <div class="breakdown-row">
+                            <span>Monthly Profit Increase</span>
+                            <span id="monthlyProfit">$500</span>
+                        </div>
+                        <div class="breakdown-row">
+                            <span>TradeUp Cost (Growth)</span>
+                            <span>-$49</span>
+                        </div>
+                        <div class="breakdown-row total">
+                            <span>Net Annual Gain</span>
+                            <span id="netAnnual">$5,412</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="methodology">
+        <div class="container">
+            <div class="section-title">
+                <h2>How We Calculate</h2>
+                <p>Conservative estimates based on real card shop data</p>
+            </div>
+
+            <div class="method-grid">
+                <div class="method-card">
+                    <div class="method-icon">📈</div>
+                    <h3>40% Volume Increase</h3>
+                    <p>Average increase in trade-in volume with a membership program</p>
+                </div>
+                <div class="method-card">
+                    <div class="method-icon">🔄</div>
+                    <h3>2.5x Repeat Rate</h3>
+                    <p>Members trade in 2.5x more often than non-members</p>
+                </div>
+                <div class="method-card">
+                    <div class="method-icon">💵</div>
+                    <h3>$127 LTV</h3>
+                    <p>Average lifetime value per member</p>
+                </div>
+                <div class="method-card">
+                    <div class="method-icon">⏱️</div>
+                    <h3>6 Month Payback</h3>
+                    <p>Most shops see ROI within 6 months</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="cta">
+        <div class="container">
+            <h2>Ready to Grow?</h2>
+            <p>Start your free trial and see these numbers become reality.</p>
+            <a href="#" class="btn-primary">Start Free Trial</a>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2026 <a href="#">Cardflow Labs</a>. Built by card shop owners.</p>
+        </div>
+    </footer>
+
+    <script>
+        // Calculator Logic
+        const monthlyTradeins = document.getElementById('monthlyTradeins');
+        const profitMargin = document.getElementById('profitMargin');
+        const memberCount = document.getElementById('memberCount');
+        const volumeIncrease = document.getElementById('volumeIncrease');
+        const marginValue = document.getElementById('marginValue');
+        const volumeValue = document.getElementById('volumeValue');
+
+        function formatCurrency(num) {
+            return '$' + num.toLocaleString('en-US', { maximumFractionDigits: 0 });
+        }
+
+        function calculate() {
+            const tradeins = parseFloat(monthlyTradeins.value) || 0;
+            const margin = parseFloat(profitMargin.value) / 100;
+            const members = parseFloat(memberCount.value) || 0;
+            const increase = parseFloat(volumeIncrease.value) / 100;
+
+            // Update slider labels
+            marginValue.textContent = (margin * 100).toFixed(0) + '%';
+            volumeValue.textContent = (increase * 100).toFixed(0) + '%';
+
+            // Calculate values
+            const projectedTradeins = tradeins * (1 + increase);
+            const additionalTradeins = projectedTradeins - tradeins;
+            const monthlyProfitIncrease = additionalTradeins * margin;
+            const annualProfitIncrease = monthlyProfitIncrease * 12;
+            const tradeupCost = 49 * 12; // Growth plan annual
+            const netAnnualGain = annualProfitIncrease - tradeupCost;
+            const roi = annualProfitIncrease / tradeupCost;
+
+            // Update display
+            document.getElementById('additionalRevenue').textContent = formatCurrency(annualProfitIncrease);
+            document.getElementById('roiValue').textContent = roi.toFixed(0) + 'x';
+            document.getElementById('currentMonthly').textContent = formatCurrency(tradeins);
+            document.getElementById('projectedMonthly').textContent = formatCurrency(projectedTradeins);
+            document.getElementById('monthlyProfit').textContent = formatCurrency(monthlyProfitIncrease);
+            document.getElementById('netAnnual').textContent = formatCurrency(netAnnualGain);
+        }
+
+        // Add event listeners
+        monthlyTradeins.addEventListener('input', calculate);
+        profitMargin.addEventListener('input', calculate);
+        memberCount.addEventListener('input', calculate);
+        volumeIncrease.addEventListener('input', calculate);
+
+        // Initial calculation
+        calculate();
+    </script>
+</body>
+</html>

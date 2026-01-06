@@ -1,6 +1,10 @@
 """
 Admin API routes for Quick Flip platform.
 Handles admin dashboard, Shopify lookups, and store credit events.
+
+Authentication:
+- Uses Shopify session tokens (JWT) for embedded app requests
+- Falls back to shop query param or X-Tenant-ID header for dev/backwards compat
 """
 from flask import Blueprint, request, jsonify, g
 from functools import wraps
@@ -9,19 +13,44 @@ from ..extensions import db
 from ..models.member import Member, MembershipTier
 from ..services.shopify_client import ShopifyClient
 from ..services.store_credit_events import StoreCreditEventService
+from ..middleware.shopify_auth import require_shopify_auth
 
 admin_bp = Blueprint('admin', __name__)
 
 
 def require_tenant(f):
-    """Decorator to require tenant context."""
+    """
+    Legacy decorator for tenant context.
+    DEPRECATED: Use @require_shopify_auth instead.
+
+    Kept for backwards compatibility - will check both new and old methods.
+    """
     @wraps(f)
     def decorated_function(*args, **kwargs):
+        # First try the new auth method (shop domain based)
+        from ..middleware.shopify_auth import get_shop_from_request
+        from ..models import Tenant
+
+        shop = get_shop_from_request()
+        if shop:
+            tenant = Tenant.query.filter_by(shopify_domain=shop).first()
+            if tenant:
+                g.tenant_id = tenant.id
+                g.tenant = tenant
+                g.shop = shop
+                return f(*args, **kwargs)
+
+        # Fallback to X-Tenant-ID header
         tenant_id = request.headers.get('X-Tenant-ID')
-        if not tenant_id:
-            return jsonify({'error': 'Tenant ID required'}), 400
-        g.tenant_id = int(tenant_id)
-        return f(*args, **kwargs)
+        if tenant_id:
+            try:
+                g.tenant_id = int(tenant_id)
+                return f(*args, **kwargs)
+            except (ValueError, TypeError):
+                pass
+
+        return jsonify({'error': 'Tenant ID required'}), 400
+
     return decorated_function
 
 

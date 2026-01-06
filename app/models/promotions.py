@@ -400,11 +400,20 @@ class BulkCreditOperation(db.Model):
 
 # ==================== Tier Configuration ====================
 
+class CashbackMethod(str, Enum):
+    """How cashback rewards are delivered to customers."""
+    NATIVE_STORE_CREDIT = 'native_store_credit'  # Shopify native store credit
+    DISCOUNT_CODE = 'discount_code'              # Generate unique discount codes
+    GIFT_CARD = 'gift_card'                      # Shopify gift cards
+    MANUAL = 'manual'                            # Track only, manual fulfillment
+
+
 class TierConfiguration(db.Model):
     """
     Configurable tier benefits.
 
     Allows customizing:
+    - Monthly and yearly pricing options
     - Trade-in bonus percentage
     - Purchase cashback percentage
     - Other tier-specific benefits
@@ -414,8 +423,9 @@ class TierConfiguration(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     tier_name = db.Column(db.String(20), unique=True, nullable=False)  # SILVER, GOLD, PLATINUM
 
-    # Pricing
+    # Pricing - Monthly is required, yearly is optional (typically ~17% discount)
     monthly_price = db.Column(db.Numeric(6, 2), nullable=False)
+    yearly_price = db.Column(db.Numeric(6, 2), nullable=True)  # If null, yearly not offered
 
     # Benefits
     trade_in_bonus_pct = db.Column(db.Numeric(5, 2), default=0)     # Extra % on trade-ins
@@ -436,6 +446,24 @@ class TierConfiguration(db.Model):
 
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+    @property
+    def yearly_savings(self) -> Optional[Decimal]:
+        """Calculate yearly savings vs monthly billing."""
+        if not self.yearly_price:
+            return None
+        annual_monthly = self.monthly_price * 12
+        return annual_monthly - self.yearly_price
+
+    @property
+    def yearly_discount_pct(self) -> Optional[float]:
+        """Calculate yearly discount percentage."""
+        if not self.yearly_price:
+            return None
+        annual_monthly = float(self.monthly_price) * 12
+        if annual_monthly == 0:
+            return None
+        return round((1 - float(self.yearly_price) / annual_monthly) * 100, 1)
+
     def to_dict(self) -> Dict[str, Any]:
         """Serialize to dictionary."""
         import json
@@ -443,6 +471,9 @@ class TierConfiguration(db.Model):
             'id': self.id,
             'tier_name': self.tier_name,
             'monthly_price': float(self.monthly_price),
+            'yearly_price': float(self.yearly_price) if self.yearly_price else None,
+            'yearly_savings': float(self.yearly_savings) if self.yearly_savings else None,
+            'yearly_discount_pct': self.yearly_discount_pct,
             'trade_in_bonus_pct': float(self.trade_in_bonus_pct or 0),
             'purchase_cashback_pct': float(self.purchase_cashback_pct or 0),
             'store_discount_pct': float(self.store_discount_pct or 0),
@@ -461,6 +492,7 @@ DEFAULT_TIER_CONFIGS = [
     {
         'tier_name': 'SILVER',
         'monthly_price': 9.99,
+        'yearly_price': 99.99,  # ~17% savings ($19.89/yr)
         'trade_in_bonus_pct': 0,
         'purchase_cashback_pct': 1,
         'store_discount_pct': 10,
@@ -472,6 +504,7 @@ DEFAULT_TIER_CONFIGS = [
     {
         'tier_name': 'GOLD',
         'monthly_price': 19.99,
+        'yearly_price': 199.99,  # ~17% savings ($39.89/yr)
         'trade_in_bonus_pct': 5,
         'purchase_cashback_pct': 2,
         'store_discount_pct': 15,
@@ -483,6 +516,7 @@ DEFAULT_TIER_CONFIGS = [
     {
         'tier_name': 'PLATINUM',
         'monthly_price': 29.99,
+        'yearly_price': 299.99,  # ~17% savings ($59.89/yr)
         'trade_in_bonus_pct': 10,
         'purchase_cashback_pct': 3,
         'store_discount_pct': 20,

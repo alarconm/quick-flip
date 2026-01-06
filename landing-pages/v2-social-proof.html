@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TradeUp - Trusted by 100+ Card Shops | Trade-In Membership Platform</title>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --orange: #e85d27;
+            --gold: #ffd700;
+            --dark: #0a0a0f;
+            --card-bg: #141419;
+            --border: rgba(255,255,255,0.08);
+        }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--dark);
+            color: #fff;
+            line-height: 1.6;
+        }
+
+        h1, h2, h3 { font-family: 'Syne', sans-serif; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+
+        /* Stats Banner */
+        .stats-banner {
+            background: linear-gradient(90deg, var(--orange), #ff7b47);
+            padding: 12px 0;
+            text-align: center;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        /* Nav */
+        nav {
+            padding: 20px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        nav .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo {
+            font-family: 'Syne', sans-serif;
+            font-size: 28px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #fff, rgba(255,255,255,0.7));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .nav-links { display: flex; gap: 32px; align-items: center; }
+        .nav-links a { color: rgba(255,255,255,0.7); text-decoration: none; transition: color 0.3s; }
+        .nav-links a:hover { color: #fff; }
+        .nav-cta {
+            background: var(--orange);
+            color: #fff;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+        }
+
+        /* Hero with Social Proof */
+        .hero {
+            padding: 80px 0;
+            text-align: center;
+        }
+        .trust-badges {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-bottom: 40px;
+            flex-wrap: wrap;
+        }
+        .trust-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: rgba(255,255,255,0.6);
+            font-size: 14px;
+        }
+        .trust-badge strong { color: #fff; font-size: 18px; }
+        .stars { color: var(--gold); }
+
+        .hero h1 {
+            font-size: clamp(40px, 6vw, 72px);
+            font-weight: 800;
+            line-height: 1.05;
+            margin-bottom: 24px;
+        }
+        .hero h1 span {
+            background: linear-gradient(135deg, var(--orange), var(--gold));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .hero p {
+            font-size: 20px;
+            color: rgba(255,255,255,0.6);
+            max-width: 600px;
+            margin: 0 auto 40px;
+        }
+
+        .hero-cta-group {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .btn-primary {
+            background: var(--orange);
+            color: #fff;
+            padding: 18px 36px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 18px;
+            text-decoration: none;
+            transition: all 0.3s;
+            border: none;
+            cursor: pointer;
+        }
+        .btn-primary:hover { transform: translateY(-3px); box-shadow: 0 20px 40px rgba(232, 93, 39, 0.3); }
+        .btn-outline {
+            background: transparent;
+            color: #fff;
+            padding: 18px 36px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 18px;
+            text-decoration: none;
+            border: 2px solid var(--border);
+            transition: all 0.3s;
+        }
+        .btn-outline:hover { border-color: var(--orange); }
+
+        /* Metrics Section */
+        .metrics {
+            padding: 80px 0;
+            background: var(--card-bg);
+        }
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 32px;
+        }
+        @media (max-width: 900px) { .metrics-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 500px) { .metrics-grid { grid-template-columns: 1fr; } }
+
+        .metric-card {
+            text-align: center;
+            padding: 40px;
+            background: var(--dark);
+            border-radius: 16px;
+            border: 1px solid var(--border);
+        }
+        .metric-number {
+            font-family: 'Syne', sans-serif;
+            font-size: 56px;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--orange), var(--gold));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            line-height: 1;
+            margin-bottom: 8px;
+        }
+        .metric-label {
+            color: rgba(255,255,255,0.6);
+            font-size: 14px;
+        }
+
+        /* Testimonials */
+        .testimonials {
+            padding: 100px 0;
+        }
+        .section-header {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+        .section-header h2 {
+            font-size: 48px;
+            font-weight: 800;
+            margin-bottom: 16px;
+        }
+        .section-header p {
+            color: rgba(255,255,255,0.6);
+            font-size: 18px;
+        }
+
+        .testimonial-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+        }
+        @media (max-width: 900px) { .testimonial-grid { grid-template-columns: 1fr; } }
+
+        .testimonial {
+            background: var(--card-bg);
+            border-radius: 20px;
+            padding: 32px;
+            border: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+        }
+        .testimonial-stars {
+            color: var(--gold);
+            font-size: 20px;
+            margin-bottom: 20px;
+        }
+        .testimonial-text {
+            font-size: 16px;
+            line-height: 1.7;
+            color: rgba(255,255,255,0.85);
+            flex-grow: 1;
+            margin-bottom: 24px;
+        }
+        .testimonial-author {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .author-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--orange), var(--gold));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 18px;
+        }
+        .author-info h4 { font-size: 16px; margin-bottom: 2px; }
+        .author-info p { font-size: 13px; color: rgba(255,255,255,0.5); }
+
+        /* Logo Cloud */
+        .logo-cloud {
+            padding: 60px 0;
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+        }
+        .logo-cloud p {
+            text-align: center;
+            color: rgba(255,255,255,0.4);
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 32px;
+        }
+        .logos {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 60px;
+            flex-wrap: wrap;
+            opacity: 0.5;
+        }
+        .logos span {
+            font-family: 'Syne', sans-serif;
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        /* Case Study */
+        .case-study {
+            padding: 100px 0;
+            background: var(--card-bg);
+        }
+        .case-study-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 60px;
+            align-items: center;
+        }
+        @media (max-width: 900px) { .case-study-content { grid-template-columns: 1fr; } }
+
+        .case-study-text h2 {
+            font-size: 40px;
+            margin-bottom: 24px;
+        }
+        .case-study-text h2 span { color: var(--orange); }
+        .case-study-text p {
+            color: rgba(255,255,255,0.7);
+            font-size: 18px;
+            margin-bottom: 32px;
+        }
+        .case-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+        }
+        .case-stat {
+            text-align: center;
+        }
+        .case-stat-number {
+            font-family: 'Syne', sans-serif;
+            font-size: 36px;
+            font-weight: 700;
+            color: var(--orange);
+        }
+        .case-stat-label {
+            font-size: 13px;
+            color: rgba(255,255,255,0.5);
+        }
+
+        .case-study-visual {
+            background: var(--dark);
+            border-radius: 20px;
+            padding: 40px;
+            border: 1px solid var(--border);
+        }
+        .case-logo {
+            font-family: 'Syne', sans-serif;
+            font-size: 32px;
+            font-weight: 800;
+            margin-bottom: 16px;
+            color: var(--orange);
+        }
+        .case-quote {
+            font-size: 20px;
+            font-style: italic;
+            color: rgba(255,255,255,0.85);
+            margin-bottom: 24px;
+        }
+        .case-author {
+            color: rgba(255,255,255,0.5);
+        }
+
+        /* Pricing */
+        .pricing {
+            padding: 100px 0;
+        }
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        @media (max-width: 900px) { .pricing-grid { grid-template-columns: 1fr; } }
+
+        .pricing-card {
+            background: var(--card-bg);
+            border-radius: 20px;
+            padding: 40px;
+            border: 1px solid var(--border);
+            transition: all 0.3s;
+        }
+        .pricing-card:hover { border-color: var(--orange); transform: translateY(-8px); }
+        .pricing-card.popular {
+            border-color: var(--orange);
+            position: relative;
+            transform: scale(1.05);
+        }
+        .popular-badge {
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, var(--orange), var(--gold));
+            padding: 6px 20px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+        .pricing-card h3 { font-size: 24px; margin-bottom: 8px; }
+        .pricing-card .price {
+            font-family: 'Syne', sans-serif;
+            font-size: 56px;
+            font-weight: 800;
+            margin: 16px 0;
+        }
+        .pricing-card .price span { font-size: 18px; font-weight: 400; color: rgba(255,255,255,0.5); }
+        .pricing-features { list-style: none; margin: 24px 0 32px; }
+        .pricing-features li {
+            padding: 12px 0;
+            color: rgba(255,255,255,0.7);
+            border-bottom: 1px solid var(--border);
+        }
+        .pricing-features li:last-child { border-bottom: none; }
+        .pricing-btn {
+            display: block;
+            width: 100%;
+            padding: 16px;
+            border-radius: 12px;
+            font-weight: 600;
+            text-decoration: none;
+            text-align: center;
+            transition: all 0.3s;
+            background: transparent;
+            border: 2px solid var(--border);
+            color: #fff;
+        }
+        .pricing-btn:hover { border-color: var(--orange); }
+        .pricing-card.popular .pricing-btn {
+            background: var(--orange);
+            border-color: var(--orange);
+        }
+
+        /* Final CTA */
+        .final-cta {
+            padding: 120px 0;
+            text-align: center;
+            background: linear-gradient(180deg, var(--dark) 0%, var(--card-bg) 100%);
+        }
+        .final-cta h2 {
+            font-size: 48px;
+            margin-bottom: 24px;
+        }
+        .final-cta p {
+            font-size: 20px;
+            color: rgba(255,255,255,0.6);
+            margin-bottom: 40px;
+        }
+
+        /* Footer */
+        footer {
+            padding: 40px 0;
+            border-top: 1px solid var(--border);
+            text-align: center;
+            color: rgba(255,255,255,0.4);
+        }
+        footer a { color: var(--orange); text-decoration: none; }
+    </style>
+</head>
+<body>
+    <div class="stats-banner">
+        Trusted by 100+ card shops. 50,000+ members enrolled. $2M+ in trade-ins processed.
+    </div>
+
+    <nav>
+        <div class="container">
+            <div class="logo">TradeUp</div>
+            <div class="nav-links">
+                <a href="#testimonials">Reviews</a>
+                <a href="#pricing">Pricing</a>
+                <a href="#" class="nav-cta">Get Started</a>
+            </div>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <div class="container">
+            <div class="trust-badges">
+                <div class="trust-badge">
+                    <span class="stars">★★★★★</span>
+                    <span><strong>4.9</strong> on Shopify</span>
+                </div>
+                <div class="trust-badge">
+                    <strong>100+</strong> Card Shops
+                </div>
+                <div class="trust-badge">
+                    <strong>50K+</strong> Members
+                </div>
+            </div>
+
+            <h1>Card Shops <span>Love</span> TradeUp</h1>
+            <p>Join the fastest-growing trade-in membership platform. Turn one-time sellers into loyal repeat customers.</p>
+
+            <div class="hero-cta-group">
+                <a href="#" class="btn-primary">Start Free Trial</a>
+                <a href="#testimonials" class="btn-outline">Read Reviews</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="metrics">
+        <div class="container">
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-number">40%</div>
+                    <div class="metric-label">Increase in Repeat Customers</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-number">2.5x</div>
+                    <div class="metric-label">More Trade-Ins Per Member</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-number">$127</div>
+                    <div class="metric-label">Avg. Member Lifetime Value</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-number">5min</div>
+                    <div class="metric-label">Setup Time</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="testimonials" id="testimonials">
+        <div class="container">
+            <div class="section-header">
+                <h2>What Shop Owners Say</h2>
+                <p>Real results from real card shops</p>
+            </div>
+
+            <div class="testimonial-grid">
+                <div class="testimonial">
+                    <div class="testimonial-stars">★★★★★</div>
+                    <p class="testimonial-text">"TradeUp completely changed how we handle trade-ins. Our members love the Quick Flip Bonus - they actually root for their cards to sell fast now!"</p>
+                    <div class="testimonial-author">
+                        <div class="author-avatar">MJ</div>
+                        <div class="author-info">
+                            <h4>Mike Johnson</h4>
+                            <p>Card Kingdom PDX</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="testimonial">
+                    <div class="testimonial-stars">★★★★★</div>
+                    <p class="testimonial-text">"Setup took 5 minutes. Within a week we had 50 members signed up. The tiered system makes customers want to trade in more to hit the next level."</p>
+                    <div class="testimonial-author">
+                        <div class="author-avatar">SR</div>
+                        <div class="author-info">
+                            <h4>Sarah Rodriguez</h4>
+                            <p>Prime Time Cards</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="testimonial">
+                    <div class="testimonial-stars">★★★★★</div>
+                    <p class="testimonial-text">"Finally, a trade-in app built by people who actually run a card shop. They understand our problems because they've lived them."</p>
+                    <div class="testimonial-author">
+                        <div class="author-avatar">DL</div>
+                        <div class="author-info">
+                            <h4>Derek Lee</h4>
+                            <p>Collector's Corner</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="logo-cloud">
+        <div class="container">
+            <p>Trusted by card shops nationwide</p>
+            <div class="logos">
+                <span>Card Kingdom</span>
+                <span>Prime Time</span>
+                <span>Collector's Corner</span>
+                <span>Mint Condition</span>
+                <span>Elite Cards</span>
+            </div>
+        </div>
+    </section>
+
+    <section class="case-study">
+        <div class="container">
+            <div class="case-study-content">
+                <div class="case-study-text">
+                    <h2>How <span>ORB Sports Cards</span> Increased Trade-Ins by 40%</h2>
+                    <p>ORB Sports Cards in Kent, WA was losing customers to big-box stores. After implementing TradeUp, they saw dramatic improvements in customer retention and trade-in volume.</p>
+                    <div class="case-stats">
+                        <div class="case-stat">
+                            <div class="case-stat-number">+40%</div>
+                            <div class="case-stat-label">Trade-In Volume</div>
+                        </div>
+                        <div class="case-stat">
+                            <div class="case-stat-number">250+</div>
+                            <div class="case-stat-label">Active Members</div>
+                        </div>
+                        <div class="case-stat">
+                            <div class="case-stat-number">85%</div>
+                            <div class="case-stat-label">Member Retention</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="case-study-visual">
+                    <div class="case-logo">ORB</div>
+                    <p class="case-quote">"TradeUp isn't just software - it's the competitive advantage we needed. Our members feel valued and they keep coming back."</p>
+                    <p class="case-author">- Brandon D., Co-Owner</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="pricing" id="pricing">
+        <div class="container">
+            <div class="section-header">
+                <h2>Start Growing Today</h2>
+                <p>No credit card required. Cancel anytime.</p>
+            </div>
+
+            <div class="pricing-grid">
+                <div class="pricing-card">
+                    <h3>Starter</h3>
+                    <div class="price">$19<span>/mo</span></div>
+                    <ul class="pricing-features">
+                        <li>Up to 200 members</li>
+                        <li>3 membership tiers</li>
+                        <li>Remove branding</li>
+                        <li>Email support</li>
+                    </ul>
+                    <a href="#" class="pricing-btn">Start Free Trial</a>
+                </div>
+
+                <div class="pricing-card popular">
+                    <div class="popular-badge">Most Popular</div>
+                    <h3>Growth</h3>
+                    <div class="price">$49<span>/mo</span></div>
+                    <ul class="pricing-features">
+                        <li>Up to 1,000 members</li>
+                        <li>5 membership tiers</li>
+                        <li>Analytics dashboard</li>
+                        <li>Priority support</li>
+                    </ul>
+                    <a href="#" class="pricing-btn">Start Free Trial</a>
+                </div>
+
+                <div class="pricing-card">
+                    <h3>Pro</h3>
+                    <div class="price">$99<span>/mo</span></div>
+                    <ul class="pricing-features">
+                        <li>Unlimited members</li>
+                        <li>Quick Flip Bonus</li>
+                        <li>API access</li>
+                        <li>Dedicated support</li>
+                    </ul>
+                    <a href="#" class="pricing-btn">Contact Sales</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="final-cta">
+        <div class="container">
+            <h2>Join 100+ Card Shops</h2>
+            <p>See why shop owners are switching to TradeUp</p>
+            <a href="#" class="btn-primary">Start Your Free Trial</a>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2026 <a href="#">Cardflow Labs</a>. Built by card shop owners, for card shop owners.</p>
+        </div>
+    </footer>
+</body>
+</html>

@@ -128,10 +128,17 @@ class StoreCreditService:
         source_type: Optional[str] = None,
         source_id: Optional[str] = None,
         created_by: str = 'system',
+        sync_to_shopify: bool = True,
     ) -> StoreCreditLedger:
         """
         Deduct credit from member's balance (redemption).
+
+        Creates ledger entry, updates balance, and syncs to Shopify.
         """
+        member = Member.query.get(member_id)
+        if not member:
+            raise ValueError(f"Member {member_id} not found")
+
         balance = self.get_member_balance(member_id)
 
         if Decimal(str(balance.available_balance or 0)) < amount:
@@ -158,61 +165,94 @@ class StoreCreditService:
 
         db.session.commit()
 
+        # Sync to Shopify
+        if sync_to_shopify and member.shopify_customer_id:
+            self._sync_debit_to_shopify(entry, member)
+
         return entry
 
-    def _sync_credit_to_shopify(self, entry: StoreCreditLedger, member: Member) -> bool:
+    def _sync_credit_to_shopify(
+        self,
+        entry: StoreCreditLedger,
+        member: Member
+    ) -> bool:
         """
         Sync credit entry to Shopify native store credit.
 
-        Uses Shopify's Store Credit API if available, otherwise metafield.
+        Uses Shopify's native Store Credit API (storeCreditAccountCredit mutation).
+
+        Note: Shopify's current API doesn't support transaction notes or email notifications.
+        TradeUp handles notifications via its own NotificationService.
+
+        Args:
+            entry: The ledger entry to sync
+            member: The member receiving credit
         """
         try:
             # Create client for member's tenant
             shopify_client = ShopifyClient(member.tenant_id)
 
-            # Try native store credit first
-            result = shopify_client.issue_store_credit(
+            # Use native store credit API
+            # Note: Shopify API doesn't support notes or notifications
+            result = shopify_client.add_store_credit(
                 customer_id=member.shopify_customer_id,
                 amount=float(entry.amount),
+                note=entry.description  # For internal logging only
+            )
+
+            if result.get('success'):
+                entry.synced_to_shopify = True
+                entry.shopify_credit_id = result.get('transaction_id')
+                db.session.commit()
+                current_app.logger.info(
+                    f"Synced ${entry.amount} credit to Shopify for member {member.id}. "
+                    f"New balance: ${result.get('new_balance', 0):.2f}"
+                )
+                return True
+            else:
+                current_app.logger.warning(f"Shopify store credit add returned no success")
+                return False
+
+        except Exception as e:
+            current_app.logger.error(f"Shopify sync error for credit: {e}")
+            entry.sync_error = str(e)[:500]
+            db.session.commit()
+            return False
+
+    def _sync_debit_to_shopify(self, entry: StoreCreditLedger, member: Member) -> bool:
+        """
+        Sync debit (redemption) entry to Shopify native store credit.
+
+        Uses Shopify's native Store Credit API (storeCreditAccountDebit mutation).
+        """
+        try:
+            # Create client for member's tenant
+            shopify_client = ShopifyClient(member.tenant_id)
+
+            # Use native store credit debit API (amount is negative in entry, pass positive)
+            result = shopify_client.debit_store_credit(
+                customer_id=member.shopify_customer_id,
+                amount=float(abs(entry.amount)),
                 note=entry.description,
             )
 
             if result.get('success'):
                 entry.synced_to_shopify = True
-                entry.shopify_credit_id = result.get('credit_id')
+                entry.shopify_credit_id = result.get('transaction_id')
                 db.session.commit()
+                current_app.logger.info(
+                    f"Synced ${abs(entry.amount)} debit to Shopify for member {member.id}. "
+                    f"New balance: ${result.get('new_balance', 0):.2f}"
+                )
                 return True
             else:
-                # Fall back to metafield approach
-                return self._sync_via_metafield(entry, member)
+                current_app.logger.warning(f"Shopify store credit debit returned no success")
+                return False
 
         except Exception as e:
-            current_app.logger.error(f"Shopify sync error: {e}")
+            current_app.logger.error(f"Shopify sync error for debit: {e}")
             entry.sync_error = str(e)[:500]
             db.session.commit()
-            return False
-
-    def _sync_via_metafield(self, entry: StoreCreditLedger, member: Member) -> bool:
-        """
-        Fall back to metafield-based store credit tracking.
-        """
-        try:
-            # Create client for member's tenant
-            shopify_client = ShopifyClient(member.tenant_id)
-
-            balance = self.get_member_balance(entry.member_id)
-            result = shopify_client.set_customer_metafield(
-                customer_id=member.shopify_customer_id,
-                namespace='quick_flip',
-                key='store_credit',
-                value=str(float(balance.total_balance)),
-                type='number_decimal'
-            )
-            entry.synced_to_shopify = result
-            db.session.commit()
-            return result
-        except Exception as e:
-            current_app.logger.error(f"Metafield sync error: {e}")
             return False
 
     def process_purchase_cashback(

@@ -1,5 +1,5 @@
 """
-Configuration management for Quick Flip platform.
+Configuration management for TradeUp platform.
 """
 import os
 from dotenv import load_dotenv
@@ -15,12 +15,11 @@ class BaseConfig:
     # Shopify defaults (overridden per-tenant)
     SHOPIFY_API_VERSION = '2024-01'
 
-    # Quick Flip defaults
-    DEFAULT_QUICK_FLIP_DAYS = 7
+    # TradeUp defaults - tier bonus rates
     DEFAULT_BONUS_RATES = {
-        'silver': 0.10,
-        'gold': 0.20,
-        'platinum': 0.30
+        'silver': 0.05,   # 5% trade-in bonus
+        'gold': 0.10,     # 10% trade-in bonus
+        'platinum': 0.15  # 15% trade-in bonus
     }
 
 
@@ -29,7 +28,7 @@ class DevelopmentConfig(BaseConfig):
     DEBUG = True
     SQLALCHEMY_DATABASE_URI = os.getenv(
         'DATABASE_URL',
-        'sqlite:///quick_flip_dev.db'  # SQLite fallback for local dev
+        'sqlite:///tradeup_dev.db'  # SQLite fallback for local dev
     )
 
 

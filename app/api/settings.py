@@ -10,10 +10,19 @@ from ..models import Tenant
 settings_bp = Blueprint('settings', __name__)
 
 
+# Cashback method options
+CASHBACK_METHODS = {
+    'native_store_credit': 'Shopify Native Store Credit (recommended)',
+    'discount_code': 'Unique Discount Codes',
+    'gift_card': 'Shopify Gift Cards',
+    'manual': 'Manual Fulfillment (track only)',
+}
+
+
 # Default settings structure
 DEFAULT_SETTINGS = {
     'branding': {
-        'app_name': 'Quick Flip',
+        'app_name': 'TradeUp',
         'tagline': 'Trade-in Loyalty Program',
         'logo_url': None,
         'logo_dark_url': None,
@@ -30,9 +39,35 @@ DEFAULT_SETTINGS = {
         'referrals_enabled': False,
         'self_signup_enabled': True
     },
-    'quick_flip': {
-        'default_window_days': 7,
-        'allow_tier_override': True
+    'auto_enrollment': {
+        'enabled': True,  # Auto-enroll customers on first purchase
+        'default_tier_id': None,  # Tier to assign (None = lowest tier)
+        'min_order_value': 0,  # Minimum order value to trigger enrollment
+        'excluded_tags': [],  # Customer tags to exclude (e.g., ['wholesale', 'staff'])
+    },
+    'cashback': {
+        'method': 'native_store_credit',  # How rewards are delivered
+        # Options: native_store_credit, discount_code, gift_card, manual
+        'purchase_cashback_enabled': True,  # Award cashback on purchases
+        'trade_in_credit_enabled': True,   # Award credit on trade-ins
+        'same_transaction_bonus': True,    # Apply tier benefits to same order as membership purchase
+        'rounding_mode': 'down',           # down, up, nearest - for cashback cents
+        'min_cashback_amount': 0.01,       # Minimum amount to issue (avoid tiny credits)
+    },
+    'subscriptions': {
+        'monthly_enabled': True,  # Offer monthly subscriptions
+        'yearly_enabled': True,   # Offer yearly subscriptions (uses yearly_price from tier)
+        'trial_days': 0,          # Free trial days (0 = no trial)
+        'grace_period_days': 3,   # Days to retry failed payment before downgrade
+    },
+    'notifications': {
+        'enabled': True,
+        'welcome_email': True,  # Send welcome email on enrollment
+        'trade_in_updates': True,  # Trade-in status change emails
+        'tier_change': True,  # Tier upgrade/downgrade emails
+        'credit_issued': True,  # Store credit issued emails
+        'from_name': None,  # Defaults to shop name
+        'from_email': None,  # SendGrid verified sender
     },
     'contact': {
         'support_email': None,
@@ -175,4 +210,103 @@ def update_features():
     return jsonify({
         'success': True,
         'features': get_settings_with_defaults(tenant.settings)['features']
+    })
+
+
+@settings_bp.route('/cashback', methods=['GET'])
+def get_cashback_settings():
+    """Get cashback/rewards settings."""
+    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+
+    tenant = Tenant.query.get_or_404(tenant_id)
+    settings = get_settings_with_defaults(tenant.settings or {})
+
+    return jsonify({
+        'cashback': settings['cashback'],
+        'available_methods': CASHBACK_METHODS
+    })
+
+
+@settings_bp.route('/cashback', methods=['PATCH'])
+def update_cashback_settings():
+    """
+    Update cashback/rewards settings.
+
+    Request body:
+        method: native_store_credit | discount_code | gift_card | manual
+        purchase_cashback_enabled: bool
+        trade_in_credit_enabled: bool
+        same_transaction_bonus: bool
+        rounding_mode: down | up | nearest
+        min_cashback_amount: float
+    """
+    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+    data = request.json
+
+    tenant = Tenant.query.get_or_404(tenant_id)
+
+    # Validate method if provided
+    if 'method' in data and data['method'] not in CASHBACK_METHODS:
+        return jsonify({
+            'error': f"Invalid method. Choose from: {list(CASHBACK_METHODS.keys())}"
+        }), 400
+
+    current_settings = tenant.settings or {}
+    current_cashback = current_settings.get('cashback', {})
+
+    for key, value in data.items():
+        current_cashback[key] = value
+
+    current_settings['cashback'] = current_cashback
+    tenant.settings = current_settings
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'cashback': get_settings_with_defaults(tenant.settings)['cashback']
+    })
+
+
+@settings_bp.route('/subscriptions', methods=['GET'])
+def get_subscription_settings():
+    """Get subscription/membership settings."""
+    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+
+    tenant = Tenant.query.get_or_404(tenant_id)
+    settings = get_settings_with_defaults(tenant.settings or {})
+
+    return jsonify({
+        'subscriptions': settings['subscriptions']
+    })
+
+
+@settings_bp.route('/subscriptions', methods=['PATCH'])
+def update_subscription_settings():
+    """
+    Update subscription/membership settings.
+
+    Request body:
+        monthly_enabled: bool
+        yearly_enabled: bool
+        trial_days: int
+        grace_period_days: int
+    """
+    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+    data = request.json
+
+    tenant = Tenant.query.get_or_404(tenant_id)
+
+    current_settings = tenant.settings or {}
+    current_subs = current_settings.get('subscriptions', {})
+
+    for key, value in data.items():
+        current_subs[key] = value
+
+    current_settings['subscriptions'] = current_subs
+    tenant.settings = current_settings
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'subscriptions': get_settings_with_defaults(tenant.settings)['subscriptions']
     })

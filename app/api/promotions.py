@@ -601,18 +601,39 @@ def list_tiers():
 
 @promotions_bp.route('/tiers/<int:tier_id>', methods=['PUT'])
 def update_tier(tier_id: int):
-    """Update a tier configuration."""
+    """
+    Update a tier configuration.
+
+    Request body:
+        monthly_price: Monthly subscription price
+        yearly_price: Yearly subscription price (null to disable yearly)
+        trade_in_bonus_pct: Trade-in bonus percentage
+        purchase_cashback_pct: Purchase cashback percentage
+        store_discount_pct: Store discount percentage
+        color: Display color
+        icon: Icon name
+        badge_text: Badge display text
+        features: Array of feature strings
+    """
     tier = TierConfiguration.query.get_or_404(tier_id)
     data = request.get_json()
 
+    # Pricing
     if 'monthly_price' in data:
         tier.monthly_price = data['monthly_price']
+    if 'yearly_price' in data:
+        # Allow null to disable yearly pricing
+        tier.yearly_price = data['yearly_price'] if data['yearly_price'] else None
+
+    # Benefits
     if 'trade_in_bonus_pct' in data:
         tier.trade_in_bonus_pct = data['trade_in_bonus_pct']
     if 'purchase_cashback_pct' in data:
         tier.purchase_cashback_pct = data['purchase_cashback_pct']
     if 'store_discount_pct' in data:
         tier.store_discount_pct = data['store_discount_pct']
+
+    # Display
     if 'color' in data:
         tier.color = data['color']
     if 'icon' in data:
@@ -622,6 +643,8 @@ def update_tier(tier_id: int):
     if 'features' in data:
         import json
         tier.features = json.dumps(data['features'])
+    if 'active' in data:
+        tier.active = data['active']
 
     db.session.commit()
 

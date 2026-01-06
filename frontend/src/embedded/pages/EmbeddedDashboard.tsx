@@ -20,7 +20,7 @@ import {
   Banner,
 } from '@shopify/polaris';
 import { useQuery } from '@tanstack/react-query';
-import { getApiUrl, getTenantParam } from '../../hooks/useShopifyBridge';
+import { getApiUrl, authFetch } from '../../hooks/useShopifyBridge';
 
 interface DashboardProps {
   shop: string | null;
@@ -54,16 +54,18 @@ interface RecentActivity {
 }
 
 async function fetchDashboard(shop: string | null): Promise<DashboardStats> {
-  const response = await fetch(
-    `${getApiUrl()}/dashboard/stats${getTenantParam(shop)}`
+  const response = await authFetch(
+    `${getApiUrl()}/dashboard/stats`,
+    shop
   );
   if (!response.ok) throw new Error('Failed to fetch dashboard');
   return response.json();
 }
 
 async function fetchRecentActivity(shop: string | null): Promise<RecentActivity[]> {
-  const response = await fetch(
-    `${getApiUrl()}/dashboard/activity${getTenantParam(shop)}`
+  const response = await authFetch(
+    `${getApiUrl()}/dashboard/activity`,
+    shop
   );
   if (!response.ok) throw new Error('Failed to fetch activity');
   return response.json();
@@ -149,7 +151,7 @@ export function EmbeddedDashboard({ shop }: DashboardProps) {
               <BlockStack gap="200">
                 <Text as="h3" variant="headingMd">Total Members</Text>
                 <Text as="p" variant="heading2xl">{stats?.total_members || 0}</Text>
-                <Badge tone="success">{stats?.active_members || 0} active</Badge>
+                <Badge tone="success">{`${stats?.active_members || 0} active`}</Badge>
               </BlockStack>
             </Card>
 
@@ -157,7 +159,7 @@ export function EmbeddedDashboard({ shop }: DashboardProps) {
               <BlockStack gap="200">
                 <Text as="h3" variant="headingMd">Trade-Ins</Text>
                 <Text as="p" variant="heading2xl">{stats?.completed_trade_ins || 0}</Text>
-                <Badge tone="attention">{stats?.pending_trade_ins || 0} pending</Badge>
+                <Badge tone="attention">{`${stats?.pending_trade_ins || 0} pending`}</Badge>
               </BlockStack>
             </Card>
 
@@ -213,8 +215,8 @@ export function EmbeddedDashboard({ shop }: DashboardProps) {
                     (stats?.subscription?.usage?.members?.percentage || 0) > 90
                       ? 'critical'
                       : (stats?.subscription?.usage?.members?.percentage || 0) > 75
-                      ? 'warning'
-                      : 'primary'
+                      ? 'highlight'
+                      : 'success'
                   }
                 />
               </BlockStack>
@@ -239,7 +241,7 @@ export function EmbeddedDashboard({ shop }: DashboardProps) {
         </Layout.Section>
 
         {/* Recent Activity */}
-        <Layout.Section variant="twoThirds">
+        <Layout.Section>
           <Card>
             <BlockStack gap="400">
               <Text as="h3" variant="headingMd">Recent Activity</Text>

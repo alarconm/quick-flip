@@ -14,7 +14,6 @@ import {
   BlockStack,
   Box,
   Badge,
-  Button,
   Modal,
   TextField,
   FormLayout,
@@ -26,9 +25,9 @@ import {
   ResourceItem,
   Avatar,
 } from '@shopify/polaris';
-import { PlusIcon, EditIcon, DeleteIcon } from '@shopify/polaris-icons';
+import { PlusIcon } from '@shopify/polaris-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getApiUrl, getTenantParam } from '../../hooks/useShopifyBridge';
+import { getApiUrl, authFetch } from '../../hooks/useShopifyBridge';
 
 interface TiersProps {
   shop: string | null;
@@ -50,8 +49,9 @@ interface MembershipTier {
 }
 
 async function fetchTiers(shop: string | null): Promise<MembershipTier[]> {
-  const response = await fetch(
-    `${getApiUrl()}/membership/tiers${getTenantParam(shop)}`
+  const response = await authFetch(
+    `${getApiUrl()}/membership/tiers`,
+    shop
   );
   if (!response.ok) throw new Error('Failed to fetch tiers');
   return response.json();
@@ -61,11 +61,11 @@ async function createTier(
   shop: string | null,
   tier: Partial<MembershipTier>
 ): Promise<MembershipTier> {
-  const response = await fetch(
-    `${getApiUrl()}/membership/tiers${getTenantParam(shop)}`,
+  const response = await authFetch(
+    `${getApiUrl()}/membership/tiers`,
+    shop,
     {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(tier),
     }
   );
@@ -78,11 +78,11 @@ async function updateTier(
   tierId: number,
   tier: Partial<MembershipTier>
 ): Promise<MembershipTier> {
-  const response = await fetch(
-    `${getApiUrl()}/membership/tiers/${tierId}${getTenantParam(shop)}`,
+  const response = await authFetch(
+    `${getApiUrl()}/membership/tiers/${tierId}`,
+    shop,
     {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(tier),
     }
   );
@@ -91,8 +91,9 @@ async function updateTier(
 }
 
 async function deleteTier(shop: string | null, tierId: number): Promise<void> {
-  const response = await fetch(
-    `${getApiUrl()}/membership/tiers/${tierId}${getTenantParam(shop)}`,
+  const response = await authFetch(
+    `${getApiUrl()}/membership/tiers/${tierId}`,
+    shop,
     { method: 'DELETE' }
   );
   if (!response.ok) throw new Error('Failed to delete tier');
@@ -244,6 +245,7 @@ export function EmbeddedTiers({ shop }: TiersProps) {
                   <ResourceItem
                     id={String(tier.id)}
                     accessibilityLabel={tier.name}
+                    onClick={() => openModal(tier)}
                     media={
                       <Avatar
                         customer
@@ -256,13 +258,10 @@ export function EmbeddedTiers({ shop }: TiersProps) {
                     shortcutActions={[
                       {
                         content: 'Edit',
-                        icon: EditIcon,
                         onAction: () => openModal(tier),
                       },
                       {
                         content: 'Delete',
-                        icon: DeleteIcon,
-                        destructive: true,
                         onAction: () => setDeleteConfirm(tier.id),
                       },
                     ]}
@@ -282,8 +281,8 @@ export function EmbeddedTiers({ shop }: TiersProps) {
                         </Text>
                       </BlockStack>
                       <BlockStack gap="100" inlineAlign="end">
-                        <Badge tone="success" size="large">
-                          {tier.trade_in_rate}% trade-in rate
+                        <Badge tone="success">
+                          {`${tier.trade_in_rate}% trade-in rate`}
                         </Badge>
                         {tier.monthly_fee > 0 && (
                           <Text as="p" variant="bodySm" tone="subdued">

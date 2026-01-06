@@ -1,12 +1,12 @@
 """
-Quick Flip platform entry point.
+TradeUp platform entry point.
 """
 import os
 import sys
 import traceback
 
 print("[TradeUp] ========================================")
-print("[TradeUp] Starting TradeUp v1.2.5")
+print("[TradeUp] Starting TradeUp v2.0.0")
 print("[TradeUp] ========================================")
 
 # Default to production for Railway deployment

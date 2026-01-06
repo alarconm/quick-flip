@@ -1,0 +1,14 @@
+# TradeUp Theme App Extension
+# https://shopify.dev/docs/apps/build/online-store/theme-app-extensions
+
+api_version = "2024-10"
+type = "theme"
+name = "TradeUp Theme Blocks"
+
+[settings]
+# Theme block categories
+[[settings.category]]
+name = "TradeUp Membership"
+icon = "rewards"
+
+# Blocks defined in /blocks directory

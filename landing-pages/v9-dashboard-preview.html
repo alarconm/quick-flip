@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TradeUp - See the Dashboard Before You Sign Up</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --orange: #e85d27;
+            --blue: #3b82f6;
+            --green: #10b981;
+            --dark: #0f0f11;
+            --surface: #18181b;
+            --surface-2: #27272a;
+            --border: #3f3f46;
+            --text: #fafafa;
+            --muted: #a1a1aa;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--dark);
+            color: var(--text);
+            line-height: 1.6;
+        }
+
+        .container { max-width: 1400px; margin: 0 auto; padding: 0 24px; }
+
+        /* Nav */
+        nav {
+            padding: 16px 0;
+            background: rgba(15, 15, 17, 0.95);
+            backdrop-filter: blur(10px);
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 100;
+            border-bottom: 1px solid var(--border);
+        }
+        nav .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo {
+            font-size: 22px;
+            font-weight: 800;
+        }
+        .nav-links { display: flex; gap: 32px; align-items: center; }
+        .nav-links a { color: var(--muted); text-decoration: none; font-size: 14px; transition: color 0.3s; }
+        .nav-links a:hover { color: var(--text); }
+        .nav-cta {
+            background: var(--orange);
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        /* Hero */
+        .hero {
+            padding: 120px 0 60px;
+            text-align: center;
+        }
+        .hero-badge {
+            display: inline-block;
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            color: var(--blue);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+        .hero h1 {
+            font-size: clamp(36px, 5vw, 56px);
+            font-weight: 800;
+            line-height: 1.1;
+            margin-bottom: 16px;
+        }
+        .hero h1 span { color: var(--orange); }
+        .hero p {
+            font-size: 18px;
+            color: var(--muted);
+            max-width: 600px;
+            margin: 0 auto 32px;
+        }
+        .hero-cta {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 14px 28px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 16px;
+            text-decoration: none;
+            transition: all 0.3s;
+        }
+        .btn-primary {
+            background: var(--orange);
+            color: #fff;
+        }
+        .btn-primary:hover { transform: translateY(-2px); }
+        .btn-secondary {
+            background: var(--surface);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+        .btn-secondary:hover { border-color: var(--orange); }
+
+        /* Dashboard Preview */
+        .dashboard-preview {
+            padding: 40px 0 80px;
+        }
+        .dashboard-frame {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+        .dashboard-header {
+            background: var(--surface-2);
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-bottom: 1px solid var(--border);
+        }
+        .window-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+        .window-dot.red { background: #ff5f56; }
+        .window-dot.yellow { background: #ffbd2e; }
+        .window-dot.green { background: #27c93f; }
+
+        .dashboard-content {
+            display: grid;
+            grid-template-columns: 220px 1fr;
+            min-height: 600px;
+        }
+        @media (max-width: 900px) { .dashboard-content { grid-template-columns: 1fr; } }
+
+        /* Sidebar */
+        .dashboard-sidebar {
+            background: var(--dark);
+            border-right: 1px solid var(--border);
+            padding: 20px 0;
+        }
+        @media (max-width: 900px) { .dashboard-sidebar { display: none; } }
+
+        .sidebar-logo {
+            padding: 0 20px 20px;
+            font-weight: 800;
+            font-size: 18px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 20px;
+        }
+        .sidebar-nav { list-style: none; }
+        .sidebar-nav li {
+            padding: 12px 20px;
+            font-size: 14px;
+            color: var(--muted);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .sidebar-nav li:hover { background: var(--surface); color: var(--text); }
+        .sidebar-nav li.active {
+            background: rgba(232, 93, 39, 0.1);
+            color: var(--orange);
+            border-right: 3px solid var(--orange);
+        }
+
+        /* Main Dashboard */
+        .dashboard-main {
+            padding: 24px;
+        }
+        .dashboard-title {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 24px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        @media (max-width: 1100px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+
+        .stat-card {
+            background: var(--dark);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+        }
+        .stat-label {
+            font-size: 13px;
+            color: var(--muted);
+            margin-bottom: 8px;
+        }
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+        }
+        .stat-value.green { color: var(--green); }
+        .stat-value.orange { color: var(--orange); }
+        .stat-change {
+            font-size: 12px;
+            color: var(--green);
+            margin-top: 4px;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 24px;
+        }
+        @media (max-width: 1000px) { .dashboard-grid { grid-template-columns: 1fr; } }
+
+        .panel {
+            background: var(--dark);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+        }
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        .panel-title { font-size: 16px; font-weight: 600; }
+        .panel-link { font-size: 13px; color: var(--orange); text-decoration: none; }
+
+        /* Recent Activity */
+        .activity-list { list-style: none; }
+        .activity-item {
+            display: flex;
+            gap: 12px;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .activity-item:last-child { border-bottom: none; }
+        .activity-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--orange), #ff7b47);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+        .activity-content { flex: 1; }
+        .activity-text { font-size: 14px; }
+        .activity-text strong { color: var(--orange); }
+        .activity-time { font-size: 12px; color: var(--muted); }
+
+        /* Tier Distribution */
+        .tier-bars {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .tier-bar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .tier-label {
+            width: 70px;
+            font-size: 13px;
+        }
+        .tier-progress {
+            flex: 1;
+            height: 24px;
+            background: var(--surface);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .tier-fill {
+            height: 100%;
+            border-radius: 4px;
+        }
+        .tier-fill.bronze { background: #cd7f32; width: 45%; }
+        .tier-fill.silver { background: #c0c0c0; width: 30%; }
+        .tier-fill.gold { background: #ffd700; width: 18%; }
+        .tier-fill.platinum { background: #e5e4e2; width: 7%; }
+        .tier-count { font-size: 13px; color: var(--muted); width: 40px; }
+
+        /* Features Section */
+        .features {
+            padding: 100px 0;
+            background: var(--surface);
+        }
+        .section-title {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+        .section-title h2 {
+            font-size: 40px;
+            font-weight: 800;
+            margin-bottom: 12px;
+        }
+        .section-title p { color: var(--muted); font-size: 18px; }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 32px;
+        }
+        @media (max-width: 900px) { .feature-grid { grid-template-columns: 1fr; } }
+
+        .feature-card {
+            background: var(--dark);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 32px;
+            transition: all 0.3s;
+        }
+        .feature-card:hover { border-color: var(--orange); transform: translateY(-4px); }
+        .feature-icon {
+            width: 48px;
+            height: 48px;
+            background: rgba(232, 93, 39, 0.1);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        .feature-card h3 { font-size: 18px; margin-bottom: 8px; }
+        .feature-card p { color: var(--muted); font-size: 14px; }
+
+        /* CTA */
+        .cta {
+            padding: 100px 0;
+            text-align: center;
+        }
+        .cta h2 {
+            font-size: 40px;
+            font-weight: 800;
+            margin-bottom: 16px;
+        }
+        .cta p {
+            color: var(--muted);
+            font-size: 18px;
+            margin-bottom: 32px;
+        }
+
+        /* Footer */
+        footer {
+            padding: 40px 0;
+            border-top: 1px solid var(--border);
+            text-align: center;
+            color: var(--muted);
+        }
+        footer a { color: var(--orange); text-decoration: none; }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="container">
+            <div class="logo">TradeUp</div>
+            <div class="nav-links">
+                <a href="#features">Features</a>
+                <a href="#pricing">Pricing</a>
+                <a href="#" class="nav-cta">Try It Free</a>
+            </div>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <div class="container">
+            <div class="hero-badge">Interactive Demo</div>
+            <h1>See <span>TradeUp</span> Before You Sign Up</h1>
+            <p>Explore the actual dashboard. No signup required. See exactly what you'll get.</p>
+            <div class="hero-cta">
+                <a href="#" class="btn btn-primary">Start Free Trial</a>
+                <a href="#demo" class="btn btn-secondary">Watch Demo Video</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="dashboard-preview">
+        <div class="container">
+            <div class="dashboard-frame">
+                <div class="dashboard-header">
+                    <div class="window-dot red"></div>
+                    <div class="window-dot yellow"></div>
+                    <div class="window-dot green"></div>
+                </div>
+                <div class="dashboard-content">
+                    <aside class="dashboard-sidebar">
+                        <div class="sidebar-logo">TradeUp</div>
+                        <ul class="sidebar-nav">
+                            <li class="active">📊 Dashboard</li>
+                            <li>👥 Members</li>
+                            <li>📦 Trade-Ins</li>
+                            <li>🎁 Bonuses</li>
+                            <li>📈 Analytics</li>
+                            <li>⚙️ Settings</li>
+                        </ul>
+                    </aside>
+                    <main class="dashboard-main">
+                        <h2 class="dashboard-title">Dashboard</h2>
+
+                        <div class="stats-grid">
+                            <div class="stat-card">
+                                <div class="stat-label">Total Members</div>
+                                <div class="stat-value">247</div>
+                                <div class="stat-change">+12% this month</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-label">Active Trade-Ins</div>
+                                <div class="stat-value orange">34</div>
+                                <div class="stat-change">8 pending listing</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-label">Quick Flip Bonuses</div>
+                                <div class="stat-value green">$1,240</div>
+                                <div class="stat-change">This month</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-label">Retention Rate</div>
+                                <div class="stat-value">89%</div>
+                                <div class="stat-change">+5% vs last month</div>
+                            </div>
+                        </div>
+
+                        <div class="dashboard-grid">
+                            <div class="panel">
+                                <div class="panel-header">
+                                    <span class="panel-title">Recent Activity</span>
+                                    <a href="#" class="panel-link">View All</a>
+                                </div>
+                                <ul class="activity-list">
+                                    <li class="activity-item">
+                                        <div class="activity-avatar">JD</div>
+                                        <div class="activity-content">
+                                            <div class="activity-text"><strong>John D.</strong> upgraded to Gold tier</div>
+                                            <div class="activity-time">2 minutes ago</div>
+                                        </div>
+                                    </li>
+                                    <li class="activity-item">
+                                        <div class="activity-avatar">SM</div>
+                                        <div class="activity-content">
+                                            <div class="activity-text"><strong>Sarah M.</strong> earned $15 Quick Flip Bonus</div>
+                                            <div class="activity-time">15 minutes ago</div>
+                                        </div>
+                                    </li>
+                                    <li class="activity-item">
+                                        <div class="activity-avatar">MR</div>
+                                        <div class="activity-content">
+                                            <div class="activity-text"><strong>Mike R.</strong> submitted new trade-in ($450)</div>
+                                            <div class="activity-time">1 hour ago</div>
+                                        </div>
+                                    </li>
+                                    <li class="activity-item">
+                                        <div class="activity-avatar">AK</div>
+                                        <div class="activity-content">
+                                            <div class="activity-text"><strong>Amy K.</strong> joined as Bronze member</div>
+                                            <div class="activity-time">3 hours ago</div>
+                                        </div>
+                                    </li>
+                                </ul>
+                            </div>
+
+                            <div class="panel">
+                                <div class="panel-header">
+                                    <span class="panel-title">Tier Distribution</span>
+                                </div>
+                                <div class="tier-bars">
+                                    <div class="tier-bar">
+                                        <span class="tier-label">Bronze</span>
+                                        <div class="tier-progress">
+                                            <div class="tier-fill bronze"></div>
+                                        </div>
+                                        <span class="tier-count">112</span>
+                                    </div>
+                                    <div class="tier-bar">
+                                        <span class="tier-label">Silver</span>
+                                        <div class="tier-progress">
+                                            <div class="tier-fill silver"></div>
+                                        </div>
+                                        <span class="tier-count">74</span>
+                                    </div>
+                                    <div class="tier-bar">
+                                        <span class="tier-label">Gold</span>
+                                        <div class="tier-progress">
+                                            <div class="tier-fill gold"></div>
+                                        </div>
+                                        <span class="tier-count">44</span>
+                                    </div>
+                                    <div class="tier-bar">
+                                        <span class="tier-label">Platinum</span>
+                                        <div class="tier-progress">
+                                            <div class="tier-fill platinum"></div>
+                                        </div>
+                                        <span class="tier-count">17</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </main>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="features" id="features">
+        <div class="container">
+            <div class="section-title">
+                <h2>Everything You Need</h2>
+                <p>A complete membership platform for your card shop</p>
+            </div>
+
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">👥</div>
+                    <h3>Member Management</h3>
+                    <p>Track all your members, their tiers, trade-in history, and bonus earnings in one place.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📦</div>
+                    <h3>Trade-In Tracking</h3>
+                    <p>From intake to listing to sale. Track every item and automatically calculate bonuses.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">⚡</div>
+                    <h3>Quick Flip Bonus</h3>
+                    <p>Automatically reward members when their trade-ins sell within 7 days.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📈</div>
+                    <h3>Analytics</h3>
+                    <p>See your growth, retention rates, and member activity at a glance.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔗</div>
+                    <h3>Shopify Integration</h3>
+                    <p>One-click install. Syncs with your Shopify store automatically.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📧</div>
+                    <h3>Notifications</h3>
+                    <p>Automated emails when members earn bonuses or level up.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="cta">
+        <div class="container">
+            <h2>Ready to Get Started?</h2>
+            <p>Start your free trial. No credit card required.</p>
+            <a href="#" class="btn btn-primary">Start Free Trial</a>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2026 <a href="#">Cardflow Labs</a>. Built by card shop owners.</p>
+        </div>
+    </footer>
+</body>
+</html>

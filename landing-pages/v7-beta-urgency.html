@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TradeUp Beta - 50% Off for Founding Members | Limited Spots</title>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --orange: #e85d27;
+            --red: #dc2626;
+            --gold: #fbbf24;
+            --dark: #09090b;
+            --zinc-900: #18181b;
+            --zinc-800: #27272a;
+            --zinc-600: #52525b;
+            --zinc-400: #a1a1aa;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--dark);
+            color: #fafafa;
+            line-height: 1.6;
+        }
+
+        .container { max-width: 1000px; margin: 0 auto; padding: 0 24px; }
+
+        /* Urgency Banner */
+        .urgency-banner {
+            background: linear-gradient(90deg, var(--red), #b91c1c);
+            padding: 12px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 14px;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.85; }
+        }
+        .urgency-banner span {
+            background: rgba(0,0,0,0.3);
+            padding: 4px 12px;
+            border-radius: 4px;
+            margin-left: 8px;
+        }
+
+        /* Nav */
+        nav {
+            padding: 20px 0;
+            border-bottom: 1px solid var(--zinc-800);
+        }
+        nav .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 32px;
+            letter-spacing: 2px;
+        }
+        .beta-badge {
+            background: var(--gold);
+            color: var(--dark);
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 700;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+
+        /* Hero */
+        .hero {
+            padding: 100px 0 80px;
+            text-align: center;
+            background: radial-gradient(ellipse at center top, rgba(220, 38, 38, 0.15), transparent 60%);
+        }
+
+        .countdown {
+            display: inline-flex;
+            gap: 16px;
+            background: var(--zinc-900);
+            border: 1px solid var(--zinc-800);
+            padding: 16px 32px;
+            border-radius: 12px;
+            margin-bottom: 32px;
+        }
+        .countdown-item {
+            text-align: center;
+        }
+        .countdown-number {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 48px;
+            line-height: 1;
+            color: var(--red);
+        }
+        .countdown-label {
+            font-size: 12px;
+            color: var(--zinc-400);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .hero h1 {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: clamp(48px, 8vw, 96px);
+            letter-spacing: 4px;
+            line-height: 1;
+            margin-bottom: 16px;
+        }
+        .hero h1 span { color: var(--gold); }
+
+        .hero-subtitle {
+            font-size: 20px;
+            color: var(--zinc-400);
+            max-width: 500px;
+            margin: 0 auto 32px;
+        }
+
+        .spots-left {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            background: rgba(251, 191, 36, 0.1);
+            border: 1px solid rgba(251, 191, 36, 0.3);
+            padding: 12px 24px;
+            border-radius: 8px;
+            margin-bottom: 32px;
+        }
+        .spots-dot {
+            width: 12px;
+            height: 12px;
+            background: var(--gold);
+            border-radius: 50%;
+            animation: blink 1s infinite;
+        }
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .spots-text {
+            font-weight: 600;
+            color: var(--gold);
+        }
+        .spots-text strong { font-size: 24px; }
+
+        /* Signup Form */
+        .signup-form {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        .form-row {
+            display: flex;
+            gap: 12px;
+        }
+        @media (max-width: 500px) { .form-row { flex-direction: column; } }
+
+        .signup-form input {
+            flex: 1;
+            background: var(--zinc-900);
+            border: 1px solid var(--zinc-800);
+            padding: 16px 20px;
+            border-radius: 8px;
+            font-size: 16px;
+            color: #fff;
+            font-family: inherit;
+        }
+        .signup-form input:focus {
+            outline: none;
+            border-color: var(--orange);
+        }
+        .signup-form input::placeholder { color: var(--zinc-600); }
+        .signup-form button {
+            background: var(--orange);
+            color: #fff;
+            padding: 16px 32px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            white-space: nowrap;
+        }
+        .signup-form button:hover { background: #ff6b35; transform: translateY(-2px); }
+
+        .form-note {
+            margin-top: 16px;
+            font-size: 14px;
+            color: var(--zinc-600);
+        }
+
+        /* Beta Perks */
+        .beta-perks {
+            padding: 80px 0;
+            background: var(--zinc-900);
+        }
+        .section-title {
+            text-align: center;
+            margin-bottom: 48px;
+        }
+        .section-title h2 {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 48px;
+            letter-spacing: 2px;
+            margin-bottom: 8px;
+        }
+        .section-title p { color: var(--zinc-400); }
+
+        .perks-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+        }
+        @media (max-width: 800px) { .perks-grid { grid-template-columns: 1fr; } }
+
+        .perk-card {
+            background: var(--dark);
+            border: 1px solid var(--zinc-800);
+            border-radius: 16px;
+            padding: 32px;
+            text-align: center;
+        }
+        .perk-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+        .perk-card h3 {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        .perk-card p { color: var(--zinc-400); font-size: 14px; }
+        .perk-value {
+            display: inline-block;
+            background: rgba(251, 191, 36, 0.1);
+            color: var(--gold);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            margin-top: 12px;
+        }
+
+        /* What You Get */
+        .what-you-get {
+            padding: 80px 0;
+        }
+        .features-list {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .feature-item {
+            display: flex;
+            gap: 16px;
+            padding: 20px 0;
+            border-bottom: 1px solid var(--zinc-800);
+        }
+        .feature-item:last-child { border-bottom: none; }
+        .feature-check {
+            width: 28px;
+            height: 28px;
+            background: rgba(16, 185, 129, 0.1);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #10b981;
+            flex-shrink: 0;
+        }
+        .feature-item h4 { font-size: 16px; margin-bottom: 4px; }
+        .feature-item p { font-size: 14px; color: var(--zinc-400); }
+
+        /* Timeline */
+        .timeline {
+            padding: 80px 0;
+            background: var(--zinc-900);
+        }
+        .timeline-items {
+            max-width: 600px;
+            margin: 0 auto;
+            position: relative;
+        }
+        .timeline-items::before {
+            content: '';
+            position: absolute;
+            left: 12px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: var(--zinc-800);
+        }
+        .timeline-item {
+            display: flex;
+            gap: 24px;
+            padding: 24px 0;
+            position: relative;
+        }
+        .timeline-dot {
+            width: 26px;
+            height: 26px;
+            background: var(--dark);
+            border: 3px solid var(--orange);
+            border-radius: 50%;
+            flex-shrink: 0;
+            z-index: 1;
+        }
+        .timeline-item.completed .timeline-dot {
+            background: var(--orange);
+        }
+        .timeline-item.current .timeline-dot {
+            background: var(--gold);
+            border-color: var(--gold);
+            box-shadow: 0 0 20px rgba(251, 191, 36, 0.5);
+        }
+        .timeline-content h4 { font-size: 18px; margin-bottom: 4px; }
+        .timeline-content p { color: var(--zinc-400); font-size: 14px; }
+        .timeline-date {
+            font-size: 12px;
+            color: var(--zinc-600);
+            margin-top: 8px;
+        }
+
+        /* Final CTA */
+        .final-cta {
+            padding: 100px 0;
+            text-align: center;
+            background: radial-gradient(ellipse at center bottom, rgba(232, 93, 39, 0.15), transparent 60%);
+        }
+        .final-cta h2 {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 56px;
+            letter-spacing: 2px;
+            margin-bottom: 16px;
+        }
+        .final-cta p {
+            color: var(--zinc-400);
+            font-size: 18px;
+            margin-bottom: 32px;
+        }
+        .final-cta .signup-form {
+            max-width: 500px;
+        }
+
+        /* Footer */
+        footer {
+            padding: 40px 0;
+            border-top: 1px solid var(--zinc-800);
+            text-align: center;
+            color: var(--zinc-600);
+        }
+        footer a { color: var(--orange); text-decoration: none; }
+    </style>
+</head>
+<body>
+    <div class="urgency-banner">
+        Beta closes January 31st <span id="countdown-text">14 days left</span>
+    </div>
+
+    <nav>
+        <div class="container">
+            <div class="logo">TRADEUP <span class="beta-badge">BETA</span></div>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <div class="container">
+            <div class="countdown">
+                <div class="countdown-item">
+                    <div class="countdown-number" id="days">14</div>
+                    <div class="countdown-label">Days</div>
+                </div>
+                <div class="countdown-item">
+                    <div class="countdown-number" id="hours">23</div>
+                    <div class="countdown-label">Hours</div>
+                </div>
+                <div class="countdown-item">
+                    <div class="countdown-number" id="minutes">59</div>
+                    <div class="countdown-label">Minutes</div>
+                </div>
+            </div>
+
+            <h1>FOUNDING MEMBER <span>50% OFF</span></h1>
+            <p class="hero-subtitle">Join the TradeUp beta and lock in 50% off forever. Limited to 100 card shops.</p>
+
+            <div class="spots-left">
+                <div class="spots-dot"></div>
+                <div class="spots-text"><strong>23</strong> spots remaining</div>
+            </div>
+
+            <form class="signup-form">
+                <div class="form-row">
+                    <input type="email" placeholder="Your shop email" required>
+                    <button type="submit">Claim Your Spot</button>
+                </div>
+                <p class="form-note">No credit card required. Free Pro tier for 3 months.</p>
+            </form>
+        </div>
+    </section>
+
+    <section class="beta-perks">
+        <div class="container">
+            <div class="section-title">
+                <h2>BETA MEMBER PERKS</h2>
+                <p>What you get for joining early</p>
+            </div>
+
+            <div class="perks-grid">
+                <div class="perk-card">
+                    <div class="perk-icon">💰</div>
+                    <h3>50% Off Forever</h3>
+                    <p>Lock in half-price on any plan, forever. Even when prices go up.</p>
+                    <span class="perk-value">Save $600+/year</span>
+                </div>
+                <div class="perk-card">
+                    <div class="perk-icon">⚡</div>
+                    <h3>Free Pro for 3 Months</h3>
+                    <p>Full access to every feature including Quick Flip Bonus.</p>
+                    <span class="perk-value">$297 value</span>
+                </div>
+                <div class="perk-card">
+                    <div class="perk-icon">🎯</div>
+                    <h3>Direct Founder Access</h3>
+                    <p>Private Slack channel with the team. Your feedback shapes the product.</p>
+                    <span class="perk-value">VIP support</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="what-you-get">
+        <div class="container">
+            <div class="section-title">
+                <h2>WHAT'S INCLUDED</h2>
+                <p>Everything in the Pro plan, free for 3 months</p>
+            </div>
+
+            <div class="features-list">
+                <div class="feature-item">
+                    <div class="feature-check">✓</div>
+                    <div>
+                        <h4>Unlimited Members</h4>
+                        <p>No caps on how many customers you can enroll</p>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-check">✓</div>
+                    <div>
+                        <h4>Custom Membership Tiers</h4>
+                        <p>Bronze, Silver, Gold, Platinum - fully customizable</p>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-check">✓</div>
+                    <div>
+                        <h4>Quick Flip Bonus</h4>
+                        <p>Automatic profit sharing when items sell fast</p>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-check">✓</div>
+                    <div>
+                        <h4>Analytics Dashboard</h4>
+                        <p>Track member activity, trade-ins, and revenue</p>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-check">✓</div>
+                    <div>
+                        <h4>API Access</h4>
+                        <p>Integrate with your existing tools and workflows</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="timeline">
+        <div class="container">
+            <div class="section-title">
+                <h2>BETA TIMELINE</h2>
+                <p>Where we are and where we're going</p>
+            </div>
+
+            <div class="timeline-items">
+                <div class="timeline-item completed">
+                    <div class="timeline-dot"></div>
+                    <div class="timeline-content">
+                        <h4>Core Platform Built</h4>
+                        <p>Membership tiers, trade-in tracking, Shopify integration</p>
+                        <div class="timeline-date">Completed</div>
+                    </div>
+                </div>
+                <div class="timeline-item current">
+                    <div class="timeline-dot"></div>
+                    <div class="timeline-content">
+                        <h4>Beta Launch</h4>
+                        <p>Accepting first 100 founding members</p>
+                        <div class="timeline-date">Now - January 31</div>
+                    </div>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-dot"></div>
+                    <div class="timeline-content">
+                        <h4>Quick Flip Bonus</h4>
+                        <p>Profit sharing feature goes live</p>
+                        <div class="timeline-date">February 2026</div>
+                    </div>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-dot"></div>
+                    <div class="timeline-content">
+                        <h4>Public Launch</h4>
+                        <p>Full Shopify App Store release</p>
+                        <div class="timeline-date">March 2026</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="final-cta">
+        <div class="container">
+            <h2>DON'T MISS OUT</h2>
+            <p>Only 23 spots left. Lock in 50% off forever.</p>
+            <form class="signup-form">
+                <div class="form-row">
+                    <input type="email" placeholder="Your shop email" required>
+                    <button type="submit">Join Beta Now</button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2026 <a href="#">Cardflow Labs</a>. Built by card shop owners.</p>
+        </div>
+    </footer>
+
+    <script>
+        // Countdown timer
+        const endDate = new Date('2026-01-31T23:59:59');
+
+        function updateCountdown() {
+            const now = new Date();
+            const diff = endDate - now;
+
+            if (diff <= 0) {
+                document.getElementById('countdown-text').textContent = 'Beta ended';
+                return;
+            }
+
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+            document.getElementById('days').textContent = days;
+            document.getElementById('hours').textContent = hours;
+            document.getElementById('minutes').textContent = minutes;
+            document.getElementById('countdown-text').textContent = days + ' days left';
+        }
+
+        updateCountdown();
+        setInterval(updateCountdown, 60000);
+    </script>
+</body>
+</html>

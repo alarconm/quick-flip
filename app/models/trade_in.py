@@ -30,6 +30,11 @@ class TradeInBatch(db.Model):
     # Category (matches ORB categories: sports, pokemon, magic, riftbound, tcg_other, other)
     category = db.Column(db.String(50), default='other')
 
+    # Completion and bonus
+    completed_at = db.Column(db.DateTime)
+    completed_by = db.Column(db.String(100))
+    bonus_amount = db.Column(db.Numeric(10, 2), default=Decimal('0'))  # Tier bonus issued
+
     # Metadata
     notes = db.Column(db.Text)
     created_by = db.Column(db.String(100))  # Employee who processed the trade-in
@@ -48,15 +53,19 @@ class TradeInBatch(db.Model):
             'member_id': self.member_id,
             'member_number': self.member.member_number if self.member else None,
             'member_name': self.member.name if self.member else None,
+            'member_tier': self.member.tier.name if self.member and self.member.tier else None,
             'batch_reference': self.batch_reference,
             'trade_in_date': self.trade_in_date.isoformat(),
             'total_items': self.total_items,
             'total_trade_value': float(self.total_trade_value),
+            'bonus_amount': float(self.bonus_amount) if self.bonus_amount else 0,
             'status': self.status,
             'category': self.category,
             'notes': self.notes,
             'created_by': self.created_by,
-            'created_at': self.created_at.isoformat()
+            'created_at': self.created_at.isoformat(),
+            'completed_at': self.completed_at.isoformat() if self.completed_at else None,
+            'completed_by': self.completed_by
         }
 
         if include_items:
@@ -110,16 +119,11 @@ class TradeInItem(db.Model):
     listing_price = db.Column(db.Numeric(10, 2))
     listed_date = db.Column(db.DateTime)
 
-    # Sale info
+    # Sale info (optional - for inventory tracking)
     sold_date = db.Column(db.DateTime)
     sold_price = db.Column(db.Numeric(10, 2))
     shopify_order_id = db.Column(db.String(50))
-
-    # Quick Flip bonus tracking
-    days_to_sell = db.Column(db.Integer)  # Calculated when sold
-    eligible_for_bonus = db.Column(db.Boolean, default=False)
-    bonus_amount = db.Column(db.Numeric(10, 2))
-    bonus_status = db.Column(db.String(20), default='pending')  # pending, issued, not_applicable, expired
+    days_to_sell = db.Column(db.Integer)  # Calculated when sold (for analytics)
 
     # Metadata
     notes = db.Column(db.Text)
@@ -142,10 +146,7 @@ class TradeInItem(db.Model):
             'listed_date': self.listed_date.isoformat() if self.listed_date else None,
             'sold_date': self.sold_date.isoformat() if self.sold_date else None,
             'sold_price': float(self.sold_price) if self.sold_price else None,
-            'days_to_sell': self.days_to_sell,
-            'eligible_for_bonus': self.eligible_for_bonus,
-            'bonus_amount': float(self.bonus_amount) if self.bonus_amount else None,
-            'bonus_status': self.bonus_status
+            'days_to_sell': self.days_to_sell
         }
 
     def calculate_days_to_sell(self) -> int | None:

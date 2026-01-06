@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 """
-Register Shopify webhooks for Quick Flip platform.
+Register Shopify webhooks for TradeUp platform.
 
 Usage:
-    python scripts/register_webhooks.py --base-url https://quick-flip.up.railway.app --tenant orb
+    python scripts/register_webhooks.py --base-url https://tradeup.cardflowlabs.com --tenant orb
 
 This will register:
-    - orders/paid → /webhook/shopify/{tenant}/order-paid
-    - products/create → /webhook/shopify/{tenant}/product-created
+    - orders/create → /webhook/orders/create (auto-enrollment, points)
+    - orders/paid → /webhook/orders/paid
+    - orders/cancelled → /webhook/orders/cancelled
+    - customers/create → /webhook/customers/create
+    - products/create → /webhook/products/create
 """
 import os
 import sys
@@ -21,13 +24,38 @@ SHOPIFY_API_VERSION = "2024-01"
 
 WEBHOOKS_TO_REGISTER = [
     {
+        "topic": "ORDERS_CREATE",
+        "path": "/webhook/orders/create",
+        "format": "JSON",
+    },
+    {
         "topic": "ORDERS_PAID",
-        "path": "/webhook/shopify/{tenant}/order-paid",
+        "path": "/webhook/orders/paid",
+        "format": "JSON",
+    },
+    {
+        "topic": "ORDERS_CANCELLED",
+        "path": "/webhook/orders/cancelled",
+        "format": "JSON",
+    },
+    {
+        "topic": "ORDERS_FULFILLED",
+        "path": "/webhook/orders/fulfilled",
+        "format": "JSON",
+    },
+    {
+        "topic": "CUSTOMERS_CREATE",
+        "path": "/webhook/customers/create",
+        "format": "JSON",
+    },
+    {
+        "topic": "CUSTOMERS_UPDATE",
+        "path": "/webhook/customers/update",
         "format": "JSON",
     },
     {
         "topic": "PRODUCTS_CREATE",
-        "path": "/webhook/shopify/{tenant}/product-created",
+        "path": "/webhook/products/create",
         "format": "JSON",
     },
 ]

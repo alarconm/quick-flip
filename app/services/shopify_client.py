@@ -70,27 +70,78 @@ class ShopifyClient:
 
             return result.get('data', {})
 
+    def get_store_credit_account_id(self, customer_id: str) -> Optional[str]:
+        """
+        Get the store credit account ID for a customer.
+
+        Args:
+            customer_id: Shopify customer ID (numeric or GID)
+
+        Returns:
+            Store credit account GID or None if no account exists
+        """
+        if not customer_id.startswith('gid://'):
+            customer_id = f'gid://shopify/Customer/{customer_id}'
+
+        query = """
+        query getCustomerStoreCreditAccount($customerId: ID!) {
+            customer(id: $customerId) {
+                id
+                storeCreditAccounts(first: 1) {
+                    edges {
+                        node {
+                            id
+                            balance {
+                                amount
+                                currencyCode
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        """
+
+        result = self._execute_query(query, {'customerId': customer_id})
+        customer = result.get('customer', {})
+        accounts = customer.get('storeCreditAccounts', {}).get('edges', [])
+
+        if accounts:
+            return accounts[0]['node']['id']
+
+        return None
+
     def add_store_credit(
         self,
         customer_id: str,
         amount: float,
-        note: str = 'Quick Flip Bonus'
+        note: str = 'TradeUp Bonus'
     ) -> Dict[str, Any]:
         """
         Add store credit to a customer account.
 
+        Uses Shopify's native Store Credit API. If the customer doesn't have
+        a store credit account yet, Shopify creates one automatically.
+
+        Note: The Shopify storeCreditAccountCredit mutation only accepts
+        creditAmount and optional expiresAt. Transaction notes are not
+        supported in the current API.
+
         Args:
             customer_id: Shopify customer ID (numeric or GID)
-            amount: Amount to credit
-            note: Transaction note
+            amount: Amount to credit (positive number)
+            note: For internal logging only (not sent to Shopify)
 
         Returns:
             Dict with transaction details
         """
-        # Ensure customer_id is in GID format
         if not customer_id.startswith('gid://'):
             customer_id = f'gid://shopify/Customer/{customer_id}'
 
+        # Get existing store credit account or let Shopify create one
+        account_id = self.get_store_credit_account_id(customer_id)
+
+        # Use customer-based credit mutation (works even without existing account)
         query = """
         mutation storeCreditAccountCredit($id: ID!, $creditInput: StoreCreditAccountCreditInput!) {
             storeCreditAccountCredit(id: $id, creditInput: $creditInput) {
@@ -99,6 +150,13 @@ class ShopifyClient:
                     amount {
                         amount
                         currencyCode
+                    }
+                    account {
+                        id
+                        balance {
+                            amount
+                            currencyCode
+                        }
                     }
                 }
                 userErrors {
@@ -109,14 +167,18 @@ class ShopifyClient:
         }
         """
 
+        # If no account exists, use customer ID - Shopify will create the account
+        target_id = account_id if account_id else customer_id
+
         variables = {
-            'id': customer_id,
+            'id': target_id,
             'creditInput': {
                 'creditAmount': {
                     'amount': str(amount),
                     'currencyCode': 'USD'
-                },
-                'note': note
+                }
+                # Note: Shopify API doesn't support transaction notes or notifications
+                # TradeUp handles notifications via NotificationService
             }
         }
 
@@ -129,12 +191,112 @@ class ShopifyClient:
             raise Exception(f"Shopify errors: {user_errors}")
 
         transaction = mutation_result.get('storeCreditAccountTransaction', {})
+        account = transaction.get('account', {})
 
         return {
             'success': True,
             'transaction_id': transaction.get('id'),
-            'amount': transaction.get('amount', {}).get('amount'),
-            'currency': transaction.get('amount', {}).get('currencyCode')
+            'amount': float(transaction.get('amount', {}).get('amount', 0)),
+            'currency': transaction.get('amount', {}).get('currencyCode'),
+            'account_id': account.get('id'),
+            'new_balance': float(account.get('balance', {}).get('amount', 0))
+        }
+
+    def debit_store_credit(
+        self,
+        customer_id: str,
+        amount: float,
+        note: str = 'Store Credit Redemption'
+    ) -> Dict[str, Any]:
+        """
+        Debit (remove) store credit from a customer account.
+
+        Uses Shopify's native Store Credit API.
+
+        Args:
+            customer_id: Shopify customer ID (numeric or GID)
+            amount: Amount to debit (positive number)
+            note: Transaction note
+
+        Returns:
+            Dict with transaction details
+
+        Raises:
+            Exception: If customer has no store credit account or insufficient balance
+        """
+        if not customer_id.startswith('gid://'):
+            customer_id = f'gid://shopify/Customer/{customer_id}'
+
+        # Get store credit account - must exist for debit
+        account_id = self.get_store_credit_account_id(customer_id)
+
+        if not account_id:
+            raise Exception("Customer has no store credit account")
+
+        # Check current balance first
+        balance_info = self.get_store_credit_balance(customer_id)
+        current_balance = balance_info.get('balance', 0)
+
+        if current_balance < amount:
+            raise Exception(
+                f"Insufficient store credit balance. "
+                f"Available: ${current_balance:.2f}, Requested: ${amount:.2f}"
+            )
+
+        query = """
+        mutation storeCreditAccountDebit($id: ID!, $debitInput: StoreCreditAccountDebitInput!) {
+            storeCreditAccountDebit(id: $id, debitInput: $debitInput) {
+                storeCreditAccountTransaction {
+                    id
+                    amount {
+                        amount
+                        currencyCode
+                    }
+                    account {
+                        id
+                        balance {
+                            amount
+                            currencyCode
+                        }
+                    }
+                }
+                userErrors {
+                    field
+                    message
+                }
+            }
+        }
+        """
+
+        variables = {
+            'id': account_id,
+            'debitInput': {
+                'debitAmount': {
+                    'amount': str(amount),
+                    'currencyCode': 'USD'
+                },
+                'note': note
+            }
+        }
+
+        result = self._execute_query(query, variables)
+
+        mutation_result = result.get('storeCreditAccountDebit', {})
+        user_errors = mutation_result.get('userErrors', [])
+
+        if user_errors:
+            raise Exception(f"Shopify errors: {user_errors}")
+
+        transaction = mutation_result.get('storeCreditAccountTransaction', {})
+        account = transaction.get('account', {})
+
+        return {
+            'success': True,
+            'transaction_id': transaction.get('id'),
+            'amount': float(transaction.get('amount', {}).get('amount', 0)),
+            'currency': transaction.get('amount', {}).get('currencyCode'),
+            'account_id': account.get('id'),
+            'new_balance': float(account.get('balance', {}).get('amount', 0))
         }
 
     def get_store_credit_balance(self, customer_id: str) -> Dict[str, Any]:

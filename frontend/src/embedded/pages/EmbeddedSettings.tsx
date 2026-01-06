@@ -18,10 +18,9 @@ import {
   Spinner,
   Box,
   Select,
-  Divider,
 } from '@shopify/polaris';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getApiUrl, getTenantParam } from '../../hooks/useShopifyBridge';
+import { getApiUrl, authFetch } from '../../hooks/useShopifyBridge';
 
 interface SettingsProps {
   shop: string | null;
@@ -40,8 +39,9 @@ interface Settings {
 }
 
 async function fetchSettings(shop: string | null): Promise<Settings> {
-  const response = await fetch(
-    `${getApiUrl()}/settings${getTenantParam(shop)}`
+  const response = await authFetch(
+    `${getApiUrl()}/settings`,
+    shop
   );
   if (!response.ok) throw new Error('Failed to fetch settings');
   return response.json();
@@ -51,11 +51,11 @@ async function updateSettings(
   shop: string | null,
   settings: Partial<Settings>
 ): Promise<Settings> {
-  const response = await fetch(
-    `${getApiUrl()}/settings${getTenantParam(shop)}`,
+  const response = await authFetch(
+    `${getApiUrl()}/settings`,
+    shop,
     {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(settings),
     }
   );

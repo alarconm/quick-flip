@@ -8,6 +8,12 @@ from .trade_in import TradeInBatch, TradeInItem
 from .bonus import BonusTransaction
 from .points import PointsTransaction, StoreCreditTransaction
 from .partner_integration import PartnerIntegration, PartnerSyncLog
+from .tier_history import (
+    TierChangeLog,
+    TierEligibilityRule,
+    TierPromotion,
+    MemberPromoUsage,
+)
 from .promotions import (
     Promotion,
     StoreCreditLedger,
@@ -33,6 +39,11 @@ __all__ = [
     'StoreCreditTransaction',
     'PartnerIntegration',
     'PartnerSyncLog',
+    # Tier History & Eligibility
+    'TierChangeLog',
+    'TierEligibilityRule',
+    'TierPromotion',
+    'MemberPromoUsage',
     # Promotions & Store Credit
     'Promotion',
     'StoreCreditLedger',

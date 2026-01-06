@@ -24,11 +24,10 @@ export interface Member {
   monthly_price: number
   joined_at: string | null
   current_period_start: string | null
-  current_period_end: string | null
-  needs_card_setup: boolean
-  card_setup_completed: boolean
-  stripe_customer_id: string | null
-  has_active_subscription: boolean
+  tier_assigned_by: string | null
+  tier_assigned_at: string | null
+  tier_expires_at: string | null
+  subscription_status: string
 }
 
 export interface DashboardStats {

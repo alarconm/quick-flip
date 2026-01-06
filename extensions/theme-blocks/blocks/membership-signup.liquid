@@ -1,0 +1,254 @@
+{% comment %}
+  TradeUp Membership Signup Block
+  Displays a CTA for customers to join the rewards program
+
+  Settings:
+  - heading: Main heading text
+  - subheading: Description text
+  - button_text: CTA button text
+  - show_benefits: Toggle to show tier benefits
+  - style: Visual style (card, banner, minimal)
+{% endcomment %}
+
+{% schema %}
+{
+  "name": "TradeUp Signup",
+  "target": "section",
+  "settings": [
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Join Our Rewards Program"
+    },
+    {
+      "type": "textarea",
+      "id": "subheading",
+      "label": "Description",
+      "default": "Earn store credit on every trade-in and unlock exclusive member benefits."
+    },
+    {
+      "type": "text",
+      "id": "button_text",
+      "label": "Button Text",
+      "default": "Join Now - It's Free"
+    },
+    {
+      "type": "url",
+      "id": "button_link",
+      "label": "Button Link",
+      "info": "Link to signup page or leave empty for customer account"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_benefits",
+      "label": "Show Benefits List",
+      "default": true
+    },
+    {
+      "type": "select",
+      "id": "style",
+      "label": "Block Style",
+      "options": [
+        { "value": "card", "label": "Card" },
+        { "value": "banner", "label": "Banner" },
+        { "value": "minimal", "label": "Minimal" }
+      ],
+      "default": "card"
+    },
+    {
+      "type": "color",
+      "id": "primary_color",
+      "label": "Primary Color",
+      "default": "#4F46E5"
+    },
+    {
+      "type": "color",
+      "id": "background_color",
+      "label": "Background Color",
+      "default": "#F9FAFB"
+    }
+  ]
+}
+{% endschema %}
+
+<style>
+  .tradeup-signup {
+    font-family: inherit;
+  }
+
+  .tradeup-signup--card {
+    background: {{ block.settings.background_color }};
+    border-radius: 12px;
+    padding: 32px;
+    text-align: center;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+
+  .tradeup-signup--banner {
+    background: linear-gradient(135deg, {{ block.settings.primary_color }} 0%, {{ block.settings.primary_color | color_modify: 'alpha', 0.8 }} 100%);
+    color: white;
+    padding: 24px 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .tradeup-signup--minimal {
+    padding: 16px 0;
+  }
+
+  .tradeup-signup__heading {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0 0 8px;
+    color: inherit;
+  }
+
+  .tradeup-signup--banner .tradeup-signup__heading {
+    color: white;
+  }
+
+  .tradeup-signup__subheading {
+    font-size: 1rem;
+    margin: 0 0 20px;
+    opacity: 0.85;
+    color: inherit;
+  }
+
+  .tradeup-signup--banner .tradeup-signup__subheading {
+    margin-bottom: 0;
+    color: rgba(255, 255, 255, 0.9);
+  }
+
+  .tradeup-signup__benefits {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 24px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 16px;
+  }
+
+  .tradeup-signup__benefit {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.875rem;
+  }
+
+  .tradeup-signup__benefit-icon {
+    width: 20px;
+    height: 20px;
+    background: {{ block.settings.primary_color }};
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .tradeup-signup__benefit-icon svg {
+    width: 12px;
+    height: 12px;
+    fill: white;
+  }
+
+  .tradeup-signup__button {
+    display: inline-block;
+    background: {{ block.settings.primary_color }};
+    color: white;
+    padding: 12px 28px;
+    border-radius: 8px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: transform 0.15s, box-shadow 0.15s;
+    border: none;
+    cursor: pointer;
+    font-size: 1rem;
+  }
+
+  .tradeup-signup__button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    color: white;
+  }
+
+  .tradeup-signup--banner .tradeup-signup__button {
+    background: white;
+    color: {{ block.settings.primary_color }};
+  }
+
+  @media (max-width: 768px) {
+    .tradeup-signup--banner {
+      flex-direction: column;
+      text-align: center;
+    }
+  }
+</style>
+
+<div class="tradeup-signup tradeup-signup--{{ block.settings.style }}" data-tradeup-signup>
+  {% if block.settings.style == 'banner' %}
+    <div class="tradeup-signup__content">
+      <h3 class="tradeup-signup__heading">{{ block.settings.heading }}</h3>
+      <p class="tradeup-signup__subheading">{{ block.settings.subheading }}</p>
+    </div>
+    <a href="{{ block.settings.button_link | default: customer.account_url }}" class="tradeup-signup__button">
+      {{ block.settings.button_text }}
+    </a>
+  {% else %}
+    <h3 class="tradeup-signup__heading">{{ block.settings.heading }}</h3>
+    <p class="tradeup-signup__subheading">{{ block.settings.subheading }}</p>
+
+    {% if block.settings.show_benefits %}
+      <ul class="tradeup-signup__benefits">
+        <li class="tradeup-signup__benefit">
+          <span class="tradeup-signup__benefit-icon">
+            <svg viewBox="0 0 20 20" fill="currentColor">
+              <path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/>
+            </svg>
+          </span>
+          Free to Join
+        </li>
+        <li class="tradeup-signup__benefit">
+          <span class="tradeup-signup__benefit-icon">
+            <svg viewBox="0 0 20 20" fill="currentColor">
+              <path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/>
+            </svg>
+          </span>
+          Earn Store Credit
+        </li>
+        <li class="tradeup-signup__benefit">
+          <span class="tradeup-signup__benefit-icon">
+            <svg viewBox="0 0 20 20" fill="currentColor">
+              <path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/>
+            </svg>
+          </span>
+          Member-Only Perks
+        </li>
+      </ul>
+    {% endif %}
+
+    <a href="{{ block.settings.button_link | default: customer.account_url }}" class="tradeup-signup__button">
+      {{ block.settings.button_text }}
+    </a>
+  {% endif %}
+</div>
+
+<script>
+  (function() {
+    // Check if customer is already a member
+    const signupBlock = document.querySelector('[data-tradeup-signup]');
+    if (!signupBlock) return;
+
+    // If logged in, could hide or update the block
+    // This is a basic implementation - can be enhanced with API check
+    {% if customer %}
+      // Customer is logged in - could check membership status via API
+      // For now, keep showing the block
+    {% endif %}
+  })();
+</script>

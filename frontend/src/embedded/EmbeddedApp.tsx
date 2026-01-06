@@ -12,7 +12,7 @@ import {
   ReceiptIcon,
   SettingsIcon,
   CreditCardIcon,
-  ListIcon,
+  ListBulletedIcon,
 } from '@shopify/polaris-icons';
 import { useState, useCallback } from 'react';
 
@@ -62,7 +62,7 @@ export function EmbeddedApp({ shop }: EmbeddedAppProps) {
           {
             url: '/app/tiers',
             label: 'Membership Tiers',
-            icon: ListIcon,
+            icon: ListBulletedIcon,
             selected: window.location.pathname === '/app/tiers',
           },
           {

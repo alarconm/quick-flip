@@ -13,18 +13,18 @@ export interface Member {
   tier: Tier | null;
   membership_start_date: string | null;
   created_at: string;
+  shopify_customer_id: string | null;
   stats?: {
     total_bonus_earned: number;
     total_trade_ins: number;
     total_trade_value: number;
   };
   subscription?: {
-    stripe_customer_id: string | null;
-    stripe_subscription_id: string | null;
-    payment_status: string;
-    current_period_start: string | null;
-    current_period_end: string | null;
-    cancel_at_period_end: boolean;
+    shopify_subscription_contract_id: string | null;
+    subscription_status: string;
+    tier_assigned_by: string | null;
+    tier_assigned_at: string | null;
+    tier_expires_at: string | null;
   };
 }
 
@@ -36,8 +36,7 @@ export interface Tier {
   quick_flip_days: number;
   benefits: Record<string, unknown>;
   is_active: boolean;
-  stripe_product_id: string | null;
-  stripe_price_id: string | null;
+  shopify_selling_plan_id: string | null;
 }
 
 export interface AuthResponse {

@@ -26,13 +26,33 @@ def create_app(config_name: str = None) -> Flask:
     app = Flask(__name__)
     app.config.from_object(get_config(config_name))
 
+    # Initialize Sentry error tracking (before other extensions for full coverage)
+    try:
+        from .utils.sentry import init_sentry
+        init_sentry(app)
+    except ImportError:
+        pass
+
     # Initialize extensions
     db.init_app(app)
     migrate.init_app(app, db)
     CORS(app)
 
+    # Initialize rate limiter (production only)
+    if config_name == 'production' or os.getenv('ENABLE_RATE_LIMITING') == 'true':
+        from .middleware import init_rate_limiter
+        if init_rate_limiter:
+            init_rate_limiter(app)
+            print('[TradeUp] Rate limiting enabled')
+        else:
+            print('[TradeUp] Flask-Limiter not installed, rate limiting disabled')
+
     # Register blueprints
     register_blueprints(app)
+
+    # Register CLI commands
+    from .commands import init_app as init_commands
+    init_commands(app)
 
     # Register error handlers
     register_error_handlers(app)
@@ -49,7 +69,7 @@ def create_app(config_name: str = None) -> Flask:
         shop = request.args.get('shop')
         if shop:
             return redirect(f'/app?shop={shop}')
-        return {'service': 'TradeUp by Cardflow Labs', 'status': 'running', 'version': '1.2.5'}
+        return {'service': 'TradeUp by Cardflow Labs', 'status': 'running', 'version': '2.0.0'}
 
     # Shopify embedded app route - Full SPA
     @app.route('/app')
@@ -1105,15 +1125,34 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
     </nav>
 
     <script>
-        // App Bridge initialization (optional - works embedded in Shopify)
+        // App Bridge initialization - required for Shopify session authentication
         var app = null;
+        var sessionToken = null;
+        const SHOP_DOMAIN = '{shop}';
+
         try {{
             var AppBridge = window['app-bridge'];
             if (AppBridge && AppBridge.default) {{
                 var createApp = AppBridge.default;
                 app = createApp({{ apiKey: '{api_key}', host: '{host}' }});
+                console.log('[TradeUp] App Bridge initialized');
             }}
         }} catch (e) {{ console.log('App Bridge not available, running standalone'); }}
+
+        // Get session token from App Bridge for authenticated API calls
+        async function getSessionToken() {{
+            if (!app) return null;
+            try {{
+                if (window['app-bridge'] && window['app-bridge'].getSessionToken) {{
+                    sessionToken = await window['app-bridge'].getSessionToken(app);
+                    return sessionToken;
+                }}
+                return null;
+            }} catch (e) {{
+                console.error('[TradeUp] Error getting session token:', e);
+                return null;
+            }}
+        }}
 
         // State (using var to avoid temporal dead zone in embedded contexts)
         var currentPage = 'home';
@@ -1122,7 +1161,7 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
         const API_BASE = '{app_url}/api';
 
         // Debug: Confirm script execution
-        console.log('[TradeUp v1.7] Script loaded, API_BASE:', API_BASE);
+        console.log('[TradeUp v2.0] Script loaded, API_BASE:', API_BASE);
 
         // Theme toggle
         function toggleTheme() {{
@@ -1182,36 +1221,42 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
             setTimeout(() => toast.remove(), 3000);
         }}
 
-        // API helpers - using XMLHttpRequest (fetch doesn't work in Shopify iframes)
-        function apiGet(endpoint) {{
-            const url = API_BASE + endpoint;
-            console.log('[TradeUp v1.7] API GET:', url);
+        // API helpers - using XMLHttpRequest with Shopify session token auth
+        async function apiGet(endpoint) {{
+            const token = await getSessionToken();
+            const separator = endpoint.includes('?') ? '&' : '?';
+            const url = API_BASE + endpoint + separator + 'shop=' + encodeURIComponent(SHOP_DOMAIN);
+            console.log('[TradeUp] API GET:', url);
 
             return new Promise((resolve, reject) => {{
                 const xhr = new XMLHttpRequest();
                 xhr.open('GET', url, true);
-                xhr.setRequestHeader('X-Tenant-ID', '1');
+                if (token) {{
+                    xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+                }} else {{
+                    xhr.setRequestHeader('X-Shop-Domain', SHOP_DOMAIN);
+                }}
 
                 xhr.onreadystatechange = function() {{
                     if (xhr.readyState === 4) {{
                         if (xhr.status === 200) {{
                             try {{
                                 const data = JSON.parse(xhr.responseText);
-                                console.log('[TradeUp v1.7] API GET success:', endpoint);
+                                console.log('[TradeUp] API GET success:', endpoint);
                                 resolve(data);
                             }} catch (e) {{
-                                console.error('[TradeUp v1.7] JSON parse error:', e);
+                                console.error('[TradeUp] JSON parse error:', e);
                                 reject(e);
                             }}
                         }} else {{
-                            console.error('[TradeUp v1.7] API GET failed:', xhr.status);
+                            console.error('[TradeUp] API GET failed:', xhr.status);
                             reject(new Error('API request failed: ' + xhr.status));
                         }}
                     }}
                 }};
 
                 xhr.onerror = function() {{
-                    console.error('[TradeUp v1.7] XHR network error');
+                    console.error('[TradeUp] XHR network error');
                     reject(new Error('Network error'));
                 }};
 
@@ -1219,36 +1264,42 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
             }});
         }}
 
-        function apiPost(endpoint, data) {{
-            const url = API_BASE + endpoint;
-            console.log('[TradeUp v1.7] API POST:', url);
+        async function apiPost(endpoint, data) {{
+            const token = await getSessionToken();
+            const separator = endpoint.includes('?') ? '&' : '?';
+            const url = API_BASE + endpoint + separator + 'shop=' + encodeURIComponent(SHOP_DOMAIN);
+            console.log('[TradeUp] API POST:', url);
 
             return new Promise((resolve, reject) => {{
                 const xhr = new XMLHttpRequest();
                 xhr.open('POST', url, true);
                 xhr.setRequestHeader('Content-Type', 'application/json');
-                xhr.setRequestHeader('X-Tenant-ID', '1');
+                if (token) {{
+                    xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+                }} else {{
+                    xhr.setRequestHeader('X-Shop-Domain', SHOP_DOMAIN);
+                }}
 
                 xhr.onreadystatechange = function() {{
                     if (xhr.readyState === 4) {{
                         try {{
                             const json = JSON.parse(xhr.responseText);
                             if (xhr.status >= 200 && xhr.status < 300) {{
-                                console.log('[TradeUp v1.7] API POST success:', endpoint);
+                                console.log('[TradeUp v2.0] API POST success:', endpoint);
                                 resolve(json);
                             }} else {{
-                                console.error('[TradeUp v1.7] API POST failed:', xhr.status, json);
+                                console.error('[TradeUp v2.0] API POST failed:', xhr.status, json);
                                 reject(new Error(json.error || 'API request failed'));
                             }}
                         }} catch (e) {{
-                            console.error('[TradeUp v1.7] JSON parse error:', e);
+                            console.error('[TradeUp v2.0] JSON parse error:', e);
                             reject(e);
                         }}
                     }}
                 }};
 
                 xhr.onerror = function() {{
-                    console.error('[TradeUp v1.7] XHR network error');
+                    console.error('[TradeUp v2.0] XHR network error');
                     reject(new Error('Network error'));
                 }};
 
@@ -1280,43 +1331,48 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
             return 'tier-silver';
         }}
 
-        // Load dashboard stats - using XHR as fallback for debugging
-        function loadDashboardStats() {{
-            console.log('[TradeUp v1.7] loadDashboardStats() called');
-            const url = API_BASE + '/dashboard/stats';
-            console.log('[TradeUp v1.7] Using XHR for:', url);
+        // Load dashboard stats with session token auth
+        async function loadDashboardStats() {{
+            console.log('[TradeUp] loadDashboardStats() called');
+            sessionToken = await getSessionToken();
+            const url = API_BASE + '/dashboard/stats?shop=' + encodeURIComponent(SHOP_DOMAIN);
+            console.log('[TradeUp] Loading stats from:', url);
 
             const xhr = new XMLHttpRequest();
             xhr.open('GET', url, true);
-            xhr.setRequestHeader('X-Tenant-ID', '1');
+            if (sessionToken) {{
+                    xhr.setRequestHeader('Authorization', 'Bearer ' + sessionToken);
+                }} else {{
+                    xhr.setRequestHeader('X-Shop-Domain', SHOP_DOMAIN);
+                }}
 
             xhr.onreadystatechange = function() {{
-                console.log('[TradeUp v1.7] XHR readyState:', xhr.readyState);
+                console.log('[TradeUp v2.0] XHR readyState:', xhr.readyState);
                 if (xhr.readyState === 4) {{
-                    console.log('[TradeUp v1.7] XHR status:', xhr.status);
+                    console.log('[TradeUp v2.0] XHR status:', xhr.status);
                     if (xhr.status === 200) {{
                         try {{
                             const stats = JSON.parse(xhr.responseText);
-                            console.log('[TradeUp v1.7] Stats loaded:', stats);
+                            console.log('[TradeUp v2.0] Stats loaded:', stats);
                             document.getElementById('stat-members').textContent = stats.members?.total || 0;
                             document.getElementById('stat-credit').textContent = formatCurrency(stats.bonuses_this_month?.total || 0);
                             document.getElementById('stat-tradeins').textContent = stats.trade_ins_this_month || 0;
                             document.getElementById('stat-bonuses').textContent = formatCurrency(stats.bonuses_this_month?.total || 0);
-                            console.log('[TradeUp v1.7] Stats applied to DOM!');
+                            console.log('[TradeUp v2.0] Stats applied to DOM!');
                         }} catch (e) {{
-                            console.error('[TradeUp v1.7] JSON parse error:', e);
+                            console.error('[TradeUp v2.0] JSON parse error:', e);
                         }}
                     }} else {{
-                        console.error('[TradeUp v1.7] XHR failed with status:', xhr.status);
+                        console.error('[TradeUp v2.0] XHR failed with status:', xhr.status);
                     }}
                 }}
             }};
 
             xhr.onerror = function() {{
-                console.error('[TradeUp v1.7] XHR network error');
+                console.error('[TradeUp v2.0] XHR network error');
             }};
 
-            console.log('[TradeUp v1.7] Sending XHR...');
+            console.log('[TradeUp v2.0] Sending XHR...');
             xhr.send();
         }}
 
@@ -1677,7 +1733,11 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
             return new Promise((resolve, reject) => {{
                 const xhr = new XMLHttpRequest();
                 xhr.open('DELETE', url, true);
-                xhr.setRequestHeader('X-Tenant-ID', '1');
+                if (sessionToken) {{
+                    xhr.setRequestHeader('Authorization', 'Bearer ' + sessionToken);
+                }} else {{
+                    xhr.setRequestHeader('X-Shop-Domain', SHOP_DOMAIN);
+                }}
                 xhr.setRequestHeader('Content-Type', 'application/json');
                 xhr.onreadystatechange = function() {{
                     if (xhr.readyState === 4) {{
@@ -1708,7 +1768,11 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
             return new Promise((resolve, reject) => {{
                 const xhr = new XMLHttpRequest();
                 xhr.open('PUT', url, true);
-                xhr.setRequestHeader('X-Tenant-ID', '1');
+                if (sessionToken) {{
+                    xhr.setRequestHeader('Authorization', 'Bearer ' + sessionToken);
+                }} else {{
+                    xhr.setRequestHeader('X-Shop-Domain', SHOP_DOMAIN);
+                }}
                 xhr.setRequestHeader('Content-Type', 'application/json');
                 xhr.onreadystatechange = function() {{
                     if (xhr.readyState === 4) {{
@@ -1739,7 +1803,11 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
             return new Promise((resolve, reject) => {{
                 const xhr = new XMLHttpRequest();
                 xhr.open('PATCH', url, true);
-                xhr.setRequestHeader('X-Tenant-ID', '1');
+                if (sessionToken) {{
+                    xhr.setRequestHeader('Authorization', 'Bearer ' + sessionToken);
+                }} else {{
+                    xhr.setRequestHeader('X-Shop-Domain', SHOP_DOMAIN);
+                }}
                 xhr.setRequestHeader('Content-Type', 'application/json');
                 xhr.onreadystatechange = function() {{
                     if (xhr.readyState === 4) {{
@@ -2081,16 +2149,16 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
         }}
 
         // Initialize
-        console.log('[TradeUp v1.7] Setting up DOMContentLoaded listener, readyState:', document.readyState);
+        console.log('[TradeUp v2.0] Setting up DOMContentLoaded listener, readyState:', document.readyState);
         document.addEventListener('DOMContentLoaded', () => {{
-            console.log('[TradeUp v1.7] DOMContentLoaded fired!');
+            console.log('[TradeUp v2.0] DOMContentLoaded fired!');
             loadDashboardStats();
             loadRecentMembers();
         }});
 
         // Fallback if DOMContentLoaded already fired
         if (document.readyState === 'complete' || document.readyState === 'interactive') {{
-            console.log('[TradeUp v1.7] DOM already ready, calling init directly');
+            console.log('[TradeUp v2.0] DOM already ready, calling init directly');
             setTimeout(() => {{
                 loadDashboardStats();
                 loadRecentMembers();
@@ -2134,11 +2202,21 @@ def register_blueprints(app: Flask) -> None:
     # Promotions & Store Credit
     from .api.promotions import promotions_bp
 
+    # Tier Management
+    from .api.tiers import tiers_bp
+
+    # Customer Account (public facing)
+    from .api.customer_account import customer_account_bp
+
+    # Referral Program
+    from .api.referrals import referrals_bp
+
     # Webhooks
     from .webhooks.shopify import webhooks_bp
     from .webhooks.shopify_billing import shopify_billing_webhook_bp
     from .webhooks.customer_lifecycle import customer_lifecycle_bp
     from .webhooks.order_lifecycle import order_lifecycle_bp
+    from .webhooks.subscription_lifecycle import subscription_lifecycle_bp
     from .webhooks.app_lifecycle import app_lifecycle_bp
 
     # Core API routes
@@ -2172,11 +2250,21 @@ def register_blueprints(app: Flask) -> None:
     # Promotions & Store Credit routes
     app.register_blueprint(promotions_bp, url_prefix='/api/promotions')
 
+    # Tier Management routes
+    app.register_blueprint(tiers_bp)
+
+    # Customer Account routes (public facing)
+    app.register_blueprint(customer_account_bp, url_prefix='/api/customer')
+
+    # Referral Program routes
+    app.register_blueprint(referrals_bp, url_prefix='/api/referrals')
+
     # Webhook routes
     app.register_blueprint(webhooks_bp, url_prefix='/webhook')
     app.register_blueprint(shopify_billing_webhook_bp, url_prefix='/webhook/shopify-billing')
     app.register_blueprint(customer_lifecycle_bp, url_prefix='/webhook')
     app.register_blueprint(order_lifecycle_bp, url_prefix='/webhook')
+    app.register_blueprint(subscription_lifecycle_bp, url_prefix='/webhook')
     app.register_blueprint(app_lifecycle_bp, url_prefix='/webhook')
 
 

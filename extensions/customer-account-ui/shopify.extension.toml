@@ -1,0 +1,27 @@
+# TradeUp Customer Account Extension
+# Displays in the customer account page
+
+api_version = "2024-10"
+
+[[extensions]]
+type = "customer_account_ui"
+name = "TradeUp Rewards"
+handle = "tradeup-rewards"
+
+  [[extensions.targeting]]
+  target = "customer-account.order-index.block.render"
+  module = "./src/TradeUpRewards.jsx"
+
+  [[extensions.targeting]]
+  target = "customer-account.profile.block.render"
+  module = "./src/TradeUpRewards.jsx"
+
+[extensions.capabilities]
+api_access = true
+
+[extensions.settings]
+  [[extensions.settings.fields]]
+  key = "show_trade_history"
+  type = "boolean"
+  name = "Show trade-in history"
+  description = "Display trade-in history in the customer account"

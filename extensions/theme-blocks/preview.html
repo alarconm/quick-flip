@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TradeUp Theme Blocks Preview</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f0f0f0;
+      padding: 40px;
+    }
+    .preview-section {
+      background: white;
+      border-radius: 12px;
+      padding: 32px;
+      margin-bottom: 40px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .preview-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #6B7280;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 24px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #E5E7EB;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 40px;
+      color: #1F2937;
+    }
+
+    /* ========== MEMBERSHIP SIGNUP BLOCK ========== */
+    .tradeup-signup--card {
+      background: #F9FAFB;
+      border-radius: 12px;
+      padding: 32px;
+      text-align: center;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    .tradeup-signup__heading {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin: 0 0 8px;
+      color: #1F2937;
+    }
+    .tradeup-signup__subheading {
+      font-size: 1rem;
+      margin: 0 0 20px;
+      opacity: 0.85;
+      color: #6B7280;
+    }
+    .tradeup-signup__benefits {
+      list-style: none;
+      padding: 0;
+      margin: 0 0 24px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 16px;
+    }
+    .tradeup-signup__benefit {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.875rem;
+    }
+    .tradeup-signup__benefit-icon {
+      width: 20px;
+      height: 20px;
+      background: #4F46E5;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 12px;
+    }
+    .tradeup-signup__button {
+      display: inline-block;
+      background: #4F46E5;
+      color: white;
+      padding: 12px 28px;
+      border-radius: 8px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: transform 0.15s, box-shadow 0.15s;
+      border: none;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+    .tradeup-signup__button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    /* ========== CREDIT BADGE BLOCK ========== */
+    .badge-row { display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; }
+    .tradeup-badge--pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #4F46E5;
+      color: white;
+      padding: 8px 16px;
+      border-radius: 9999px;
+      font-size: 0.875rem;
+      font-weight: 600;
+    }
+    .tradeup-badge--card {
+      background: white;
+      border: 1px solid #E5E7EB;
+      border-radius: 12px;
+      padding: 16px;
+      display: inline-flex;
+      flex-direction: column;
+      gap: 4px;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+    .tradeup-badge__label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #6B7280;
+    }
+    .tradeup-badge__value {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #1F2937;
+    }
+    .tradeup-badge__tier {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.75rem;
+      color: #4F46E5;
+      font-weight: 500;
+    }
+    .tradeup-badge__tier-dot {
+      width: 6px;
+      height: 6px;
+      background: #4F46E5;
+      border-radius: 50%;
+    }
+
+    /* ========== TRADE-IN CTA BLOCK ========== */
+    .tradeup-tradein--card {
+      background: #F9FAFB;
+      border-radius: 16px;
+      padding: 40px;
+      text-align: center;
+    }
+    .tradeup-tradein__bonus {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #4F46E5;
+      color: white;
+      padding: 8px 16px;
+      border-radius: 9999px;
+      font-size: 0.875rem;
+      font-weight: 600;
+      margin-bottom: 24px;
+    }
+    .tradeup-tradein__heading {
+      font-size: 2rem;
+      font-weight: 700;
+      margin: 0 0 12px;
+      color: #1F2937;
+    }
+    .tradeup-tradein__description {
+      font-size: 1.125rem;
+      color: #6B7280;
+      margin: 0 0 24px;
+      max-width: 500px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .tradeup-tradein__steps {
+      display: flex;
+      justify-content: center;
+      gap: 32px;
+      margin-bottom: 32px;
+      flex-wrap: wrap;
+    }
+    .tradeup-tradein__step {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      max-width: 150px;
+    }
+    .tradeup-tradein__step-number {
+      width: 36px;
+      height: 36px;
+      background: #4F46E5;
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 1rem;
+    }
+    .tradeup-tradein__step-text {
+      font-size: 0.875rem;
+      color: #6B7280;
+      text-align: center;
+    }
+    .tradeup-tradein__button {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #4F46E5;
+      color: white;
+      padding: 14px 32px;
+      border-radius: 10px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: transform 0.15s, box-shadow 0.15s;
+      border: none;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+    .tradeup-tradein__button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+    }
+
+    /* ========== REFERRAL BLOCK ========== */
+    .tradeup-referral--card {
+      background: #F9FAFB;
+      border-radius: 16px;
+      padding: 32px;
+      text-align: center;
+    }
+    .tradeup-referral__heading {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin: 0 0 12px;
+      color: #1F2937;
+    }
+    .tradeup-referral__description {
+      font-size: 1rem;
+      color: #6B7280;
+      margin: 0 0 24px;
+      max-width: 450px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .tradeup-referral__rewards {
+      display: flex;
+      justify-content: center;
+      gap: 32px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+    .tradeup-referral__reward {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+    .tradeup-referral__reward-amount {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #4F46E5;
+    }
+    .tradeup-referral__reward-label {
+      font-size: 0.875rem;
+      color: #6B7280;
+    }
+    .tradeup-referral__code-box {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+    .tradeup-referral__code {
+      background: white;
+      border: 2px dashed #4F46E5;
+      border-radius: 8px;
+      padding: 12px 24px;
+      font-family: monospace;
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      color: #4F46E5;
+    }
+    .tradeup-referral__copy-btn {
+      background: #4F46E5;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 12px 20px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .tradeup-referral__copy-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    .tradeup-referral__share-buttons {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .tradeup-referral__share-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-weight: 500;
+      text-decoration: none;
+      transition: transform 0.15s;
+      font-size: 0.875rem;
+      color: white;
+    }
+    .tradeup-referral__share-btn--facebook { background: #1877F2; }
+    .tradeup-referral__share-btn--twitter { background: #1DA1F2; }
+    .tradeup-referral__share-btn--whatsapp { background: #25D366; }
+    .tradeup-referral__share-btn--email { background: #6B7280; }
+    .tradeup-referral__stats {
+      display: flex;
+      justify-content: center;
+      gap: 32px;
+      margin-top: 24px;
+      padding-top: 24px;
+      border-top: 1px solid #E5E7EB;
+    }
+    .tradeup-referral__stat { text-align: center; }
+    .tradeup-referral__stat-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #4F46E5;
+    }
+    .tradeup-referral__stat-label {
+      font-size: 0.75rem;
+      color: #6B7280;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+  </style>
+</head>
+<body>
+  <h1>TradeUp Theme Blocks Preview</h1>
+
+  <!-- MEMBERSHIP SIGNUP -->
+  <div class="preview-section">
+    <div class="preview-title">1. Membership Signup Block (Card Style)</div>
+    <div class="tradeup-signup--card">
+      <h3 class="tradeup-signup__heading">Join Our Rewards Program</h3>
+      <p class="tradeup-signup__subheading">Earn store credit on every trade-in and unlock exclusive member benefits.</p>
+      <ul class="tradeup-signup__benefits">
+        <li class="tradeup-signup__benefit">
+          <span class="tradeup-signup__benefit-icon">✓</span>
+          Free to Join
+        </li>
+        <li class="tradeup-signup__benefit">
+          <span class="tradeup-signup__benefit-icon">✓</span>
+          Earn Store Credit
+        </li>
+        <li class="tradeup-signup__benefit">
+          <span class="tradeup-signup__benefit-icon">✓</span>
+          Member-Only Perks
+        </li>
+      </ul>
+      <button class="tradeup-signup__button">Join Now - It's Free</button>
+    </div>
+  </div>
+
+  <!-- CREDIT BADGE -->
+  <div class="preview-section">
+    <div class="preview-title">2. Store Credit Badge Block (Multiple Styles)</div>
+    <div class="badge-row">
+      <div class="tradeup-badge--pill">
+        💰 $127.50
+      </div>
+      <div class="tradeup-badge--card">
+        <span class="tradeup-badge__label">Store Credit</span>
+        <span class="tradeup-badge__value">$127.50</span>
+        <span class="tradeup-badge__tier">
+          <span class="tradeup-badge__tier-dot"></span>
+          Gold Member
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- TRADE-IN CTA -->
+  <div class="preview-section">
+    <div class="preview-title">3. Trade-In CTA Block (Card Style)</div>
+    <div class="tradeup-tradein--card">
+      <div class="tradeup-tradein__bonus">
+        🏷️ Gold Member: +10% trade-in bonus
+      </div>
+      <h3 class="tradeup-tradein__heading">Trade In Your Items</h3>
+      <p class="tradeup-tradein__description">Turn your unwanted items into store credit. Fast, easy, and you get paid fairly.</p>
+      <div class="tradeup-tradein__steps">
+        <div class="tradeup-tradein__step">
+          <span class="tradeup-tradein__step-number">1</span>
+          <span class="tradeup-tradein__step-text">Describe your items</span>
+        </div>
+        <div class="tradeup-tradein__step">
+          <span class="tradeup-tradein__step-number">2</span>
+          <span class="tradeup-tradein__step-text">Get an instant quote</span>
+        </div>
+        <div class="tradeup-tradein__step">
+          <span class="tradeup-tradein__step-number">3</span>
+          <span class="tradeup-tradein__step-text">Ship or drop off</span>
+        </div>
+      </div>
+      <button class="tradeup-tradein__button">
+        Start Trade-In →
+      </button>
+    </div>
+  </div>
+
+  <!-- REFERRAL BLOCK -->
+  <div class="preview-section">
+    <div class="preview-title">4. Refer a Friend Block (Social Style)</div>
+    <div class="tradeup-referral--card">
+      <h3 class="tradeup-referral__heading">Refer a Friend</h3>
+      <p class="tradeup-referral__description">Share the love! Give your friends store credit and earn rewards when they join.</p>
+      <div class="tradeup-referral__rewards">
+        <div class="tradeup-referral__reward">
+          <span class="tradeup-referral__reward-amount">You get $10</span>
+          <span class="tradeup-referral__reward-label">for you</span>
+        </div>
+        <div class="tradeup-referral__reward">
+          <span class="tradeup-referral__reward-amount">They get $5</span>
+          <span class="tradeup-referral__reward-label">for them</span>
+        </div>
+      </div>
+      <div class="tradeup-referral__code-box">
+        <span class="tradeup-referral__code">XK7M2QLP</span>
+        <button class="tradeup-referral__copy-btn">
+          📋 Copy
+        </button>
+      </div>
+      <div class="tradeup-referral__share-buttons">
+        <a href="#" class="tradeup-referral__share-btn tradeup-referral__share-btn--facebook">Share</a>
+        <a href="#" class="tradeup-referral__share-btn tradeup-referral__share-btn--twitter">Tweet</a>
+        <a href="#" class="tradeup-referral__share-btn tradeup-referral__share-btn--whatsapp">WhatsApp</a>
+        <a href="#" class="tradeup-referral__share-btn tradeup-referral__share-btn--email">Email</a>
+      </div>
+      <div class="tradeup-referral__stats">
+        <div class="tradeup-referral__stat">
+          <div class="tradeup-referral__stat-value">7</div>
+          <div class="tradeup-referral__stat-label">Friends Referred</div>
+        </div>
+        <div class="tradeup-referral__stat">
+          <div class="tradeup-referral__stat-value">$70</div>
+          <div class="tradeup-referral__stat-label">Earned</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

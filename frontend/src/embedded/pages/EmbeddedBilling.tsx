@@ -22,7 +22,7 @@ import {
 } from '@shopify/polaris';
 import { CheckIcon } from '@shopify/polaris-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getApiUrl, getTenantParam } from '../../hooks/useShopifyBridge';
+import { getApiUrl, authFetch } from '../../hooks/useShopifyBridge';
 
 interface BillingProps {
   shop: string | null;
@@ -50,14 +50,16 @@ interface BillingStatus {
 }
 
 async function fetchPlans(): Promise<{ plans: Plan[] }> {
+  // Plans don't require auth - they're public
   const response = await fetch(`${getApiUrl()}/billing/plans`);
   if (!response.ok) throw new Error('Failed to fetch plans');
   return response.json();
 }
 
 async function fetchBillingStatus(shop: string | null): Promise<BillingStatus> {
-  const response = await fetch(
-    `${getApiUrl()}/billing/status${getTenantParam(shop)}`
+  const response = await authFetch(
+    `${getApiUrl()}/billing/status`,
+    shop
   );
   if (!response.ok) throw new Error('Failed to fetch billing status');
   return response.json();
@@ -67,11 +69,11 @@ async function subscribeToPlan(
   shop: string | null,
   planKey: string
 ): Promise<{ confirmation_url: string }> {
-  const response = await fetch(
-    `${getApiUrl()}/billing/subscribe${getTenantParam(shop)}`,
+  const response = await authFetch(
+    `${getApiUrl()}/billing/subscribe`,
+    shop,
     {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ plan: planKey }),
     }
   );
@@ -80,8 +82,9 @@ async function subscribeToPlan(
 }
 
 async function cancelSubscription(shop: string | null): Promise<void> {
-  const response = await fetch(
-    `${getApiUrl()}/billing/cancel${getTenantParam(shop)}`,
+  const response = await authFetch(
+    `${getApiUrl()}/billing/cancel`,
+    shop,
     { method: 'POST' }
   );
   if (!response.ok) throw new Error('Failed to cancel');
@@ -216,8 +219,8 @@ export function EmbeddedBilling({ shop }: BillingProps) {
                         status.usage.members.percentage > 90
                           ? 'critical'
                           : status.usage.members.percentage > 75
-                          ? 'warning'
-                          : 'primary'
+                          ? 'highlight'
+                          : 'success'
                       }
                     />
                   </BlockStack>

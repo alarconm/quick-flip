@@ -2,32 +2,30 @@ import { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import {
-  createPortalSession,
-  getSubscriptionStatus,
+  getMembershipStatus,
   getStoreCredit,
   getBonusHistory,
   linkShopifyAccount
 } from '../api/membership';
-import type { SubscriptionStatus, BonusTransaction, StoreCreditBalance } from '../api/membership';
+import type { MembershipStatus, BonusTransaction, StoreCreditBalance } from '../api/membership';
 
 export default function Dashboard() {
   const { member, logout, refreshMember } = useAuth();
   const [searchParams] = useSearchParams();
-  const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus | null>(null);
+  const [membershipStatus, setMembershipStatus] = useState<MembershipStatus | null>(null);
   const [storeCredit, setStoreCredit] = useState<StoreCreditBalance | null>(null);
   const [bonusHistory, setBonusHistory] = useState<BonusTransaction[]>([]);
-  const [loading, setLoading] = useState(false);
   const [linkingShopify, setLinkingShopify] = useState(false);
 
   const isWelcome = searchParams.get('welcome') === '1';
 
   useEffect(() => {
-    // Refresh member data on mount (in case we just came from Stripe checkout)
+    // Refresh member data on mount
     refreshMember();
 
-    // Get subscription status
-    getSubscriptionStatus()
-      .then(setSubscriptionStatus)
+    // Get membership status
+    getMembershipStatus()
+      .then(setMembershipStatus)
       .catch(console.error);
 
     // Get store credit balance
@@ -40,18 +38,6 @@ export default function Dashboard() {
       .then(res => setBonusHistory(res.transactions))
       .catch(console.error);
   }, []);
-
-  const handleManageBilling = async () => {
-    setLoading(true);
-    try {
-      const session = await createPortalSession(`${window.location.origin}/dashboard`);
-      window.location.href = session.url;
-    } catch (error) {
-      console.error('Failed to open billing portal:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   if (!member) {
     return (
@@ -183,41 +169,39 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Subscription Management */}
+          {/* Membership Status */}
           <div className="card p-6">
-            <h3 className="text-lg font-semibold mb-4">Subscription</h3>
-            {subscriptionStatus ? (
+            <h3 className="text-lg font-semibold mb-4">Membership</h3>
+            {membershipStatus ? (
               <div className="space-y-4">
                 <div className="flex justify-between">
                   <span className="text-gray-600">Status</span>
-                  <span className={`font-semibold ${subscriptionStatus.status === 'active' ? 'text-green-600' : 'text-yellow-600'}`}>
-                    {subscriptionStatus.status.charAt(0).toUpperCase() + subscriptionStatus.status.slice(1)}
+                  <span className={`font-semibold ${membershipStatus.status === 'active' ? 'text-green-600' : 'text-yellow-600'}`}>
+                    {membershipStatus.status.charAt(0).toUpperCase() + membershipStatus.status.slice(1)}
                   </span>
                 </div>
-                {subscriptionStatus.current_period_end && (
+                {membershipStatus.tier && (
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Next Billing Date</span>
-                    <span className="font-semibold">
-                      {new Date(subscriptionStatus.current_period_end).toLocaleDateString()}
+                    <span className="text-gray-600">Tier</span>
+                    <span className="font-semibold text-orange-500">
+                      {membershipStatus.tier.name}
                     </span>
                   </div>
                 )}
-                {subscriptionStatus.cancel_at_period_end && (
+                {membershipStatus.tier_expires_at && (
                   <div className="bg-yellow-50 p-3 rounded-lg text-yellow-800 text-sm">
-                    Your subscription will end on{' '}
-                    {new Date(subscriptionStatus.current_period_end).toLocaleDateString()}
+                    Tier expires on{' '}
+                    {new Date(membershipStatus.tier_expires_at).toLocaleDateString()}
                   </div>
                 )}
-                <button
-                  onClick={handleManageBilling}
-                  disabled={loading}
-                  className="btn btn-secondary w-full"
-                >
-                  {loading ? 'Loading...' : 'Manage Subscription'}
-                </button>
+                {membershipStatus.tier_assigned_by && (
+                  <div className="text-xs text-gray-400">
+                    Assigned: {membershipStatus.tier_assigned_by.replace('staff:', '')}
+                  </div>
+                )}
               </div>
             ) : (
-              <p className="text-gray-600">No active subscription</p>
+              <p className="text-gray-600">No tier assigned</p>
             )}
           </div>
         </div>
