@@ -13,50 +13,67 @@ dashboard_bp = Blueprint('dashboard', __name__)
 @dashboard_bp.route('/stats', methods=['GET'])
 def get_dashboard_stats():
     """Get dashboard statistics overview."""
-    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+    try:
+        tenant_id = int(request.headers.get('X-Tenant-ID', 1))
 
-    # Active members count
-    active_members = Member.query.filter_by(
-        tenant_id=tenant_id,
-        status='active'
-    ).count()
+        # Active members count
+        active_members = Member.query.filter_by(
+            tenant_id=tenant_id,
+            status='active'
+        ).count()
 
-    # Total members
-    total_members = Member.query.filter_by(tenant_id=tenant_id).count()
+        # Total members
+        total_members = Member.query.filter_by(tenant_id=tenant_id).count()
 
-    # Trade-ins this month
-    start_of_month = datetime.utcnow().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    trade_ins_this_month = (
-        TradeInBatch.query
-        .join(Member)
-        .filter(
-            Member.tenant_id == tenant_id,
-            TradeInBatch.created_at >= start_of_month
+        # Trade-ins this month (includes both member and guest trade-ins)
+        start_of_month = datetime.utcnow().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+        # Use outerjoin to include guest trade-ins (member_id is NULL)
+        trade_ins_this_month = (
+            TradeInBatch.query
+            .outerjoin(Member, TradeInBatch.member_id == Member.id)
+            .filter(
+                db.or_(
+                    Member.tenant_id == tenant_id,
+                    TradeInBatch.member_id.is_(None)  # Include guest trade-ins
+                ),
+                TradeInBatch.created_at >= start_of_month
+            )
+            .count()
         )
-        .count()
-    )
 
-    # Store credit issued this month (join through Member for tenant filtering)
-    credit_this_month = db.session.query(
-        func.count(StoreCreditLedger.id).label('count'),
-        func.sum(StoreCreditLedger.amount).label('total')
-    ).join(Member).filter(
-        Member.tenant_id == tenant_id,
-        StoreCreditLedger.created_at >= start_of_month,
-        StoreCreditLedger.amount > 0  # Only credits, not debits
-    ).first()
+        # Store credit issued this month (requires member, so use inner join)
+        credit_result = db.session.query(
+            func.count(StoreCreditLedger.id).label('count'),
+            func.coalesce(func.sum(StoreCreditLedger.amount), 0).label('total')
+        ).join(Member, StoreCreditLedger.member_id == Member.id).filter(
+            Member.tenant_id == tenant_id,
+            StoreCreditLedger.created_at >= start_of_month,
+            StoreCreditLedger.amount > 0  # Only credits, not debits
+        ).first()
 
-    return jsonify({
-        'members': {
-            'active': active_members,
-            'total': total_members
-        },
-        'trade_ins_this_month': trade_ins_this_month,
-        'credit_this_month': {
-            'count': credit_this_month.count or 0,
-            'total': float(credit_this_month.total or 0)
-        }
-    })
+        return jsonify({
+            'members': {
+                'active': active_members,
+                'total': total_members
+            },
+            'trade_ins_this_month': trade_ins_this_month,
+            'credit_this_month': {
+                'count': credit_result.count if credit_result else 0,
+                'total': float(credit_result.total) if credit_result and credit_result.total else 0
+            }
+        })
+    except Exception as e:
+        # Log error and return safe defaults
+        import traceback
+        print(f"[Dashboard] Error getting stats: {e}")
+        traceback.print_exc()
+        return jsonify({
+            'members': {'active': 0, 'total': 0},
+            'trade_ins_this_month': 0,
+            'credit_this_month': {'count': 0, 'total': 0},
+            'error': str(e)
+        }), 200  # Return 200 with error message for graceful degradation
 
 
 @dashboard_bp.route('/trade-in-report', methods=['GET'])

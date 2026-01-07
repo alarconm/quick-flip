@@ -22,42 +22,71 @@ def list_batches():
         - member_id: Filter by specific member
         - guest_only: If 'true', show only guest trade-ins
     """
-    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+    try:
+        tenant_id = int(request.headers.get('X-Tenant-ID', 1))
 
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 50, type=int)
-    status = request.args.get('status')
-    member_id = request.args.get('member_id', type=int)
-    guest_only = request.args.get('guest_only', '').lower() == 'true'
+        page = request.args.get('page', 1, type=int)
+        per_page = min(request.args.get('per_page', 50, type=int), 100)  # Cap at 100
+        status = request.args.get('status')
+        member_id = request.args.get('member_id', type=int)
+        guest_only = request.args.get('guest_only', '').lower() == 'true'
 
-    # Use outer join to include both member and guest trade-ins
-    # Filter by tenant: either through member or by checking there's no member (guest)
-    query = TradeInBatch.query.outerjoin(
-        Member, TradeInBatch.member_id == Member.id
-    ).filter(
-        db.or_(
-            Member.tenant_id == tenant_id,
-            TradeInBatch.member_id.is_(None)  # Guest trade-ins
+        # Use outer join to include both member and guest trade-ins
+        # Filter by tenant: either through member or by checking there's no member (guest)
+        query = TradeInBatch.query.outerjoin(
+            Member, TradeInBatch.member_id == Member.id
+        ).filter(
+            db.or_(
+                Member.tenant_id == tenant_id,
+                TradeInBatch.member_id.is_(None)  # Guest trade-ins
+            )
         )
-    )
 
-    if status:
-        query = query.filter(TradeInBatch.status == status)
-    if member_id:
-        query = query.filter(TradeInBatch.member_id == member_id)
-    if guest_only:
-        query = query.filter(TradeInBatch.member_id.is_(None))
+        if status and status != 'all':
+            query = query.filter(TradeInBatch.status == status)
+        if member_id:
+            query = query.filter(TradeInBatch.member_id == member_id)
+        if guest_only:
+            query = query.filter(TradeInBatch.member_id.is_(None))
 
-    pagination = query.order_by(TradeInBatch.created_at.desc()).paginate(
-        page=page, per_page=per_page, error_out=False
-    )
+        pagination = query.order_by(TradeInBatch.created_at.desc()).paginate(
+            page=page, per_page=per_page, error_out=False
+        )
 
-    return jsonify({
-        'batches': [b.to_dict() for b in pagination.items],
-        'total': pagination.total,
-        'page': page,
-        'per_page': per_page
-    })
+        # Safely convert to dict, handling any relationship issues
+        batches = []
+        for batch in pagination.items:
+            try:
+                batches.append(batch.to_dict())
+            except Exception as e:
+                # If to_dict fails for a batch, include basic info
+                batches.append({
+                    'id': batch.id,
+                    'batch_reference': batch.batch_reference,
+                    'status': batch.status,
+                    'total_items': batch.total_items or 0,
+                    'total_trade_value': float(batch.total_trade_value or 0),
+                    'created_at': batch.created_at.isoformat() if batch.created_at else None,
+                    'error': f'Serialization error: {str(e)}'
+                })
+
+        return jsonify({
+            'batches': batches,
+            'total': pagination.total,
+            'page': page,
+            'per_page': per_page
+        })
+    except Exception as e:
+        import traceback
+        print(f"[TradeIns] Error listing batches: {e}")
+        traceback.print_exc()
+        return jsonify({
+            'batches': [],
+            'total': 0,
+            'page': 1,
+            'per_page': per_page if 'per_page' in dir() else 50,
+            'error': str(e)
+        }), 200  # Return 200 with error for graceful degradation
 
 
 @trade_ins_bp.route('/<int:batch_id>', methods=['GET'])

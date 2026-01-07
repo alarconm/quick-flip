@@ -2203,6 +2203,9 @@ def register_blueprints(app: Flask) -> None:
     # Promotions & Store Credit
     from .api.promotions import promotions_bp
 
+    # Bonuses API
+    from .api.bonuses import bonuses_bp
+
     # Tier Management
     from .api.tiers import tiers_bp
 
@@ -2252,6 +2255,9 @@ def register_blueprints(app: Flask) -> None:
 
     # Promotions & Store Credit routes
     app.register_blueprint(promotions_bp, url_prefix='/api/promotions')
+
+    # Bonuses API routes
+    app.register_blueprint(bonuses_bp, url_prefix='/api/bonuses')
 
     # Tier Management routes
     app.register_blueprint(tiers_bp)
