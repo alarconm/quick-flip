@@ -14,7 +14,12 @@ class TradeInBatch(db.Model):
     __tablename__ = 'trade_in_batches'
 
     id = db.Column(db.Integer, primary_key=True)
-    member_id = db.Column(db.Integer, db.ForeignKey('members.id'), nullable=False)
+    member_id = db.Column(db.Integer, db.ForeignKey('members.id'), nullable=True)  # Nullable for non-member trade-ins
+
+    # Guest info for non-member trade-ins
+    guest_name = db.Column(db.String(200))
+    guest_email = db.Column(db.String(200))
+    guest_phone = db.Column(db.String(50))
 
     # Batch identification
     batch_reference = db.Column(db.String(50), unique=True, nullable=False)  # TI-20260104-001
@@ -48,12 +53,21 @@ class TradeInBatch(db.Model):
         return f'<TradeInBatch {self.batch_reference}>'
 
     def to_dict(self, include_items=False):
+        # Handle member vs guest info
+        is_member = self.member_id is not None and self.member is not None
+        customer_name = self.member.name if is_member else self.guest_name
+        customer_tier = self.member.tier.name if is_member and self.member.tier else None
+
         data = {
             'id': self.id,
             'member_id': self.member_id,
-            'member_number': self.member.member_number if self.member else None,
-            'member_name': self.member.name if self.member else None,
-            'member_tier': self.member.tier.name if self.member and self.member.tier else None,
+            'is_member': is_member,
+            'member_number': self.member.member_number if is_member else None,
+            'member_name': customer_name,
+            'member_tier': customer_tier,
+            'guest_name': self.guest_name,
+            'guest_email': self.guest_email,
+            'guest_phone': self.guest_phone,
             'batch_reference': self.batch_reference,
             'trade_in_date': self.trade_in_date.isoformat(),
             'total_items': self.total_items,

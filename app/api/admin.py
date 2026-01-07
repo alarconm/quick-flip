@@ -335,6 +335,10 @@ def fix_schema():
         ("trade_in_batches", "completed_at", "TIMESTAMP"),
         ("trade_in_batches", "completed_by", "VARCHAR(100)"),
         ("trade_in_batches", "bonus_amount", "NUMERIC(10,2) DEFAULT 0"),
+        # Trade-in batches - guest/non-member trade-in support
+        ("trade_in_batches", "guest_name", "VARCHAR(200)"),
+        ("trade_in_batches", "guest_email", "VARCHAR(200)"),
+        ("trade_in_batches", "guest_phone", "VARCHAR(50)"),
         # Tier configurations - promotion system columns
         ("tier_configurations", "yearly_price", "NUMERIC(6,2)"),
         ("tier_configurations", "trade_in_bonus_pct", "NUMERIC(5,2) DEFAULT 0"),
@@ -367,6 +371,15 @@ def fix_schema():
                 results.append({'table': table, 'column': column, 'action': 'added'})
             else:
                 results.append({'table': table, 'column': column, 'action': 'exists'})
+
+        # Special case: Make trade_in_batches.member_id nullable for non-member trade-ins
+        try:
+            alter_nullable_sql = text('ALTER TABLE trade_in_batches ALTER COLUMN member_id DROP NOT NULL')
+            db.session.execute(alter_nullable_sql)
+            results.append({'table': 'trade_in_batches', 'column': 'member_id', 'action': 'made_nullable'})
+        except Exception:
+            # Column might already be nullable, that's fine
+            results.append({'table': 'trade_in_batches', 'column': 'member_id', 'action': 'already_nullable_or_error'})
 
         db.session.commit()
 

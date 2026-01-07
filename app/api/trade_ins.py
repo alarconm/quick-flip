@@ -12,21 +12,41 @@ trade_ins_bp = Blueprint('trade_ins', __name__)
 
 @trade_ins_bp.route('', methods=['GET'])
 def list_batches():
-    """List trade-in batches."""
+    """
+    List trade-in batches (both member and guest).
+
+    Query params:
+        - page: Page number (default: 1)
+        - per_page: Items per page (default: 50)
+        - status: Filter by status
+        - member_id: Filter by specific member
+        - guest_only: If 'true', show only guest trade-ins
+    """
     tenant_id = int(request.headers.get('X-Tenant-ID', 1))
 
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 50, type=int)
     status = request.args.get('status')
     member_id = request.args.get('member_id', type=int)
+    guest_only = request.args.get('guest_only', '').lower() == 'true'
 
-    # Join with members to filter by tenant
-    query = TradeInBatch.query.join(Member).filter(Member.tenant_id == tenant_id)
+    # Use outer join to include both member and guest trade-ins
+    # Filter by tenant: either through member or by checking there's no member (guest)
+    query = TradeInBatch.query.outerjoin(
+        Member, TradeInBatch.member_id == Member.id
+    ).filter(
+        db.or_(
+            Member.tenant_id == tenant_id,
+            TradeInBatch.member_id.is_(None)  # Guest trade-ins
+        )
+    )
 
     if status:
         query = query.filter(TradeInBatch.status == status)
     if member_id:
         query = query.filter(TradeInBatch.member_id == member_id)
+    if guest_only:
+        query = query.filter(TradeInBatch.member_id.is_(None))
 
     pagination = query.order_by(TradeInBatch.created_at.desc()).paginate(
         page=page, per_page=per_page, error_out=False
@@ -56,15 +76,33 @@ def get_batch_by_reference(batch_reference):
 
 @trade_ins_bp.route('', methods=['POST'])
 def create_batch():
-    """Create a new trade-in batch."""
+    """
+    Create a new trade-in batch.
+
+    Supports both member and non-member (guest) trade-ins:
+    - For members: provide member_id
+    - For guests: provide guest_name, guest_email, and optionally guest_phone
+    """
     tenant_id = int(request.headers.get('X-Tenant-ID', 1))
     data = request.json
+
+    member_id = data.get('member_id')
+    guest_name = data.get('guest_name')
+    guest_email = data.get('guest_email')
+    guest_phone = data.get('guest_phone')
+
+    # Require either member_id or guest info
+    if not member_id and not (guest_name or guest_email):
+        return jsonify({'error': 'Either member_id or guest info (guest_name/guest_email) is required'}), 400
 
     service = TradeInService(tenant_id)
 
     try:
         batch = service.create_batch(
-            member_id=data['member_id'],
+            member_id=member_id,
+            guest_name=guest_name,
+            guest_email=guest_email,
+            guest_phone=guest_phone,
             notes=data.get('notes'),
             created_by=data.get('created_by', 'API'),
             category=data.get('category', 'other')

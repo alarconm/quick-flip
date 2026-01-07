@@ -39,16 +39,26 @@ class TradeInService:
 
     def create_batch(
         self,
-        member_id: int,
+        member_id: Optional[int] = None,
+        guest_name: Optional[str] = None,
+        guest_email: Optional[str] = None,
+        guest_phone: Optional[str] = None,
         notes: Optional[str] = None,
         created_by: Optional[str] = None,
         category: Optional[str] = None
     ) -> TradeInBatch:
         """
-        Create a new trade-in batch for a member.
+        Create a new trade-in batch for a member or guest.
+
+        Supports both member and non-member trade-ins:
+        - For members: provide member_id
+        - For guests: provide guest_name and/or guest_email
 
         Args:
-            member_id: ID of the member trading in items
+            member_id: ID of the member trading in items (optional for guests)
+            guest_name: Name of guest customer (for non-member trade-ins)
+            guest_email: Email of guest customer (for non-member trade-ins)
+            guest_phone: Phone of guest customer (for non-member trade-ins)
             notes: Optional notes about the batch
             created_by: Employee who processed the trade-in
             category: Category of items (sports, pokemon, magic, riftbound, tcg_other, other)
@@ -57,14 +67,21 @@ class TradeInService:
             Created TradeInBatch object
 
         Raises:
-            ValueError: If member not found or not active
+            ValueError: If member_id provided but member not found/inactive,
+                       or if neither member_id nor guest info provided
         """
-        member = Member.query.get(member_id)
-        if not member or member.tenant_id != self.tenant_id:
-            raise ValueError('Member not found')
+        # Validate - need either member or guest info
+        if not member_id and not (guest_name or guest_email):
+            raise ValueError('Either member_id or guest info (name/email) is required')
 
-        if member.status != 'active':
-            raise ValueError('Member is not active')
+        # If member_id provided, validate it
+        member = None
+        if member_id:
+            member = Member.query.get(member_id)
+            if not member or member.tenant_id != self.tenant_id:
+                raise ValueError('Member not found')
+            if member.status != 'active':
+                raise ValueError('Member is not active')
 
         # Validate category
         valid_category = category if category in self.CATEGORIES else 'other'
@@ -73,6 +90,9 @@ class TradeInService:
 
         batch = TradeInBatch(
             member_id=member_id,
+            guest_name=guest_name,
+            guest_email=guest_email,
+            guest_phone=guest_phone,
             batch_reference=batch_reference,
             trade_in_date=datetime.utcnow(),
             status='pending',
@@ -345,15 +365,14 @@ class TradeInService:
             raise ValueError('Batch is already completed')
 
         member = batch.member
-        if not member:
-            raise ValueError('Batch has no associated member')
+        is_guest = member is None
 
-        # Calculate bonus
+        # Calculate bonus (only for members)
         bonus_info = self.calculate_tier_bonus(batch)
 
         # Issue bonus credit if member has a tier with bonus
         bonus_entry = None
-        if bonus_info['bonus_amount'] > 0:
+        if not is_guest and bonus_info['bonus_amount'] > 0:
             from ..models.promotions import CreditEventType
             bonus_entry = self.store_credit_service.add_credit(
                 member_id=member.id,
@@ -371,13 +390,14 @@ class TradeInService:
         batch.status = 'completed'
         batch.completed_at = datetime.utcnow()
         batch.completed_by = created_by
-        batch.bonus_amount = Decimal(str(bonus_info['bonus_amount']))
+        batch.bonus_amount = Decimal(str(bonus_info['bonus_amount'])) if not is_guest else Decimal('0')
 
-        # Update member stats
-        member.total_trade_ins = (member.total_trade_ins or 0) + 1
-        member.total_trade_value = (member.total_trade_value or Decimal('0')) + batch.total_trade_value
-        if bonus_info['bonus_amount'] > 0:
-            member.total_bonus_earned = (member.total_bonus_earned or Decimal('0')) + Decimal(str(bonus_info['bonus_amount']))
+        # Update member stats (only for members)
+        if not is_guest:
+            member.total_trade_ins = (member.total_trade_ins or 0) + 1
+            member.total_trade_value = (member.total_trade_value or Decimal('0')) + batch.total_trade_value
+            if bonus_info['bonus_amount'] > 0:
+                member.total_bonus_earned = (member.total_bonus_earned or Decimal('0')) + Decimal(str(bonus_info['bonus_amount']))
 
         db.session.commit()
 
@@ -387,25 +407,37 @@ class TradeInService:
             notification_service.send_trade_in_completed(
                 tenant_id=self.tenant_id,
                 batch_id=batch.id,
-                bonus_amount=float(bonus_info['bonus_amount'])
+                bonus_amount=float(bonus_info['bonus_amount']) if not is_guest else 0
             )
         except Exception as e:
             # Log but don't fail the completion
             print(f"Failed to send trade-in completion email: {e}")
 
-        return {
+        # Build response
+        result = {
             'success': True,
             'batch_id': batch.id,
             'batch_reference': batch.batch_reference,
             'trade_value': float(batch.total_trade_value),
-            'bonus': bonus_info,
+            'is_guest': is_guest,
+            'bonus': bonus_info if not is_guest else {'eligible': False, 'reason': 'Guest trade-in (no bonus)', 'bonus_amount': 0},
             'bonus_credit_entry': bonus_entry.to_dict() if bonus_entry else None,
-            'member': {
+        }
+
+        if is_guest:
+            result['guest'] = {
+                'name': batch.guest_name,
+                'email': batch.guest_email,
+                'phone': batch.guest_phone
+            }
+        else:
+            result['member'] = {
                 'id': member.id,
                 'member_number': member.member_number,
                 'total_bonus_earned': float(member.total_bonus_earned)
             }
-        }
+
+        return result
 
     def calculate_tier_bonus(self, batch: TradeInBatch) -> Dict[str, Any]:
         """
