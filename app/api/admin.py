@@ -330,6 +330,11 @@ def fix_schema():
         # Membership tiers
         ("membership_tiers", "shopify_selling_plan_id", "VARCHAR(100)"),
         ("membership_tiers", "yearly_price", "NUMERIC(10,2)"),
+        # Trade-in batches - missing columns from model
+        ("trade_in_batches", "category", "VARCHAR(50) DEFAULT 'other'"),
+        ("trade_in_batches", "completed_at", "TIMESTAMP"),
+        ("trade_in_batches", "completed_by", "VARCHAR(100)"),
+        ("trade_in_batches", "bonus_amount", "NUMERIC(10,2) DEFAULT 0"),
     ]
 
     results = []
