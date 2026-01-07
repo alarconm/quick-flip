@@ -74,5 +74,18 @@ uri = "/webhook/shopify-billing/subscriptions"
 topics = ["app_purchases_one_time/update"]
 uri = "/webhook/shopify-billing/purchases"
 
+# GDPR Mandatory Webhooks (required for App Store)
+[[webhooks.subscriptions]]
+topics = ["customers/redact"]
+uri = "/webhook/customers/redact"
+
+[[webhooks.subscriptions]]
+topics = ["shop/redact"]
+uri = "/webhook/shop/redact"
+
+[[webhooks.subscriptions]]
+topics = ["customers/data_request"]
+uri = "/webhook/customers/data_request"
+
 [build]
 automatically_update_urls_on_dev = true
