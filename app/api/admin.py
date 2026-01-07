@@ -335,6 +335,15 @@ def fix_schema():
         ("trade_in_batches", "completed_at", "TIMESTAMP"),
         ("trade_in_batches", "completed_by", "VARCHAR(100)"),
         ("trade_in_batches", "bonus_amount", "NUMERIC(10,2) DEFAULT 0"),
+        # Tier configurations - promotion system columns
+        ("tier_configurations", "yearly_price", "NUMERIC(6,2)"),
+        ("tier_configurations", "trade_in_bonus_pct", "NUMERIC(5,2) DEFAULT 0"),
+        ("tier_configurations", "purchase_cashback_pct", "NUMERIC(5,2) DEFAULT 0"),
+        ("tier_configurations", "store_discount_pct", "NUMERIC(5,2) DEFAULT 0"),
+        ("tier_configurations", "color", "VARCHAR(20) DEFAULT 'slate'"),
+        ("tier_configurations", "icon", "VARCHAR(50) DEFAULT 'star'"),
+        ("tier_configurations", "badge_text", "VARCHAR(50)"),
+        ("tier_configurations", "features", "TEXT"),
     ]
 
     results = []
