@@ -294,3 +294,69 @@ def get_event(event_id):
         return jsonify({'event': event})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+# ================== Schema Fix (Emergency) ==================
+
+@admin_bp.route('/fix-schema', methods=['POST'])
+def fix_schema():
+    """
+    Emergency endpoint to add missing database columns.
+    This runs raw SQL to add columns that migrations missed.
+
+    Call with: POST /api/admin/fix-schema?key=tradeup-schema-fix-2026
+    """
+    # Simple security key check
+    key = request.args.get('key')
+    if key != 'tradeup-schema-fix-2026':
+        return jsonify({'error': 'Invalid key'}), 403
+
+    from sqlalchemy import text
+
+    columns_to_add = [
+        ("members", "shopify_subscription_contract_id", "VARCHAR(100)"),
+        ("members", "subscription_status", "VARCHAR(20) DEFAULT 'none'"),
+        ("members", "tier_assigned_by", "VARCHAR(100)"),
+        ("members", "tier_assigned_at", "TIMESTAMP"),
+        ("members", "tier_expires_at", "TIMESTAMP"),
+        ("members", "shopify_customer_gid", "VARCHAR(100)"),
+        ("members", "partner_customer_id", "VARCHAR(100)"),
+        ("membership_tiers", "shopify_selling_plan_id", "VARCHAR(100)"),
+        ("membership_tiers", "yearly_price", "NUMERIC(10,2)"),
+    ]
+
+    results = []
+
+    try:
+        for table, column, col_type in columns_to_add:
+            # Check if column exists
+            check_sql = text("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.columns
+                    WHERE table_name = :table_name AND column_name = :column_name
+                )
+            """)
+            result = db.session.execute(check_sql, {'table_name': table, 'column_name': column})
+            exists = result.scalar()
+
+            if not exists:
+                # Add the column
+                alter_sql = text(f'ALTER TABLE {table} ADD COLUMN {column} {col_type}')
+                db.session.execute(alter_sql)
+                results.append({'table': table, 'column': column, 'action': 'added'})
+            else:
+                results.append({'table': table, 'column': column, 'action': 'exists'})
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Schema fix completed',
+            'results': results
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
