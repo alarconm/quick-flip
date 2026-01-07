@@ -61,15 +61,13 @@ class MembershipService:
         if existing:
             raise ValueError(f'Customer {shopify_customer_id} is already a member ({existing.member_number})')
 
-        # Get customer info from Shopify
+        # Get customer info from Shopify (by ID, not search)
         if not self.shopify_client:
             raise ValueError('Shopify not configured')
 
-        customers = self.shopify_client.search_customers(shopify_customer_id, limit=1)
-        if not customers:
+        customer = self.shopify_client.get_customer_by_id(shopify_customer_id)
+        if not customer:
             raise ValueError(f'Shopify customer {shopify_customer_id} not found')
-
-        customer = customers[0]
 
         # Check for duplicate email
         existing_email = Member.query.filter_by(
@@ -112,6 +110,24 @@ class MembershipService:
 
         # Sync tier tags to Shopify
         self.sync_member_tags(member)
+
+        # Sync member data to Shopify customer metafields
+        self.sync_member_metafields_to_shopify(member)
+
+        # Trigger Shopify Flow event
+        try:
+            from .flow_service import FlowService
+            flow_svc = FlowService(self.tenant_id, self.shopify_client)
+            flow_svc.trigger_member_enrolled(
+                member_id=member.id,
+                member_number=member.member_number,
+                email=member.email,
+                tier_name=member.tier.name if member.tier else 'Bronze',
+                shopify_customer_id=member.shopify_customer_id
+            )
+        except Exception as e:
+            # Flow triggers are non-critical - log and continue
+            print(f"Flow trigger error (non-blocking): {e}")
 
         return member
 
@@ -427,6 +443,81 @@ class MembershipService:
                 'success': True,
                 'tags_added': tags_to_add
             }
+        except Exception as e:
+            return {
+                'success': False,
+                'error': str(e)
+            }
+
+    def sync_member_metafields_to_shopify(self, member: Member) -> Dict[str, Any]:
+        """
+        Sync member data to Shopify customer metafields.
+
+        Creates/updates these metafields in the 'tradeup' namespace:
+        - member_number: TradeUp member ID
+        - tier: Current tier name
+        - credit_balance: Store credit balance
+        - trade_in_count: Total trade-ins
+        - total_bonus_earned: Total bonus credits
+        - status: active/paused/cancelled
+        - joined_date: Membership start date
+
+        Args:
+            member: Member to sync
+
+        Returns:
+            Dict with sync result
+        """
+        if not self.shopify_client:
+            return {'success': False, 'error': 'Shopify not configured'}
+
+        if not member.shopify_customer_id:
+            return {'success': False, 'error': 'Member not linked to Shopify'}
+
+        try:
+            # Get store credit balance from Shopify
+            credit_balance = 0
+            try:
+                credit_result = self.shopify_client.get_store_credit_balance(
+                    member.shopify_customer_id
+                )
+                if credit_result:
+                    credit_balance = float(credit_result.get('balance', {}).get('amount', 0))
+            except Exception:
+                pass  # If credit fetch fails, use 0
+
+            # Calculate trade-in stats
+            from ..models.trade_in import TradeInBatch
+            trade_in_count = TradeInBatch.query.filter_by(
+                tenant_id=self.tenant_id,
+                member_id=member.id
+            ).count()
+
+            # Calculate total bonus earned (sum of tier bonus on completed trade-ins)
+            total_bonus = 0
+            completed_batches = TradeInBatch.query.filter_by(
+                tenant_id=self.tenant_id,
+                member_id=member.id,
+                status='completed'
+            ).all()
+            for batch in completed_batches:
+                if batch.tier_bonus_amount:
+                    total_bonus += float(batch.tier_bonus_amount)
+
+            # Sync to Shopify
+            result = self.shopify_client.sync_member_metafields(
+                customer_id=member.shopify_customer_id,
+                member_number=member.member_number,
+                tier_name=member.tier.name if member.tier else None,
+                credit_balance=credit_balance,
+                trade_in_count=trade_in_count,
+                total_bonus_earned=total_bonus,
+                joined_date=member.membership_start_date.isoformat() if member.membership_start_date else None,
+                status=member.status or 'active'
+            )
+
+            return result
+
         except Exception as e:
             return {
                 'success': False,

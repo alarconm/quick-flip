@@ -48,12 +48,16 @@ export class ErrorBoundary extends Component<Props, State> {
     // Log error to console in development
     console.error('[TradeUp Error Boundary]', error, errorInfo);
 
-    // TODO: Send error to Sentry when configured
-    // if (typeof window !== 'undefined' && window.Sentry) {
-    //   window.Sentry.captureException(error, {
-    //     extra: { componentStack: errorInfo.componentStack },
-    //   });
-    // }
+    // Send error to Sentry
+    try {
+      import('../utils/sentry').then(({ captureException }) => {
+        captureException(error, {
+          componentStack: errorInfo.componentStack,
+        });
+      });
+    } catch {
+      // Sentry not available, ignore
+    }
   }
 
   handleReset = (): void => {

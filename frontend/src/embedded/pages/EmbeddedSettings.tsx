@@ -20,7 +20,10 @@ import {
   Box,
   Select,
   Divider,
+  Badge,
+  List,
 } from '@shopify/polaris';
+import { RefreshIcon } from '@shopify/polaris-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getApiUrl, authFetch } from '../../hooks/useShopifyBridge';
 
@@ -121,6 +124,100 @@ async function updateSettings(
   return response.json();
 }
 
+// Shopify Customer Segments
+interface Segment {
+  id: string;
+  name: string;
+  query: string;
+  creationDate?: string;
+  lastEditDate?: string;
+}
+
+interface SegmentsResponse {
+  success: boolean;
+  tradeup_segments: Segment[];
+  other_segments: Segment[];
+  total_count: number;
+  error?: string;
+}
+
+interface SyncSegmentsResponse {
+  success: boolean;
+  segments: Array<{
+    name: string;
+    action: 'created' | 'updated';
+    id: string;
+    query: string;
+  }>;
+  errors: Array<{
+    name: string;
+    error: string;
+  }>;
+}
+
+async function fetchSegments(shop: string | null): Promise<SegmentsResponse> {
+  const response = await authFetch(`${getApiUrl()}/settings/segments`, shop);
+  if (!response.ok) throw new Error('Failed to fetch segments');
+  return response.json();
+}
+
+async function syncSegments(shop: string | null): Promise<SyncSegmentsResponse> {
+  const response = await authFetch(`${getApiUrl()}/settings/segments/sync`, shop, {
+    method: 'POST',
+  });
+  if (!response.ok) throw new Error('Failed to sync segments');
+  return response.json();
+}
+
+// Shopify Membership Products
+interface MembershipProduct {
+  id: string;
+  title: string;
+  handle: string;
+  status: string;
+  variants: Array<{
+    id: string;
+    title: string;
+    price: string;
+    sku: string;
+  }>;
+}
+
+interface ProductsResponse {
+  success: boolean;
+  products: MembershipProduct[];
+  count: number;
+  error?: string;
+}
+
+interface SyncProductsResponse {
+  success: boolean;
+  products: Array<{
+    tier: string;
+    action: 'created' | 'updated';
+    product_id: string;
+    variants?: Array<{ id: string; title: string; price: string; sku: string }>;
+  }>;
+  errors: Array<{
+    tier: string;
+    error: string;
+  }>;
+}
+
+async function fetchMembershipProducts(shop: string | null): Promise<ProductsResponse> {
+  const response = await authFetch(`${getApiUrl()}/settings/products`, shop);
+  if (!response.ok) throw new Error('Failed to fetch products');
+  return response.json();
+}
+
+async function syncMembershipProducts(shop: string | null): Promise<SyncProductsResponse> {
+  const response = await authFetch(`${getApiUrl()}/settings/products/sync`, shop, {
+    method: 'POST',
+  });
+  if (!response.ok) throw new Error('Failed to sync products');
+  return response.json();
+}
+
 export function EmbeddedSettings({ shop }: SettingsProps) {
   const queryClient = useQueryClient();
   const [hasChanges, setHasChanges] = useState(false);
@@ -131,6 +228,42 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
     queryKey: ['settings', shop],
     queryFn: () => fetchSettings(shop),
     enabled: !!shop,
+  });
+
+  // Shopify Customer Segments
+  const {
+    data: segmentsData,
+    isLoading: segmentsLoading,
+    refetch: refetchSegments,
+  } = useQuery({
+    queryKey: ['segments', shop],
+    queryFn: () => fetchSegments(shop),
+    enabled: !!shop,
+  });
+
+  const syncSegmentsMutation = useMutation({
+    mutationFn: () => syncSegments(shop),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['segments'] });
+    },
+  });
+
+  // Shopify Membership Products
+  const {
+    data: productsData,
+    isLoading: productsLoading,
+    refetch: refetchProducts,
+  } = useQuery({
+    queryKey: ['membership-products', shop],
+    queryFn: () => fetchMembershipProducts(shop),
+    enabled: !!shop,
+  });
+
+  const syncProductsMutation = useMutation({
+    mutationFn: () => syncMembershipProducts(shop),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['membership-products'] });
+    },
   });
 
   const updateMutation = useMutation({
@@ -626,6 +759,258 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
                 placeholder="+1 (555) 123-4567"
                 autoComplete="tel"
               />
+            </BlockStack>
+          </Card>
+        </Layout.AnnotatedSection>
+
+        {/* Shopify Customer Segments */}
+        <Layout.AnnotatedSection
+          id="segments"
+          title="Shopify Customer Segments"
+          description="Auto-create segments for tier-based marketing with Shopify Email"
+        >
+          <Card>
+            <BlockStack gap="400">
+              <Text as="p" variant="bodySm" tone="subdued">
+                TradeUp can automatically create customer segments in Shopify based on your membership tiers.
+                Use these segments with Shopify Email to send targeted campaigns to specific member groups.
+              </Text>
+
+              <InlineStack align="space-between" blockAlign="center">
+                <BlockStack gap="100">
+                  <Text as="h3" variant="headingSm">
+                    Sync Tier Segments
+                  </Text>
+                  <Text as="p" variant="bodySm" tone="subdued">
+                    Creates "TradeUp Members" (all) + one segment per tier
+                  </Text>
+                </BlockStack>
+                <Button
+                  onClick={() => syncSegmentsMutation.mutate()}
+                  loading={syncSegmentsMutation.isPending}
+                  icon={RefreshIcon}
+                >
+                  Sync Segments
+                </Button>
+              </InlineStack>
+
+              {syncSegmentsMutation.isSuccess && syncSegmentsMutation.data && (
+                <Banner tone="success" onDismiss={() => syncSegmentsMutation.reset()}>
+                  <BlockStack gap="200">
+                    <Text as="p" variant="bodySm">
+                      {syncSegmentsMutation.data.segments.length} segments synced successfully!
+                    </Text>
+                    <List type="bullet">
+                      {syncSegmentsMutation.data.segments.map((seg) => (
+                        <List.Item key={seg.id}>
+                          {seg.name} ({seg.action})
+                        </List.Item>
+                      ))}
+                    </List>
+                  </BlockStack>
+                </Banner>
+              )}
+
+              {syncSegmentsMutation.isError && (
+                <Banner tone="critical">
+                  <p>Failed to sync segments. Please try again.</p>
+                </Banner>
+              )}
+
+              <Divider />
+
+              <BlockStack gap="300">
+                <Text as="h3" variant="headingSm">
+                  Current TradeUp Segments
+                </Text>
+
+                {segmentsLoading ? (
+                  <InlineStack align="center">
+                    <Spinner size="small" />
+                    <Text as="span" variant="bodySm" tone="subdued">Loading segments...</Text>
+                  </InlineStack>
+                ) : segmentsData?.tradeup_segments && segmentsData.tradeup_segments.length > 0 ? (
+                  <BlockStack gap="200">
+                    {segmentsData.tradeup_segments.map((segment) => (
+                      <InlineStack key={segment.id} align="space-between" blockAlign="center">
+                        <InlineStack gap="200">
+                          <Badge tone="success">Active</Badge>
+                          <Text as="span" variant="bodySm" fontWeight="semibold">
+                            {segment.name}
+                          </Text>
+                        </InlineStack>
+                        <Text as="span" variant="bodySm" tone="subdued">
+                          {segment.query}
+                        </Text>
+                      </InlineStack>
+                    ))}
+                  </BlockStack>
+                ) : (
+                  <Text as="p" variant="bodySm" tone="subdued">
+                    No TradeUp segments found. Click "Sync Segments" to create them.
+                  </Text>
+                )}
+
+                <InlineStack gap="200">
+                  <Button
+                    variant="plain"
+                    onClick={() => refetchSegments()}
+                  >
+                    Refresh
+                  </Button>
+                  <Button
+                    variant="plain"
+                    url="https://admin.shopify.com/store/segments"
+                    external
+                  >
+                    View in Shopify →
+                  </Button>
+                </InlineStack>
+              </BlockStack>
+
+              <Divider />
+
+              <BlockStack gap="200">
+                <Text as="h3" variant="headingSm">
+                  How to Use with Shopify Email
+                </Text>
+                <List type="number">
+                  <List.Item>Go to Marketing → Campaigns in Shopify Admin</List.Item>
+                  <List.Item>Create a new email campaign</List.Item>
+                  <List.Item>Under "Recipients", select your TradeUp segment (e.g., "TradeUp Gold Members")</List.Item>
+                  <List.Item>Design and send your campaign - only those members will receive it!</List.Item>
+                </List>
+              </BlockStack>
+            </BlockStack>
+          </Card>
+        </Layout.AnnotatedSection>
+
+        {/* Shopify Membership Products */}
+        <Layout.AnnotatedSection
+          id="products"
+          title="Membership Products"
+          description="Sync tiers as purchasable products in your Shopify store"
+        >
+          <Card>
+            <BlockStack gap="400">
+              <Text as="p" variant="bodySm" tone="subdued">
+                Create Shopify products for each membership tier. Customers can purchase these
+                products to join a tier directly through your Shopify checkout.
+              </Text>
+
+              <InlineStack align="space-between" blockAlign="center">
+                <BlockStack gap="100">
+                  <Text as="h3" variant="headingSm">
+                    Sync Tier Products
+                  </Text>
+                  <Text as="p" variant="bodySm" tone="subdued">
+                    Creates products with Monthly/Yearly variants for each tier
+                  </Text>
+                </BlockStack>
+                <Button
+                  onClick={() => syncProductsMutation.mutate()}
+                  loading={syncProductsMutation.isPending}
+                  icon={RefreshIcon}
+                >
+                  Sync Products
+                </Button>
+              </InlineStack>
+
+              {syncProductsMutation.isSuccess && syncProductsMutation.data && (
+                <Banner tone="success" onDismiss={() => syncProductsMutation.reset()}>
+                  <BlockStack gap="200">
+                    <Text as="p" variant="bodySm">
+                      {syncProductsMutation.data.products.length} membership products synced!
+                    </Text>
+                    <List type="bullet">
+                      {syncProductsMutation.data.products.map((prod) => (
+                        <List.Item key={prod.product_id}>
+                          {prod.tier} Membership ({prod.action})
+                        </List.Item>
+                      ))}
+                    </List>
+                  </BlockStack>
+                </Banner>
+              )}
+
+              {syncProductsMutation.isError && (
+                <Banner tone="critical">
+                  <p>Failed to sync products. Please try again.</p>
+                </Banner>
+              )}
+
+              <Divider />
+
+              <BlockStack gap="300">
+                <Text as="h3" variant="headingSm">
+                  Current Membership Products
+                </Text>
+
+                {productsLoading ? (
+                  <InlineStack align="center">
+                    <Spinner size="small" />
+                    <Text as="span" variant="bodySm" tone="subdued">Loading products...</Text>
+                  </InlineStack>
+                ) : productsData?.products && productsData.products.length > 0 ? (
+                  <BlockStack gap="300">
+                    {productsData.products.map((product) => (
+                      <BlockStack key={product.id} gap="100">
+                        <InlineStack align="space-between" blockAlign="center">
+                          <InlineStack gap="200">
+                            <Badge tone={product.status === 'ACTIVE' ? 'success' : 'attention'}>
+                              {product.status}
+                            </Badge>
+                            <Text as="span" variant="bodySm" fontWeight="semibold">
+                              {product.title}
+                            </Text>
+                          </InlineStack>
+                        </InlineStack>
+                        <InlineStack gap="200">
+                          {product.variants.map((variant) => (
+                            <Badge key={variant.id} tone="info">
+                              {`${variant.title}: $${variant.price}`}
+                            </Badge>
+                          ))}
+                        </InlineStack>
+                      </BlockStack>
+                    ))}
+                  </BlockStack>
+                ) : (
+                  <Text as="p" variant="bodySm" tone="subdued">
+                    No membership products found. Click "Sync Products" to create them.
+                  </Text>
+                )}
+
+                <InlineStack gap="200">
+                  <Button
+                    variant="plain"
+                    onClick={() => refetchProducts()}
+                  >
+                    Refresh
+                  </Button>
+                  <Button
+                    variant="plain"
+                    url="https://admin.shopify.com/products"
+                    external
+                  >
+                    View in Shopify →
+                  </Button>
+                </InlineStack>
+              </BlockStack>
+
+              <Divider />
+
+              <BlockStack gap="200">
+                <Text as="h3" variant="headingSm">
+                  How Membership Purchases Work
+                </Text>
+                <List type="number">
+                  <List.Item>Customer purchases a membership product in your store</List.Item>
+                  <List.Item>TradeUp receives the order webhook and automatically enrolls the customer</List.Item>
+                  <List.Item>Customer is tagged with their tier (e.g., tu-gold) and gains benefits</List.Item>
+                  <List.Item>For subscriptions, tier continues until subscription is cancelled</List.Item>
+                </List>
+              </BlockStack>
             </BlockStack>
           </Card>
         </Layout.AnnotatedSection>

@@ -118,6 +118,27 @@ class StoreCreditService:
         if sync_to_shopify and member.shopify_customer_id:
             self._sync_credit_to_shopify(entry, member)
 
+        # Trigger Shopify Flow event for credit issued
+        if member.shopify_customer_id:
+            try:
+                from .flow_service import FlowService
+                from .shopify_client import ShopifyClient
+                shopify_client = ShopifyClient(member.tenant_id)
+                flow_svc = FlowService(member.tenant_id, shopify_client)
+                flow_svc.trigger_credit_issued(
+                    member_id=member.id,
+                    member_number=member.member_number,
+                    email=member.email,
+                    amount=float(amount),
+                    event_type=event_type,
+                    description=description,
+                    new_balance=float(new_balance),
+                    shopify_customer_id=member.shopify_customer_id
+                )
+            except Exception as flow_err:
+                # Flow triggers are non-critical
+                print(f"Flow trigger error (non-blocking): {flow_err}")
+
         return entry
 
     def deduct_credit(

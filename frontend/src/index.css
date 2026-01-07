@@ -4,6 +4,21 @@
   --color-brand-orange: #e85d27;
 }
 
+/* CSS Variables for components */
+:root {
+  --brand: #e85d27;
+  --brand-light: #f97316;
+  --brand-dark: #c2410c;
+  --bg-card: #ffffff;
+  --bg-input: #f9fafb;
+  --text-primary: #111827;
+  --text-secondary: #6b7280;
+  --border: #e5e7eb;
+  --success: #00d68f;
+  --warning: #ffb547;
+  --danger: #ff4757;
+}
+
 body {
   background-color: theme(colors.gray.50);
   color: theme(colors.gray.900);

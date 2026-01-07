@@ -1,166 +1,173 @@
-import { useState, useCallback, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+/**
+ * New Member Page - Create new TradeUp membership
+ * Features: Shopify customer search, tier selection, payment method
+ */
+import { useState, useCallback, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
-  lookupShopifyCustomer,
+  Search,
+  Check,
+  User,
+  DollarSign,
+  CreditCard,
+  Banknote,
+  ArrowLeft,
+  Loader2,
+  ShoppingBag,
+  AlertCircle,
+  Award,
+  X,
+  UserPlus,
+  Store,
+} from 'lucide-react'
+import {
+  searchShopifyCustomers,
   createMember,
   getTiers,
   type ShopifyCustomer,
   type Tier,
-} from '../api/adminApi';
-import { debounce } from '../utils/debounce';
+} from '../api/adminApi'
+import { useTheme } from '../../contexts/ThemeContext'
+import { radius, typography, spacing, useResponsive } from '../styles/tokens'
+import { debounce } from '../utils/debounce'
 
-// Icons
-const Icons = {
-  Search: () => (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <circle cx="11" cy="11" r="8" />
-      <path d="m21 21-4.3-4.3" />
-    </svg>
-  ),
-  Check: () => (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
-  ),
-  User: () => (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
-      <circle cx="12" cy="7" r="4" />
-    </svg>
-  ),
-  DollarSign: () => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <line x1="12" x2="12" y1="2" y2="22" />
-      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-    </svg>
-  ),
-  CreditCard: () => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
-      <line x1="1" x2="23" y1="10" y2="10" />
-    </svg>
-  ),
-  Banknote: () => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <rect x="2" y="6" width="20" height="12" rx="2" />
-      <circle cx="12" cy="12" r="2" />
-      <path d="M6 12h.01M18 12h.01" />
-    </svg>
-  ),
-  ArrowLeft: () => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="m12 19-7-7 7-7" />
-      <path d="M19 12H5" />
-    </svg>
-  ),
-  Loader: () => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="animate-spin">
-      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-    </svg>
-  ),
-  ShoppingBag: () => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
-      <line x1="3" x2="21" y1="6" y2="6" />
-      <path d="M16 10a4 4 0 0 1-8 0" />
-    </svg>
-  ),
-  AlertCircle: () => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <circle cx="12" cy="12" r="10" />
-      <line x1="12" x2="12" y1="8" y2="12" />
-      <line x1="12" x2="12.01" y1="16" y2="16" />
-    </svg>
-  ),
-};
+type PaymentMethod = 'store_credit' | 'card' | 'cash'
 
-type PaymentMethod = 'store_credit' | 'card' | 'cash';
+// Extended Shopify customer search result
+interface SearchResult {
+  customer: ShopifyCustomer | null
+  isNew: boolean
+}
 
 export default function NewMember() {
-  const navigate = useNavigate();
+  const navigate = useNavigate()
+  const { colors, shadows } = useTheme()
+  const breakpoint = useResponsive()
+  const searchDropdownRef = useRef<HTMLDivElement>(null)
 
   // State
-  const [email, setEmail] = useState('');
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [selectedTier, setSelectedTier] = useState<Tier | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
-  const [tiers, setTiers] = useState<Tier[]>([]);
-  const [shopifyCustomer, setShopifyCustomer] = useState<ShopifyCustomer | null>(null);
-  const [lookupLoading, setLookupLoading] = useState(false);
-  const [lookupDone, setLookupDone] = useState(false);
-  const [creating, setCreating] = useState(false);
-  const [error, setError] = useState('');
+  const [email, setEmail] = useState('')
+  const [name, setName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [selectedTier, setSelectedTier] = useState<Tier | null>(null)
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash')
+  const [tiers, setTiers] = useState<Tier[]>([])
+
+  // Shopify customer lookup state
+  const [shopifyCustomer, setShopifyCustomer] = useState<ShopifyCustomer | null>(null)
+  const [searchResults, setSearchResults] = useState<ShopifyCustomer[]>([])
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false)
+  const [lookupLoading, setLookupLoading] = useState(false)
+  const [customerConfirmed, setCustomerConfirmed] = useState(false)
+
+  // Form state
+  const [creating, setCreating] = useState(false)
+  const [error, setError] = useState('')
 
   // Fetch tiers on mount
   useEffect(() => {
     getTiers()
       .then((res) => {
-        setTiers(res.tiers);
-        // Default to Silver (first tier)
+        setTiers(res.tiers)
         if (res.tiers.length > 0) {
-          setSelectedTier(res.tiers[0]);
+          setSelectedTier(res.tiers[0])
         }
       })
-      .catch(console.error);
-  }, []);
+      .catch(console.error)
+  }, [])
 
-  // Debounced Shopify lookup
-  const lookupCustomer = useCallback(
-    debounce(async (emailValue: string) => {
-      if (!emailValue || !emailValue.includes('@')) {
-        setShopifyCustomer(null);
-        setLookupDone(false);
-        return;
+  // Click outside to close dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchDropdownRef.current && !searchDropdownRef.current.contains(event.target as Node)) {
+        setShowSearchDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  // Debounced Shopify customer search
+  const searchCustomers = useCallback(
+    debounce(async (query: string) => {
+      if (!query || query.length < 2) {
+        setSearchResults([])
+        setShowSearchDropdown(false)
+        return
       }
 
-      setLookupLoading(true);
-      setError('');
+      setLookupLoading(true)
 
       try {
-        const customer = await lookupShopifyCustomer(emailValue);
-        setShopifyCustomer(customer);
-        setLookupDone(true);
-
-        // Auto-fill name if found
-        if (customer && !name) {
-          const fullName = `${customer.firstName || ''} ${customer.lastName || ''}`.trim();
-          if (fullName) setName(fullName);
-          if (customer.phone) setPhone(customer.phone);
-        }
+        // Search customers by name, email, phone, or ORB#
+        const customers = await searchShopifyCustomers(query, 10)
+        setSearchResults(customers)
+        setShowSearchDropdown(true)
       } catch (err) {
-        console.error('Lookup failed:', err);
+        console.error('Search failed:', err)
+        setSearchResults([])
+        setShowSearchDropdown(true) // Show "no results" / "create new" option
       } finally {
-        setLookupLoading(false);
+        setLookupLoading(false)
       }
-    }, 500),
-    [name]
-  );
+    }, 300),
+    []
+  )
 
-  // Handle email change
-  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setEmail(value);
-    setLookupDone(false);
-    lookupCustomer(value);
-  };
+  // Handle email/search change
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    setEmail(value)
+    setCustomerConfirmed(false)
+    setShopifyCustomer(null)
+    searchCustomers(value)
+  }
+
+  // Select customer from search results
+  const selectCustomer = (customer: ShopifyCustomer) => {
+    setShopifyCustomer(customer)
+    setEmail(customer.email)
+    setCustomerConfirmed(true)
+    setShowSearchDropdown(false)
+
+    // Auto-fill name and phone
+    const fullName = `${customer.firstName || ''} ${customer.lastName || ''}`.trim()
+    if (fullName) setName(fullName)
+    if (customer.phone) setPhone(customer.phone)
+  }
+
+  // Clear selected customer
+  const clearCustomer = () => {
+    setShopifyCustomer(null)
+    setCustomerConfirmed(false)
+    setEmail('')
+    setName('')
+    setPhone('')
+  }
+
+  // Mark as new customer (not in Shopify)
+  const markAsNewCustomer = () => {
+    setShopifyCustomer(null)
+    setCustomerConfirmed(true)
+    setShowSearchDropdown(false)
+  }
 
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
+    e.preventDefault()
+    setError('')
 
     if (!email || !email.includes('@')) {
-      setError('Please enter a valid email address');
-      return;
+      setError('Please enter a valid email address')
+      return
     }
 
     if (!selectedTier) {
-      setError('Please select a membership tier');
-      return;
+      setError('Please select a membership tier')
+      return
     }
 
-    setCreating(true);
+    setCreating(true)
 
     try {
       const member = await createMember({
@@ -170,304 +177,817 @@ export default function NewMember() {
         tier_id: selectedTier.id,
         shopify_customer_id: shopifyCustomer?.id || undefined,
         notes: `Payment: ${paymentMethod}`,
-      });
+      })
 
-      // Navigate to the new member's page
-      navigate(`/admin/members/${member.id}?created=1`);
+      navigate(`/admin/members/${member.id}?created=1`)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create member');
+      setError(err instanceof Error ? err.message : 'Failed to create member')
     } finally {
-      setCreating(false);
+      setCreating(false)
     }
-  };
+  }
 
-  // Calculate if store credit can cover the tier price
   const canPayWithStoreCredit =
-    shopifyCustomer && selectedTier && shopifyCustomer.storeCreditBalance >= selectedTier.monthly_price;
+    shopifyCustomer && selectedTier && shopifyCustomer.storeCreditBalance >= selectedTier.monthly_price
+
+  // Tier colors helper
+  const getTierColors = (tierName: string) => {
+    const tierColorMap: Record<string, { bg: string; color: string }> = {
+      bronze: { bg: colors.tierBronzeLight, color: colors.tierBronze },
+      silver: { bg: colors.tierSilverLight, color: colors.tierSilver },
+      gold: { bg: colors.tierGoldLight, color: colors.tierGold },
+      platinum: { bg: colors.tierPlatinumLight, color: colors.tierPlatinum },
+    }
+    return tierColorMap[tierName.toLowerCase()] || tierColorMap.silver
+  }
+
+  // Styles
+  const containerStyle: React.CSSProperties = {
+    maxWidth: '48rem',
+    margin: '0 auto',
+  }
+
+  const headerStyle: React.CSSProperties = {
+    marginBottom: spacing[6],
+  }
+
+  const backButtonStyle: React.CSSProperties = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: spacing[2],
+    color: colors.textSecondary,
+    background: 'transparent',
+    border: 'none',
+    cursor: 'pointer',
+    marginBottom: spacing[4],
+    padding: 0,
+    fontSize: typography.base,
+    fontWeight: typography.medium,
+    transition: 'color 150ms ease',
+  }
+
+  const titleStyle: React.CSSProperties = {
+    fontSize: typography['2xl'],
+    fontWeight: typography.bold,
+    color: colors.text,
+    margin: 0,
+  }
+
+  const subtitleStyle: React.CSSProperties = {
+    color: colors.textSecondary,
+    marginTop: spacing[1],
+    fontSize: typography.base,
+  }
+
+  const formStyle: React.CSSProperties = {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: spacing[5],
+  }
+
+  const cardStyle: React.CSSProperties = {
+    padding: spacing[5],
+    backgroundColor: colors.bgSurface,
+    borderRadius: radius.lg,
+    border: `1px solid ${colors.border}`,
+    boxShadow: shadows.card,
+  }
+
+  const stepHeaderStyle: React.CSSProperties = {
+    fontSize: typography.md,
+    fontWeight: typography.semibold,
+    color: colors.text,
+    marginBottom: spacing[4],
+    display: 'flex',
+    alignItems: 'center',
+    gap: spacing[3],
+  }
+
+  const stepBadgeStyle: React.CSSProperties = {
+    width: 28,
+    height: 28,
+    borderRadius: '50%',
+    background: colors.primarySubtle,
+    color: colors.primary,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: typography.sm,
+    fontWeight: typography.semibold,
+  }
+
+  const inputWrapperStyle: React.CSSProperties = {
+    position: 'relative',
+  }
+
+  const inputIconStyle: React.CSSProperties = {
+    position: 'absolute',
+    left: 12,
+    top: '50%',
+    transform: 'translateY(-50%)',
+    color: colors.textSubdued,
+    pointerEvents: 'none',
+  }
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%',
+    padding: '10px 12px 10px 40px',
+    backgroundColor: colors.bgSurface,
+    border: `1px solid ${colors.border}`,
+    borderRadius: radius.md,
+    color: colors.text,
+    fontSize: typography.base,
+    outline: 'none',
+    transition: 'border-color 150ms ease, box-shadow 150ms ease',
+  }
+
+  const smallInputStyle: React.CSSProperties = {
+    width: '100%',
+    padding: '10px 12px',
+    backgroundColor: colors.bgSurface,
+    border: `1px solid ${colors.border}`,
+    borderRadius: radius.md,
+    color: colors.text,
+    fontSize: typography.base,
+    outline: 'none',
+    transition: 'border-color 150ms ease, box-shadow 150ms ease',
+  }
+
+  const gridStyle: React.CSSProperties = {
+    display: 'grid',
+    gridTemplateColumns: breakpoint === 'mobile' ? '1fr' : '1fr 1fr',
+    gap: spacing[4],
+  }
+
+  const tierGridStyle: React.CSSProperties = {
+    display: 'grid',
+    gridTemplateColumns: breakpoint === 'mobile' ? '1fr' : 'repeat(3, 1fr)',
+    gap: spacing[3],
+  }
+
+  const paymentGridStyle: React.CSSProperties = {
+    display: 'grid',
+    gridTemplateColumns: breakpoint === 'mobile' ? '1fr' : 'repeat(3, 1fr)',
+    gap: spacing[3],
+  }
+
+  const labelStyle: React.CSSProperties = {
+    display: 'block',
+    fontSize: typography.sm,
+    fontWeight: typography.medium,
+    color: colors.text,
+    marginBottom: spacing[2],
+  }
+
+  const buttonRowStyle: React.CSSProperties = {
+    display: 'flex',
+    flexDirection: breakpoint === 'mobile' ? 'column' : 'row',
+    gap: spacing[3],
+    marginTop: spacing[2],
+  }
+
+  const primaryButtonStyle: React.CSSProperties = {
+    flex: 1,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing[2],
+    padding: '12px 20px',
+    backgroundColor: colors.primary,
+    color: colors.textOnPrimary,
+    border: 'none',
+    borderRadius: radius.md,
+    fontSize: typography.base,
+    fontWeight: typography.medium,
+    cursor: 'pointer',
+    transition: 'background-color 150ms ease',
+  }
+
+  const secondaryButtonStyle: React.CSSProperties = {
+    flex: 1,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing[2],
+    padding: '12px 20px',
+    backgroundColor: colors.bgSurface,
+    color: colors.text,
+    border: `1px solid ${colors.border}`,
+    borderRadius: radius.md,
+    fontSize: typography.base,
+    fontWeight: typography.medium,
+    cursor: 'pointer',
+    transition: 'background-color 150ms ease, border-color 150ms ease',
+  }
+
+  const dropdownStyle: React.CSSProperties = {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    marginTop: spacing[1],
+    backgroundColor: colors.bgSurface,
+    border: `1px solid ${colors.border}`,
+    borderRadius: radius.md,
+    boxShadow: shadows.lg,
+    zIndex: 50,
+    maxHeight: 300,
+    overflowY: 'auto',
+  }
+
+  const dropdownItemStyle: React.CSSProperties = {
+    padding: spacing[3],
+    display: 'flex',
+    alignItems: 'center',
+    gap: spacing[3],
+    cursor: 'pointer',
+    borderBottom: `1px solid ${colors.borderSubdued}`,
+    transition: 'background-color 150ms ease',
+  }
+
+  const selectedCustomerCardStyle: React.CSSProperties = {
+    marginTop: spacing[4],
+    padding: spacing[4],
+    borderRadius: radius.md,
+    border: `1px solid rgba(0, 128, 96, 0.3)`,
+    backgroundColor: colors.successLight,
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: spacing[3],
+  }
 
   return (
-    <div className="max-w-2xl mx-auto admin-fade-in">
+    <div style={containerStyle}>
       {/* Header */}
-      <div className="mb-8">
+      <div style={headerStyle}>
         <button
           onClick={() => navigate('/admin/members')}
-          className="flex items-center gap-2 text-white/50 hover:text-white mb-4 transition-colors"
+          style={backButtonStyle}
+          onMouseEnter={(e) => (e.currentTarget.style.color = colors.primary)}
+          onMouseLeave={(e) => (e.currentTarget.style.color = colors.textSecondary)}
         >
-          <Icons.ArrowLeft />
+          <ArrowLeft size={18} />
           Back to Members
         </button>
-        <h1 className="admin-page-title text-3xl">New Member</h1>
-        <p className="text-white/50 mt-2">Register a new TradeUp membership</p>
+        <h1 style={titleStyle}>New Member</h1>
+        <p style={subtitleStyle}>Register a new TradeUp membership</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Step 1: Customer Lookup */}
-        <div className="admin-glass admin-glass-glow p-6">
-          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <span className="w-8 h-8 rounded-full bg-orange-500/20 text-orange-400 flex items-center justify-center text-sm font-bold">
-              1
-            </span>
-            Customer Email
+      <form onSubmit={handleSubmit} style={formStyle}>
+        {/* Step 1: Customer Search */}
+        <div style={cardStyle}>
+          <h2 style={stepHeaderStyle}>
+            <span style={stepBadgeStyle}>1</span>
+            Find Customer
           </h2>
 
-          <div className="admin-search">
-            <span className="admin-search-icon">
-              {lookupLoading ? <Icons.Loader /> : <Icons.Search />}
+          {/* Search input with dropdown */}
+          <div style={inputWrapperStyle} ref={searchDropdownRef}>
+            <span style={inputIconStyle}>
+              {lookupLoading ? (
+                <Loader2 size={18} className="animate-spin" />
+              ) : (
+                <Search size={18} />
+              )}
             </span>
             <input
-              type="email"
-              placeholder="Enter customer email..."
+              type="text"
+              placeholder="Search by email, name, or phone..."
               value={email}
-              onChange={handleEmailChange}
-              className="admin-input admin-input-lg pl-14"
+              onChange={handleSearchChange}
+              disabled={customerConfirmed}
+              style={{
+                ...inputStyle,
+                paddingRight: customerConfirmed ? 40 : 12,
+                backgroundColor: customerConfirmed ? colors.bgSubdued : colors.bgSurface,
+              }}
               autoFocus
+              onFocus={(e) => {
+                if (!customerConfirmed) {
+                  e.target.style.borderColor = colors.primary
+                  e.target.style.boxShadow = shadows.focus
+                  if (searchResults.length > 0 || email.length >= 2) {
+                    setShowSearchDropdown(true)
+                  }
+                }
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = colors.border
+                e.target.style.boxShadow = 'none'
+              }}
             />
-          </div>
+            {customerConfirmed && (
+              <button
+                type="button"
+                onClick={clearCustomer}
+                style={{
+                  position: 'absolute',
+                  right: 12,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: colors.textSubdued,
+                  padding: 0,
+                  display: 'flex',
+                }}
+              >
+                <X size={18} />
+              </button>
+            )}
 
-          {/* Shopify Customer Card */}
-          {lookupDone && (
-            <div
-              className={`mt-4 p-4 rounded-xl border ${
-                shopifyCustomer
-                  ? 'bg-green-500/10 border-green-500/30'
-                  : 'bg-yellow-500/10 border-yellow-500/30'
-              } admin-slide-in`}
-            >
-              {shopifyCustomer ? (
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0">
-                    <Icons.Check />
+            {/* Search Dropdown */}
+            {showSearchDropdown && !customerConfirmed && (
+              <div style={dropdownStyle}>
+                {lookupLoading ? (
+                  <div style={{ padding: spacing[4], textAlign: 'center', color: colors.textSecondary }}>
+                    <Loader2 size={20} className="animate-spin" style={{ marginBottom: spacing[2] }} />
+                    <p style={{ margin: 0, fontSize: typography.sm }}>Searching Shopify...</p>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-green-400">Found in Shopify!</p>
-                    <p className="text-white/70 mt-1">
-                      {shopifyCustomer.firstName} {shopifyCustomer.lastName}
-                    </p>
-                    <div className="mt-3 flex flex-wrap gap-4 text-sm">
-                      <div className="flex items-center gap-2 text-white/50">
-                        <Icons.ShoppingBag />
-                        <span>{shopifyCustomer.ordersCount} orders</span>
+                ) : searchResults.length > 0 ? (
+                  <>
+                    {searchResults.map((customer) => (
+                      <div
+                        key={customer.id}
+                        onClick={() => selectCustomer(customer)}
+                        style={dropdownItemStyle}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = colors.bgSurfaceHover
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = 'transparent'
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: 36,
+                            height: 36,
+                            borderRadius: '50%',
+                            background: colors.primarySubtle,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0,
+                          }}
+                        >
+                          <Store size={16} style={{ color: colors.primary }} />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{ fontWeight: typography.medium, color: colors.text, margin: 0, fontSize: typography.base }}>
+                            {customer.firstName} {customer.lastName}
+                          </p>
+                          <p style={{ color: colors.textSecondary, fontSize: typography.sm, margin: 0 }}>
+                            {customer.email}
+                          </p>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: spacing[2], color: colors.success, fontSize: typography.xs }}>
+                          <DollarSign size={14} />
+                          <span>${customer.storeCreditBalance.toFixed(2)}</span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2 text-white/50">
-                        <Icons.DollarSign />
-                        <span>${shopifyCustomer.totalSpent.toFixed(2)} spent</span>
+                    ))}
+                    <div
+                      onClick={markAsNewCustomer}
+                      style={{
+                        ...dropdownItemStyle,
+                        borderBottom: 'none',
+                        color: colors.textSecondary,
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = colors.bgSurfaceHover
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'transparent'
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: 36,
+                          height: 36,
+                          borderRadius: '50%',
+                          background: colors.warningLight,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                        }}
+                      >
+                        <UserPlus size={16} style={{ color: colors.warning }} />
                       </div>
-                      <div className="flex items-center gap-2 text-emerald-400 font-semibold">
-                        <Icons.CreditCard />
-                        <span>${shopifyCustomer.storeCreditBalance.toFixed(2)} credit</span>
+                      <div>
+                        <p style={{ fontWeight: typography.medium, color: colors.text, margin: 0 }}>
+                          Create as New Customer
+                        </p>
+                        <p style={{ color: colors.textSecondary, fontSize: typography.sm, margin: 0 }}>
+                          Use "{email}" for a new member
+                        </p>
                       </div>
                     </div>
+                  </>
+                ) : email.length >= 2 ? (
+                  <div
+                    onClick={markAsNewCustomer}
+                    style={{
+                      ...dropdownItemStyle,
+                      borderBottom: 'none',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = colors.bgSurfaceHover
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'transparent'
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: '50%',
+                        background: colors.warningLight,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <UserPlus size={16} style={{ color: colors.warning }} />
+                    </div>
+                    <div>
+                      <p style={{ fontWeight: typography.medium, color: colors.text, margin: 0 }}>
+                        No Shopify customer found
+                      </p>
+                      <p style={{ color: colors.textSecondary, fontSize: typography.sm, margin: 0 }}>
+                        Click to create as new member with "{email}"
+                      </p>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            )}
+          </div>
+
+          {/* Selected Customer Card */}
+          {customerConfirmed && shopifyCustomer && (
+            <div style={selectedCustomerCardStyle}>
+              <div
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: '50%',
+                  background: 'rgba(0, 128, 96, 0.15)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                  color: colors.success,
+                }}
+              >
+                <Check size={20} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontWeight: typography.semibold, color: colors.success, margin: 0, fontSize: typography.base }}>
+                  Shopify Customer Selected
+                </p>
+                <p style={{ color: colors.text, marginTop: 2, fontSize: typography.base }}>
+                  {shopifyCustomer.firstName} {shopifyCustomer.lastName}
+                </p>
+                <div
+                  style={{
+                    marginTop: spacing[3],
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: spacing[4],
+                    fontSize: typography.sm,
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: colors.textSecondary }}>
+                    <ShoppingBag size={16} />
+                    <span>{shopifyCustomer.ordersCount} orders</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: colors.textSecondary }}>
+                    <DollarSign size={16} />
+                    <span>${shopifyCustomer.totalSpent.toFixed(2)} spent</span>
+                  </div>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      color: colors.success,
+                      fontWeight: typography.semibold,
+                    }}
+                  >
+                    <CreditCard size={16} />
+                    <span>${shopifyCustomer.storeCreditBalance.toFixed(2)} credit</span>
                   </div>
                 </div>
-              ) : (
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-full bg-yellow-500/20 flex items-center justify-center flex-shrink-0">
-                    <Icons.User />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-yellow-400">New Customer</p>
-                    <p className="text-white/50 text-sm mt-1">
-                      No Shopify account found. A new customer will be created when they make their first purchase.
-                    </p>
-                  </div>
-                </div>
-              )}
+              </div>
+            </div>
+          )}
+
+          {/* New Customer Indicator */}
+          {customerConfirmed && !shopifyCustomer && (
+            <div
+              style={{
+                marginTop: spacing[4],
+                padding: spacing[4],
+                borderRadius: radius.md,
+                border: `1px solid rgba(185, 137, 0, 0.3)`,
+                backgroundColor: colors.warningLight,
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: spacing[3],
+              }}
+            >
+              <div
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: '50%',
+                  background: 'rgba(185, 137, 0, 0.15)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                  color: colors.warning,
+                }}
+              >
+                <User size={20} />
+              </div>
+              <div>
+                <p style={{ fontWeight: typography.semibold, color: colors.warning, margin: 0, fontSize: typography.base }}>
+                  New Customer
+                </p>
+                <p style={{ color: colors.textSecondary, fontSize: typography.sm, marginTop: 4 }}>
+                  A Shopify customer will be created when they make their first purchase.
+                </p>
+              </div>
             </div>
           )}
         </div>
 
         {/* Step 2: Customer Details */}
-        <div className="admin-glass admin-glass-glow p-6">
-          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <span className="w-8 h-8 rounded-full bg-orange-500/20 text-orange-400 flex items-center justify-center text-sm font-bold">
-              2
-            </span>
+        <div style={cardStyle}>
+          <h2 style={stepHeaderStyle}>
+            <span style={stepBadgeStyle}>2</span>
             Customer Details
           </h2>
 
-          <div className="grid sm:grid-cols-2 gap-4">
+          <div style={gridStyle}>
             <div>
-              <label className="block text-sm text-white/50 mb-2">Name</label>
+              <label style={labelStyle}>Name</label>
               <input
                 type="text"
                 placeholder="Full name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="admin-input"
+                style={smallInputStyle}
+                onFocus={(e) => {
+                  e.target.style.borderColor = colors.primary
+                  e.target.style.boxShadow = shadows.focus
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = colors.border
+                  e.target.style.boxShadow = 'none'
+                }}
               />
             </div>
             <div>
-              <label className="block text-sm text-white/50 mb-2">Phone</label>
+              <label style={labelStyle}>Phone</label>
               <input
                 type="tel"
                 placeholder="Phone number"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                className="admin-input"
+                style={smallInputStyle}
+                onFocus={(e) => {
+                  e.target.style.borderColor = colors.primary
+                  e.target.style.boxShadow = shadows.focus
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = colors.border
+                  e.target.style.boxShadow = 'none'
+                }}
               />
             </div>
           </div>
         </div>
 
         {/* Step 3: Select Tier */}
-        <div className="admin-glass admin-glass-glow p-6">
-          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <span className="w-8 h-8 rounded-full bg-orange-500/20 text-orange-400 flex items-center justify-center text-sm font-bold">
-              3
-            </span>
+        <div style={cardStyle}>
+          <h2 style={stepHeaderStyle}>
+            <span style={stepBadgeStyle}>3</span>
             Select Tier
           </h2>
 
-          <div className="grid sm:grid-cols-3 gap-4">
-            {tiers.map((tier, idx) => {
-              const tierClass = tier.name.toLowerCase();
-              const isSelected = selectedTier?.id === tier.id;
+          <div style={tierGridStyle}>
+            {tiers.map((tier) => {
+              const tierColors = getTierColors(tier.name)
+              const isSelected = selectedTier?.id === tier.id
 
               return (
                 <button
                   key={tier.id}
                   type="button"
                   onClick={() => setSelectedTier(tier)}
-                  className={`admin-tier-card ${tierClass} ${isSelected ? 'selected' : ''} admin-slide-in`}
-                  style={{ animationDelay: `${idx * 75}ms` }}
+                  style={{
+                    position: 'relative',
+                    padding: spacing[4],
+                    borderRadius: radius.lg,
+                    background: isSelected ? colors.primarySubtle : colors.bgSurface,
+                    border: isSelected ? `2px solid ${colors.primary}` : `1px solid ${colors.border}`,
+                    boxShadow: isSelected ? shadows.focus : shadows.card,
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    transition: 'all 150ms ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isSelected) {
+                      e.currentTarget.style.borderColor = colors.primary
+                      e.currentTarget.style.transform = 'translateY(-1px)'
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isSelected) {
+                      e.currentTarget.style.borderColor = colors.border
+                      e.currentTarget.style.transform = 'translateY(0)'
+                    }
+                  }}
                 >
-                  <div className="tier-shine" />
-                  <div className="relative z-10 text-left">
-                    {/* Tier Name */}
-                    <div className="flex items-center justify-between mb-3">
-                      <span
-                        className={`admin-tier-badge ${tierClass}`}
-                        style={{ fontSize: '10px', padding: '4px 8px' }}
-                      >
-                        {tier.name}
-                      </span>
-                      {isSelected && (
-                        <span className="text-orange-400">
-                          <Icons.Check />
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Price */}
-                    <p className="text-2xl font-bold mb-3">
-                      ${tier.monthly_price}
-                      <span className="text-sm text-white/40 font-normal">/mo</span>
-                    </p>
-
-                    {/* Benefits */}
-                    <div className="space-y-2 text-sm text-white/60">
-                      <div className="flex items-center gap-2">
-                        <span className="text-green-400">✓</span>
-                        <span>{Math.round(tier.bonus_rate * 100)}% Cashback</span>
-                      </div>
-                    </div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing[3] }}>
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        padding: '4px 10px',
+                        backgroundColor: tierColors.bg,
+                        color: tierColors.color,
+                        borderRadius: radius.full,
+                        fontSize: typography.xs,
+                        fontWeight: typography.semibold,
+                        textTransform: 'capitalize',
+                      }}
+                    >
+                      <Award size={12} />
+                      {tier.name}
+                    </span>
+                    {isSelected && <Check size={18} style={{ color: colors.primary }} />}
+                  </div>
+                  <p style={{ fontSize: typography.xl, fontWeight: typography.bold, color: colors.text, marginBottom: spacing[2] }}>
+                    ${tier.monthly_price}
+                    <span style={{ fontSize: typography.sm, color: colors.textSecondary, fontWeight: typography.normal }}>/mo</span>
+                  </p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: typography.sm, color: colors.textSecondary }}>
+                    <Check size={14} style={{ color: colors.success }} />
+                    <span>{Math.round(tier.bonus_rate * 100)}% Cashback</span>
                   </div>
                 </button>
-              );
+              )
             })}
           </div>
         </div>
 
         {/* Step 4: Payment */}
-        <div className="admin-glass admin-glass-glow p-6">
-          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <span className="w-8 h-8 rounded-full bg-orange-500/20 text-orange-400 flex items-center justify-center text-sm font-bold">
-              4
-            </span>
+        <div style={cardStyle}>
+          <h2 style={stepHeaderStyle}>
+            <span style={stepBadgeStyle}>4</span>
             Payment Method
           </h2>
 
-          <div className="grid sm:grid-cols-3 gap-4">
+          <div style={paymentGridStyle}>
             {/* Store Credit */}
             <button
               type="button"
               onClick={() => canPayWithStoreCredit && setPaymentMethod('store_credit')}
               disabled={!canPayWithStoreCredit}
-              className={`p-4 rounded-xl border-2 text-left transition-all ${
-                paymentMethod === 'store_credit'
-                  ? 'border-orange-500 bg-orange-500/10'
-                  : canPayWithStoreCredit
-                  ? 'border-white/10 hover:border-white/20'
-                  : 'border-white/5 opacity-40 cursor-not-allowed'
-              }`}
+              style={{
+                padding: spacing[4],
+                borderRadius: radius.md,
+                border: paymentMethod === 'store_credit' ? `2px solid ${colors.primary}` : `1px solid ${colors.border}`,
+                background: paymentMethod === 'store_credit' ? colors.primarySubtle : colors.bgSurface,
+                textAlign: 'left',
+                cursor: canPayWithStoreCredit ? 'pointer' : 'not-allowed',
+                opacity: canPayWithStoreCredit ? 1 : 0.5,
+                transition: 'all 150ms ease',
+              }}
             >
-              <div className="flex items-center gap-3 mb-2">
-                <Icons.DollarSign />
-                <span className="font-semibold">Store Credit</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: spacing[3], marginBottom: 6 }}>
+                <DollarSign size={18} style={{ color: paymentMethod === 'store_credit' ? colors.primary : colors.textSecondary }} />
+                <span style={{ fontWeight: typography.semibold, color: colors.text, fontSize: typography.base }}>Store Credit</span>
               </div>
-              <p className="text-sm text-white/50">
-                {shopifyCustomer
-                  ? `$${shopifyCustomer.storeCreditBalance.toFixed(2)} available`
-                  : 'Not available'}
+              <p style={{ fontSize: typography.xs, color: colors.textSecondary, margin: 0 }}>
+                {shopifyCustomer ? `$${shopifyCustomer.storeCreditBalance.toFixed(2)} available` : 'Not available'}
               </p>
             </button>
 
-            {/* Card on File */}
+            {/* Card */}
             <button
               type="button"
               onClick={() => setPaymentMethod('card')}
-              className={`p-4 rounded-xl border-2 text-left transition-all ${
-                paymentMethod === 'card'
-                  ? 'border-orange-500 bg-orange-500/10'
-                  : 'border-white/10 hover:border-white/20'
-              }`}
+              style={{
+                padding: spacing[4],
+                borderRadius: radius.md,
+                border: paymentMethod === 'card' ? `2px solid ${colors.primary}` : `1px solid ${colors.border}`,
+                background: paymentMethod === 'card' ? colors.primarySubtle : colors.bgSurface,
+                textAlign: 'left',
+                cursor: 'pointer',
+                transition: 'all 150ms ease',
+              }}
             >
-              <div className="flex items-center gap-3 mb-2">
-                <Icons.CreditCard />
-                <span className="font-semibold">Card</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: spacing[3], marginBottom: 6 }}>
+                <CreditCard size={18} style={{ color: paymentMethod === 'card' ? colors.primary : colors.textSecondary }} />
+                <span style={{ fontWeight: typography.semibold, color: colors.text, fontSize: typography.base }}>Card</span>
               </div>
-              <p className="text-sm text-white/50">Process later</p>
+              <p style={{ fontSize: typography.xs, color: colors.textSecondary, margin: 0 }}>Process later</p>
             </button>
 
             {/* Cash */}
             <button
               type="button"
               onClick={() => setPaymentMethod('cash')}
-              className={`p-4 rounded-xl border-2 text-left transition-all ${
-                paymentMethod === 'cash'
-                  ? 'border-orange-500 bg-orange-500/10'
-                  : 'border-white/10 hover:border-white/20'
-              }`}
+              style={{
+                padding: spacing[4],
+                borderRadius: radius.md,
+                border: paymentMethod === 'cash' ? `2px solid ${colors.primary}` : `1px solid ${colors.border}`,
+                background: paymentMethod === 'cash' ? colors.primarySubtle : colors.bgSurface,
+                textAlign: 'left',
+                cursor: 'pointer',
+                transition: 'all 150ms ease',
+              }}
             >
-              <div className="flex items-center gap-3 mb-2">
-                <Icons.Banknote />
-                <span className="font-semibold">Cash</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: spacing[3], marginBottom: 6 }}>
+                <Banknote size={18} style={{ color: paymentMethod === 'cash' ? colors.primary : colors.textSecondary }} />
+                <span style={{ fontWeight: typography.semibold, color: colors.text, fontSize: typography.base }}>Cash</span>
               </div>
-              <p className="text-sm text-white/50">Mark as paid</p>
+              <p style={{ fontSize: typography.xs, color: colors.textSecondary, margin: 0 }}>Mark as paid</p>
             </button>
           </div>
         </div>
 
         {/* Error Message */}
         {error && (
-          <div className="flex items-center gap-3 p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400">
-            <Icons.AlertCircle />
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: spacing[3],
+              padding: spacing[4],
+              borderRadius: radius.md,
+              background: colors.criticalLight,
+              border: `1px solid rgba(215, 44, 13, 0.3)`,
+              color: colors.critical,
+              fontSize: typography.base,
+            }}
+          >
+            <AlertCircle size={18} />
             <span>{error}</span>
           </div>
         )}
 
         {/* Submit */}
-        <div className="flex gap-4">
+        <div style={buttonRowStyle}>
           <button
             type="button"
             onClick={() => navigate('/admin/members')}
-            className="admin-btn admin-btn-secondary flex-1"
+            style={secondaryButtonStyle}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = colors.bgSurfaceHover
+              e.currentTarget.style.borderColor = colors.borderHover
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = colors.bgSurface
+              e.currentTarget.style.borderColor = colors.border
+            }}
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={creating || !email || !selectedTier}
-            className="admin-btn admin-btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{
+              ...primaryButtonStyle,
+              opacity: creating || !email || !selectedTier ? 0.5 : 1,
+              cursor: creating || !email || !selectedTier ? 'not-allowed' : 'pointer',
+            }}
+            onMouseEnter={(e) => {
+              if (!creating && email && selectedTier) {
+                e.currentTarget.style.backgroundColor = colors.primaryHover
+              }
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = colors.primary
+            }}
           >
             {creating ? (
               <>
-                <Icons.Loader />
+                <Loader2 size={18} className="animate-spin" />
                 Creating...
               </>
             ) : (
               <>
-                <Icons.Check />
+                <Check size={18} />
                 Create Membership
                 {selectedTier && ` · $${selectedTier.monthly_price}`}
               </>
@@ -476,5 +996,5 @@ export default function NewMember() {
         </div>
       </form>
     </div>
-  );
+  )
 }

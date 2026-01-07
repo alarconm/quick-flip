@@ -199,6 +199,56 @@ export async function updateMemberTier(
   });
 }
 
+// ================== Store Credit Ledger ==================
+
+export interface StoreCreditEntry {
+  id: number
+  member_id: number
+  event_type: string
+  amount: number
+  balance_after: number
+  description: string
+  source_type: string | null
+  source_id: string | null
+  source_reference: string | null
+  promotion_id: number | null
+  promotion_name: string | null
+  channel: string | null
+  synced_to_shopify: boolean
+  shopify_credit_id: string | null
+  created_by: string
+  created_at: string
+}
+
+export interface MemberCreditBalance {
+  member_id: number
+  total_balance: number
+  available_balance: number
+  total_earned: number
+  total_spent: number
+  trade_in_earned: number
+  cashback_earned: number
+  promo_bonus_earned: number
+  last_credit_at: string | null
+  last_redemption_at: string | null
+}
+
+export async function getMemberCreditHistory(
+  memberId: number,
+  params?: { limit?: number; offset?: number }
+): Promise<{
+  balance: MemberCreditBalance
+  transactions: StoreCreditEntry[]
+  total: number
+  limit: number
+  offset: number
+}> {
+  const searchParams = new URLSearchParams()
+  if (params?.limit) searchParams.set('limit', String(params.limit))
+  if (params?.offset) searchParams.set('offset', String(params.offset))
+  return adminFetch(`/api/members/${memberId}/credit-history?${searchParams}`)
+}
+
 // ================== Tier APIs ==================
 
 export async function getTiers(): Promise<{ tiers: Tier[] }> {
@@ -217,6 +267,28 @@ export async function lookupShopifyCustomer(
     return result.customer;
   } catch {
     return null;
+  }
+}
+
+/**
+ * Search Shopify customers by name, email, phone, or ORB#.
+ * Returns multiple results for dropdown selection.
+ */
+export async function searchShopifyCustomers(
+  query: string,
+  limit: number = 10
+): Promise<ShopifyCustomer[]> {
+  if (!query || query.length < 2) {
+    return [];
+  }
+
+  try {
+    const result = await adminFetch<{ customers: ShopifyCustomer[]; count: number }>(
+      `/api/admin/shopify/customers/search?q=${encodeURIComponent(query)}&limit=${limit}`
+    );
+    return result.customers || [];
+  } catch {
+    return [];
   }
 }
 
@@ -419,8 +491,36 @@ export async function getTradeInBatch(batchId: number): Promise<TradeInBatch> {
   return adminFetch(`/api/trade-ins/${batchId}`);
 }
 
-export async function getTradeInCategories(): Promise<{ categories: TradeInCategory[] }> {
+export async function getTradeInCategories(
+  _includeAll?: boolean
+): Promise<{ categories: TradeInCategory[] }> {
   return adminFetch('/api/trade-ins/categories');
+}
+
+export async function createTradeInCategory(data: {
+  name: string;
+  icon?: string;
+}): Promise<TradeInCategory> {
+  return adminFetch('/api/trade-ins/categories', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateTradeInCategory(
+  id: string,
+  data: { name?: string; icon?: string }
+): Promise<TradeInCategory> {
+  return adminFetch(`/api/trade-ins/categories/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteTradeInCategory(id: string): Promise<{ success: boolean }> {
+  return adminFetch(`/api/trade-ins/categories/${id}`, {
+    method: 'DELETE',
+  });
 }
 
 export async function createTradeInBatch(data: {
@@ -463,6 +563,86 @@ export async function completeBatch(
     method: 'POST',
     body: JSON.stringify({ created_by: createdBy }),
   });
+}
+
+// ================== Promotion Types ==================
+
+export type PromotionType = 'trade_in_bonus' | 'purchase_cashback' | 'flat_bonus' | 'multiplier'
+export type PromotionChannel = 'all' | 'in_store' | 'online'
+
+export interface Promotion {
+  id: number
+  name: string
+  description: string | null
+  code: string | null
+  promo_type: PromotionType
+  bonus_percent: number
+  bonus_flat: number
+  multiplier: number
+  starts_at: string
+  ends_at: string
+  daily_start_time: string | null
+  daily_end_time: string | null
+  active_days: string | null
+  channel: PromotionChannel
+  collection_ids: string[] | null
+  vendor_filter: string[] | null
+  product_type_filter: string[] | null
+  product_tags_filter: string[] | null
+  category_ids: string[] | null
+  tier_restriction: string[] | null
+  min_items: number
+  min_value: number
+  stackable: boolean
+  priority: number
+  max_uses: number | null
+  max_uses_per_member: number | null
+  current_uses: number
+  active: boolean
+  is_active_now: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface PromotionFilterOptions {
+  collections: { id: string; title: string; handle: string; productsCount: number; isSmart: boolean }[]
+  vendors: string[]
+  productTypes: string[]
+  productTags: string[]
+}
+
+// ================== Promotion APIs ==================
+
+export async function getPromotions(params?: {
+  active_only?: boolean
+}): Promise<{ promotions: Promotion[] }> {
+  const searchParams = new URLSearchParams()
+  if (params?.active_only) searchParams.set('active_only', 'true')
+  return adminFetch(`/api/promotions?${searchParams}`)
+}
+
+export async function createPromotion(data: Partial<Promotion>): Promise<Promotion> {
+  return adminFetch('/api/promotions', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+export async function updatePromotion(id: number, data: Partial<Promotion>): Promise<Promotion> {
+  return adminFetch(`/api/promotions/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  })
+}
+
+export async function deletePromotion(id: number): Promise<{ success: boolean }> {
+  return adminFetch(`/api/promotions/${id}`, {
+    method: 'DELETE',
+  })
+}
+
+export async function getPromotionFilterOptions(): Promise<PromotionFilterOptions> {
+  return adminFetch('/api/promotions/filter-options')
 }
 
 // ================== Settings Types ==================

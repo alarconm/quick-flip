@@ -1,15 +1,38 @@
+/**
+ * Promotions.tsx - Theme-aware Promotions Management
+ * Shopify Polaris-inspired design
+ */
 import { useState, useEffect } from 'react'
+import { Plus, Calendar, Clock, DollarSign, Users, Tag, X, Loader2 } from 'lucide-react'
+import { useTheme } from '../../contexts/ThemeContext'
+import { radius, typography, spacing } from '../styles/tokens'
 import {
   getPromotions,
   createPromotion,
   updatePromotion,
   deletePromotion,
   getTradeInCategories,
+  getPromotionFilterOptions,
   type Promotion,
   type PromotionType,
   type PromotionChannel,
   type TradeInCategory
-} from '../api'
+} from '../api/adminApi'
+
+interface ShopifyCollection {
+  id: string
+  title: string
+  handle: string
+  productsCount: number
+  isSmart: boolean
+}
+
+interface FilterOptions {
+  collections: ShopifyCollection[]
+  vendors: string[]
+  productTypes: string[]
+  productTags: string[]
+}
 
 const PROMO_TYPE_LABELS: Record<PromotionType, string> = {
   trade_in_bonus: 'Trade-In Bonus',
@@ -27,8 +50,13 @@ const CHANNEL_LABELS: Record<PromotionChannel, string> = {
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
 export default function Promotions() {
+  const { colors, shadows } = useTheme()
   const [promotions, setPromotions] = useState<Promotion[]>([])
   const [categories, setCategories] = useState<TradeInCategory[]>([])
+  const [filterOptions, setFilterOptions] = useState<FilterOptions>({
+    collections: [], vendors: [], productTypes: [], productTags: []
+  })
+  const [loadingFilterOptions, setLoadingFilterOptions] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [showModal, setShowModal] = useState(false)
@@ -36,33 +64,28 @@ export default function Promotions() {
   const [filter, setFilter] = useState<'all' | 'active'>('all')
 
   const [form, setForm] = useState({
-    name: '',
-    description: '',
-    code: '',
+    name: '', description: '', code: '',
     promo_type: 'trade_in_bonus' as PromotionType,
-    bonus_percent: 10,
-    bonus_flat: 0,
-    multiplier: 1,
-    starts_at: '',
-    ends_at: '',
-    daily_start_time: '',
-    daily_end_time: '',
+    bonus_percent: 10, bonus_flat: 0, multiplier: 1,
+    starts_at: '', ends_at: '',
+    daily_start_time: '', daily_end_time: '',
     active_days: [] as number[],
     channel: 'all' as PromotionChannel,
-    category_ids: [] as number[],
+    collection_ids: [] as string[],
+    vendor_filter: [] as string[],
+    product_type_filter: [] as string[],
+    product_tags_filter: [] as string[],
+    category_ids: [] as string[],
     tier_restriction: [] as string[],
-    min_items: 0,
-    min_value: 0,
-    stackable: true,
-    priority: 0,
+    min_items: 0, min_value: 0,
+    stackable: true, priority: 0,
     max_uses: undefined as number | undefined,
     max_uses_per_member: undefined as number | undefined,
     active: true,
   })
 
-  useEffect(() => {
-    loadData()
-  }, [filter])
+  useEffect(() => { loadData() }, [filter])
+  useEffect(() => { loadFilterOptions() }, [])
 
   const loadData = async () => {
     try {
@@ -75,39 +98,42 @@ export default function Promotions() {
       setCategories(catData.categories)
     } catch (err) {
       setError('Failed to load promotions')
-      console.error(err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadFilterOptions = async () => {
+    try {
+      setLoadingFilterOptions(true)
+      const options = await getPromotionFilterOptions()
+      setFilterOptions({
+        collections: options.collections || [],
+        vendors: options.vendors || [],
+        productTypes: options.productTypes || [],
+        productTags: options.productTags || []
+      })
+    } catch (err) {
+      console.error('Failed to load filter options:', err)
+    } finally {
+      setLoadingFilterOptions(false)
     }
   }
 
   const openNewModal = () => {
     const now = new Date()
     const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
-
     setForm({
-      name: '',
-      description: '',
-      code: '',
-      promo_type: 'trade_in_bonus',
-      bonus_percent: 10,
-      bonus_flat: 0,
-      multiplier: 1,
+      name: '', description: '', code: '',
+      promo_type: 'trade_in_bonus', bonus_percent: 10, bonus_flat: 0, multiplier: 1,
       starts_at: now.toISOString().slice(0, 16),
       ends_at: nextWeek.toISOString().slice(0, 16),
-      daily_start_time: '',
-      daily_end_time: '',
-      active_days: [],
-      channel: 'all',
-      category_ids: [],
-      tier_restriction: [],
-      min_items: 0,
-      min_value: 0,
-      stackable: true,
-      priority: 0,
-      max_uses: undefined,
-      max_uses_per_member: undefined,
-      active: true,
+      daily_start_time: '', daily_end_time: '', active_days: [],
+      channel: 'all', collection_ids: [], vendor_filter: [],
+      product_type_filter: [], product_tags_filter: [],
+      category_ids: [], tier_restriction: [],
+      min_items: 0, min_value: 0, stackable: true, priority: 0,
+      max_uses: undefined, max_uses_per_member: undefined, active: true,
     })
     setEditingPromo(null)
     setShowModal(true)
@@ -128,6 +154,10 @@ export default function Promotions() {
       daily_end_time: promo.daily_end_time || '',
       active_days: promo.active_days ? promo.active_days.split(',').map(Number) : [],
       channel: promo.channel,
+      collection_ids: promo.collection_ids || [],
+      vendor_filter: promo.vendor_filter || [],
+      product_type_filter: promo.product_type_filter || [],
+      product_tags_filter: promo.product_tags_filter || [],
       category_ids: promo.category_ids || [],
       tier_restriction: promo.tier_restriction || [],
       min_items: promo.min_items,
@@ -148,12 +178,15 @@ export default function Promotions() {
       const data = {
         ...form,
         active_days: form.active_days.length > 0 ? form.active_days.join(',') : null,
+        collection_ids: form.collection_ids.length > 0 ? form.collection_ids : null,
+        vendor_filter: form.vendor_filter.length > 0 ? form.vendor_filter : null,
+        product_type_filter: form.product_type_filter.length > 0 ? form.product_type_filter : null,
+        product_tags_filter: form.product_tags_filter.length > 0 ? form.product_tags_filter : null,
         category_ids: form.category_ids.length > 0 ? form.category_ids : null,
         tier_restriction: form.tier_restriction.length > 0 ? form.tier_restriction : null,
         max_uses: form.max_uses || null,
         max_uses_per_member: form.max_uses_per_member || null,
       }
-
       if (editingPromo) {
         await updatePromotion(editingPromo.id, data)
       } else {
@@ -163,7 +196,6 @@ export default function Promotions() {
       loadData()
     } catch (err) {
       setError('Failed to save promotion')
-      console.error(err)
     }
   }
 
@@ -174,7 +206,6 @@ export default function Promotions() {
       loadData()
     } catch (err) {
       setError('Failed to delete promotion')
-      console.error(err)
     }
   }
 
@@ -196,12 +227,48 @@ export default function Promotions() {
     }))
   }
 
-  const toggleCategory = (id: number) => {
+  const toggleCategory = (id: string) => {
     setForm(f => ({
       ...f,
       category_ids: f.category_ids.includes(id)
         ? f.category_ids.filter(c => c !== id)
         : [...f.category_ids, id]
+    }))
+  }
+
+  const toggleCollection = (id: string) => {
+    setForm(f => ({
+      ...f,
+      collection_ids: f.collection_ids.includes(id)
+        ? f.collection_ids.filter(c => c !== id)
+        : [...f.collection_ids, id]
+    }))
+  }
+
+  const toggleVendor = (vendor: string) => {
+    setForm(f => ({
+      ...f,
+      vendor_filter: f.vendor_filter.includes(vendor)
+        ? f.vendor_filter.filter(v => v !== vendor)
+        : [...f.vendor_filter, vendor]
+    }))
+  }
+
+  const toggleProductType = (productType: string) => {
+    setForm(f => ({
+      ...f,
+      product_type_filter: f.product_type_filter.includes(productType)
+        ? f.product_type_filter.filter(t => t !== productType)
+        : [...f.product_type_filter, productType]
+    }))
+  }
+
+  const toggleProductTag = (tag: string) => {
+    setForm(f => ({
+      ...f,
+      product_tags_filter: f.product_tags_filter.includes(tag)
+        ? f.product_tags_filter.filter(t => t !== tag)
+        : [...f.product_tags_filter, tag]
     }))
   }
 
@@ -211,102 +278,188 @@ export default function Promotions() {
     return `${start} - ${end}`
   }
 
+  // Styles
+  const cardStyle: React.CSSProperties = {
+    backgroundColor: colors.bgSurface,
+    borderRadius: radius.lg,
+    border: `1px solid ${colors.border}`,
+    boxShadow: shadows.card,
+    padding: spacing[5],
+    transition: 'border-color 150ms ease, box-shadow 150ms ease',
+  }
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%',
+    padding: '10px 12px',
+    backgroundColor: colors.bgSurface,
+    border: `1px solid ${colors.border}`,
+    borderRadius: radius.md,
+    fontSize: typography.base,
+    color: colors.text,
+    outline: 'none',
+  }
+
+  const selectStyle: React.CSSProperties = {
+    ...inputStyle,
+    cursor: 'pointer',
+  }
+
+  const labelStyle: React.CSSProperties = {
+    display: 'block',
+    fontSize: typography.sm,
+    fontWeight: typography.medium,
+    color: colors.textSecondary,
+    marginBottom: 4,
+  }
+
+  const primaryButtonStyle: React.CSSProperties = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: '10px 16px',
+    backgroundColor: colors.primary,
+    color: colors.textOnPrimary,
+    border: 'none',
+    borderRadius: radius.md,
+    fontSize: typography.base,
+    fontWeight: typography.medium,
+    cursor: 'pointer',
+  }
+
+  const secondaryButtonStyle: React.CSSProperties = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: '10px 16px',
+    backgroundColor: colors.bgSurface,
+    color: colors.text,
+    border: `1px solid ${colors.border}`,
+    borderRadius: radius.md,
+    fontSize: typography.base,
+    fontWeight: typography.medium,
+    cursor: 'pointer',
+  }
+
+  const chipStyle = (isActive: boolean, variant: 'default' | 'success' | 'primary' = 'default'): React.CSSProperties => {
+    const bg = isActive
+      ? variant === 'success' ? colors.success
+        : variant === 'primary' ? colors.primary
+        : colors.primary
+      : colors.bgSubdued
+    const textColor = isActive ? colors.textOnPrimary : colors.textSecondary
+    return {
+      padding: '6px 12px',
+      borderRadius: radius.md,
+      fontSize: typography.sm,
+      fontWeight: typography.medium,
+      backgroundColor: bg,
+      color: textColor,
+      border: 'none',
+      cursor: 'pointer',
+      transition: 'all 150ms ease',
+    }
+  }
+
   const getStatusBadge = (promo: Promotion) => {
+    const baseStyle: React.CSSProperties = {
+      padding: '4px 10px',
+      fontSize: typography.xs,
+      fontWeight: typography.medium,
+      borderRadius: radius.full,
+    }
     if (!promo.active) {
-      return <span className="px-2 py-1 text-xs rounded-full bg-gray-700 text-gray-300">Disabled</span>
+      return <span style={{ ...baseStyle, backgroundColor: colors.bgSubdued, color: colors.textSecondary }}>Disabled</span>
     }
     if (promo.is_active_now) {
-      return <span className="px-2 py-1 text-xs rounded-full bg-emerald-500/20 text-emerald-400">Active Now</span>
+      return <span style={{ ...baseStyle, backgroundColor: colors.successLight, color: colors.success }}>Active Now</span>
     }
     const now = new Date()
     if (new Date(promo.starts_at) > now) {
-      return <span className="px-2 py-1 text-xs rounded-full bg-blue-500/20 text-blue-400">Scheduled</span>
+      return <span style={{ ...baseStyle, backgroundColor: colors.primaryLight, color: colors.primary }}>Scheduled</span>
     }
-    return <span className="px-2 py-1 text-xs rounded-full bg-amber-500/20 text-amber-400">Ended</span>
+    return <span style={{ ...baseStyle, backgroundColor: colors.warningLight, color: colors.warning }}>Ended</span>
   }
 
   if (loading && promotions.length === 0) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 256 }}>
+        <Loader2 size={32} color={colors.primary} style={{ animation: 'spin 1s linear infinite' }} />
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: spacing[6] }}>
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: spacing[4] }}>
         <div>
-          <h1 className="text-2xl font-bold text-white">Promotions</h1>
-          <p className="text-gray-400 mt-1">Manage store credit events and bonuses</p>
+          <h1 style={{ fontSize: typography['2xl'], fontWeight: typography.bold, color: colors.text, margin: 0 }}>
+            Promotions
+          </h1>
+          <p style={{ color: colors.textSecondary, marginTop: 4, fontSize: typography.base }}>
+            Manage store credit events and bonuses
+          </p>
         </div>
-        <button
-          onClick={openNewModal}
-          className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 flex items-center gap-2"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
+        <button onClick={openNewModal} style={primaryButtonStyle}>
+          <Plus size={18} />
           New Promotion
         </button>
       </div>
 
       {error && (
-        <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-4 text-red-400">
+        <div style={{
+          backgroundColor: colors.criticalLight,
+          border: `1px solid ${colors.critical}`,
+          borderRadius: radius.lg,
+          padding: spacing[4],
+          color: colors.critical,
+        }}>
           {error}
         </div>
       )}
 
       {/* Filter Tabs */}
-      <div className="flex gap-2">
+      <div style={{ display: 'flex', gap: spacing[2] }}>
         <button
           onClick={() => setFilter('all')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-            filter === 'all'
-              ? 'bg-slate-700 text-white'
-              : 'text-gray-400 hover:text-white hover:bg-slate-800'
-          }`}
+          style={chipStyle(filter === 'all')}
         >
           All Promotions
         </button>
         <button
           onClick={() => setFilter('active')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-            filter === 'active'
-              ? 'bg-emerald-600 text-white'
-              : 'text-gray-400 hover:text-white hover:bg-slate-800'
-          }`}
+          style={chipStyle(filter === 'active', 'success')}
         >
           Active Now
         </button>
       </div>
 
       {/* Promotions Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: spacing[4] }}>
         {promotions.map(promo => (
-          <div
-            key={promo.id}
-            className="bg-slate-800 rounded-xl p-5 border border-slate-700 hover:border-slate-600 transition-colors"
-          >
-            <div className="flex items-start justify-between mb-3">
+          <div key={promo.id} style={cardStyle}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: spacing[3] }}>
               <div>
-                <h3 className="font-semibold text-white">{promo.name}</h3>
-                <p className="text-sm text-gray-400">{PROMO_TYPE_LABELS[promo.promo_type]}</p>
+                <h3 style={{ fontWeight: typography.semibold, color: colors.text, margin: 0 }}>{promo.name}</h3>
+                <p style={{ fontSize: typography.sm, color: colors.textSecondary, margin: 0 }}>
+                  {PROMO_TYPE_LABELS[promo.promo_type]}
+                </p>
               </div>
               {getStatusBadge(promo)}
             </div>
 
             {promo.description && (
-              <p className="text-sm text-gray-400 mb-3 line-clamp-2">{promo.description}</p>
+              <p style={{ fontSize: typography.sm, color: colors.textSecondary, marginBottom: spacing[3],
+                overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                {promo.description}
+              </p>
             )}
 
-            <div className="space-y-2 text-sm">
-              {/* Value */}
-              <div className="flex items-center gap-2 text-emerald-400">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-                </svg>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: spacing[2], fontSize: typography.sm }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: spacing[2], color: colors.success }}>
+                <DollarSign size={16} />
                 {promo.promo_type === 'flat_bonus' ? (
                   <span>${promo.bonus_flat} flat bonus</span>
                 ) : promo.promo_type === 'multiplier' ? (
@@ -316,54 +469,40 @@ export default function Promotions() {
                 )}
               </div>
 
-              {/* Date Range */}
-              <div className="flex items-center gap-2 text-gray-400">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
+              <div style={{ display: 'flex', alignItems: 'center', gap: spacing[2], color: colors.textSecondary }}>
+                <Calendar size={16} />
                 <span>{formatDateRange(promo)}</span>
               </div>
 
-              {/* Time Window */}
               {promo.daily_start_time && promo.daily_end_time && (
-                <div className="flex items-center gap-2 text-gray-400">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
+                <div style={{ display: 'flex', alignItems: 'center', gap: spacing[2], color: colors.textSecondary }}>
+                  <Clock size={16} />
                   <span>{promo.daily_start_time} - {promo.daily_end_time}</span>
                 </div>
               )}
 
-              {/* Channel */}
-              <div className="flex items-center gap-2 text-gray-400">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                </svg>
+              <div style={{ display: 'flex', alignItems: 'center', gap: spacing[2], color: colors.textSecondary }}>
+                <Tag size={16} />
                 <span>{CHANNEL_LABELS[promo.channel]}</span>
               </div>
 
-              {/* Usage */}
               {promo.max_uses && (
-                <div className="flex items-center gap-2 text-gray-400">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                  </svg>
+                <div style={{ display: 'flex', alignItems: 'center', gap: spacing[2], color: colors.textSecondary }}>
+                  <Users size={16} />
                   <span>{promo.current_uses} / {promo.max_uses} uses</span>
                 </div>
               )}
             </div>
 
-            {/* Actions */}
-            <div className="flex gap-2 mt-4 pt-4 border-t border-slate-700">
-              <button
-                onClick={() => openEditModal(promo)}
-                className="flex-1 px-3 py-2 text-sm bg-slate-700 text-white rounded-lg hover:bg-slate-600"
-              >
+            <div style={{ display: 'flex', gap: spacing[2], marginTop: spacing[4], paddingTop: spacing[4],
+              borderTop: `1px solid ${colors.border}` }}>
+              <button onClick={() => openEditModal(promo)} style={{ ...secondaryButtonStyle, flex: 1, padding: '8px 12px' }}>
                 Edit
               </button>
               <button
                 onClick={() => handleDelete(promo.id)}
-                className="px-3 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg"
+                style={{ padding: '8px 12px', fontSize: typography.sm, color: colors.critical,
+                  backgroundColor: 'transparent', border: 'none', borderRadius: radius.md, cursor: 'pointer' }}
               >
                 Delete
               </button>
@@ -372,12 +511,11 @@ export default function Promotions() {
         ))}
 
         {promotions.length === 0 && (
-          <div className="col-span-full text-center py-12 text-gray-400">
-            <svg className="w-12 h-12 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-            </svg>
+          <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: `${spacing[12]}px 0`, color: colors.textSecondary }}>
+            <DollarSign size={48} style={{ opacity: 0.5, marginBottom: spacing[4] }} />
             <p>No promotions found</p>
-            <button onClick={openNewModal} className="mt-2 text-emerald-400 hover:text-emerald-300">
+            <button onClick={openNewModal} style={{ marginTop: spacing[2], color: colors.primary, background: 'none',
+              border: 'none', cursor: 'pointer', fontSize: typography.base }}>
               Create your first promotion
             </button>
           </div>
@@ -386,62 +524,72 @@ export default function Promotions() {
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-slate-800 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-slate-800 p-6 border-b border-slate-700 flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-white">
+        <div style={{
+          position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex',
+          alignItems: 'center', justifyContent: 'center', padding: spacing[4], zIndex: 50, overflowY: 'auto',
+        }}>
+          <div style={{
+            backgroundColor: colors.bgSurface, borderRadius: radius.xl, maxWidth: 672, width: '100%',
+            maxHeight: '90vh', overflowY: 'auto', boxShadow: shadows.xl,
+          }}>
+            {/* Modal Header */}
+            <div style={{
+              position: 'sticky', top: 0, backgroundColor: colors.bgSurface, padding: spacing[6],
+              borderBottom: `1px solid ${colors.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              zIndex: 10,
+            }}>
+              <h2 style={{ fontSize: typography.xl, fontWeight: typography.semibold, color: colors.text, margin: 0 }}>
                 {editingPromo ? 'Edit Promotion' : 'New Promotion'}
               </h2>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-white">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+              <button onClick={() => setShowModal(false)} style={{ color: colors.textSecondary, background: 'none',
+                border: 'none', cursor: 'pointer', padding: 4 }}>
+                <X size={24} />
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-6">
+            <form onSubmit={handleSubmit} style={{ padding: spacing[6], display: 'flex', flexDirection: 'column', gap: spacing[6] }}>
               {/* Basic Info */}
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-300 mb-1">Name *</label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: spacing[4] }}>
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <label style={labelStyle}>Name *</label>
                   <input
                     type="text"
                     value={form.name}
                     onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
+                    style={inputStyle}
                     placeholder="Holiday Weekend Bonus"
                     required
                   />
                 </div>
 
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-300 mb-1">Description</label>
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <label style={labelStyle}>Description</label>
                   <textarea
                     value={form.description}
                     onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
+                    style={{ ...inputStyle, resize: 'vertical' }}
                     rows={2}
                     placeholder="Get extra store credit during the holiday weekend!"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">Promo Code (optional)</label>
+                  <label style={labelStyle}>Promo Code (optional)</label>
                   <input
                     type="text"
                     value={form.code}
                     onChange={e => setForm(f => ({ ...f, code: e.target.value.toUpperCase() }))}
-                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white uppercase"
+                    style={{ ...inputStyle, textTransform: 'uppercase' }}
                     placeholder="HOLIDAY2024"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">Promotion Type *</label>
+                  <label style={labelStyle}>Promotion Type *</label>
                   <select
                     value={form.promo_type}
                     onChange={e => setForm(f => ({ ...f, promo_type: e.target.value as PromotionType }))}
-                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
+                    style={selectStyle}
                   >
                     {Object.entries(PROMO_TYPE_LABELS).map(([value, label]) => (
                       <option key={value} value={value}>{label}</option>
@@ -451,118 +599,121 @@ export default function Promotions() {
               </div>
 
               {/* Value Section */}
-              <div className="p-4 bg-slate-700/50 rounded-lg">
-                <h3 className="font-medium text-white mb-3">Bonus Value</h3>
-                <div className="grid gap-4 md:grid-cols-3">
+              <div style={{ padding: spacing[4], backgroundColor: colors.bgSubdued, borderRadius: radius.lg }}>
+                <h3 style={{ fontWeight: typography.medium, color: colors.text, marginBottom: spacing[3], fontSize: typography.base }}>
+                  Bonus Value
+                </h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: spacing[4] }}>
                   {form.promo_type !== 'multiplier' && form.promo_type !== 'flat_bonus' && (
                     <div>
-                      <label className="block text-sm text-gray-300 mb-1">Bonus Percent (%)</label>
+                      <label style={labelStyle}>Bonus Percent (%)</label>
                       <input
                         type="number"
                         value={form.bonus_percent}
                         onChange={e => setForm(f => ({ ...f, bonus_percent: parseFloat(e.target.value) || 0 }))}
-                        className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
-                        min="0"
-                        max="100"
-                        step="0.5"
+                        style={inputStyle}
+                        min="0" max="100" step="0.5"
                       />
                     </div>
                   )}
                   {form.promo_type === 'flat_bonus' && (
                     <div>
-                      <label className="block text-sm text-gray-300 mb-1">Flat Bonus ($)</label>
+                      <label style={labelStyle}>Flat Bonus ($)</label>
                       <input
                         type="number"
                         value={form.bonus_flat}
                         onChange={e => setForm(f => ({ ...f, bonus_flat: parseFloat(e.target.value) || 0 }))}
-                        className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
-                        min="0"
-                        step="0.01"
+                        style={inputStyle}
+                        min="0" step="0.01"
                       />
                     </div>
                   )}
                   {form.promo_type === 'multiplier' && (
                     <div>
-                      <label className="block text-sm text-gray-300 mb-1">Multiplier (e.g. 2x)</label>
+                      <label style={labelStyle}>Multiplier (e.g. 2x)</label>
                       <input
                         type="number"
                         value={form.multiplier}
                         onChange={e => setForm(f => ({ ...f, multiplier: parseFloat(e.target.value) || 1 }))}
-                        className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
-                        min="1"
-                        max="10"
-                        step="0.1"
+                        style={inputStyle}
+                        min="1" max="10" step="0.1"
                       />
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Date/Time Section */}
-              <div className="p-4 bg-slate-700/50 rounded-lg">
-                <h3 className="font-medium text-white mb-3">Schedule</h3>
-                <div className="grid gap-4 md:grid-cols-2">
+              {/* Schedule Section */}
+              <div style={{ padding: spacing[4], backgroundColor: colors.bgSubdued, borderRadius: radius.lg }}>
+                <h3 style={{ fontWeight: typography.medium, color: colors.text, marginBottom: spacing[3], fontSize: typography.base }}>
+                  Schedule
+                </h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: spacing[4] }}>
                   <div>
-                    <label className="block text-sm text-gray-300 mb-1">Starts At *</label>
+                    <label style={labelStyle}>Starts At *</label>
                     <input
                       type="datetime-local"
                       value={form.starts_at}
                       onChange={e => setForm(f => ({ ...f, starts_at: e.target.value }))}
-                      className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
+                      style={inputStyle}
                       required
                     />
                   </div>
                   <div>
-                    <label className="block text-sm text-gray-300 mb-1">Ends At *</label>
+                    <label style={labelStyle}>Ends At *</label>
                     <input
                       type="datetime-local"
                       value={form.ends_at}
                       onChange={e => setForm(f => ({ ...f, ends_at: e.target.value }))}
-                      className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
+                      style={inputStyle}
                       required
                     />
                   </div>
                 </div>
 
-                <div className="mt-4 pt-4 border-t border-slate-600">
-                  <h4 className="text-sm font-medium text-gray-300 mb-2">Daily Time Window (optional)</h4>
-                  <p className="text-xs text-gray-500 mb-2">Only active during these hours each day</p>
-                  <div className="grid gap-4 md:grid-cols-2">
+                <div style={{ marginTop: spacing[4], paddingTop: spacing[4], borderTop: `1px solid ${colors.border}` }}>
+                  <h4 style={{ fontSize: typography.sm, fontWeight: typography.medium, color: colors.textSecondary, marginBottom: spacing[2] }}>
+                    Daily Time Window (optional)
+                  </h4>
+                  <p style={{ fontSize: typography.xs, color: colors.textSubdued, marginBottom: spacing[2] }}>
+                    Only active during these hours each day
+                  </p>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: spacing[4] }}>
                     <div>
-                      <label className="block text-sm text-gray-400 mb-1">Start Time</label>
+                      <label style={labelStyle}>Start Time</label>
                       <input
                         type="time"
                         value={form.daily_start_time}
                         onChange={e => setForm(f => ({ ...f, daily_start_time: e.target.value }))}
-                        className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
+                        style={inputStyle}
                       />
                     </div>
                     <div>
-                      <label className="block text-sm text-gray-400 mb-1">End Time</label>
+                      <label style={labelStyle}>End Time</label>
                       <input
                         type="time"
                         value={form.daily_end_time}
                         onChange={e => setForm(f => ({ ...f, daily_end_time: e.target.value }))}
-                        className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
+                        style={inputStyle}
                       />
                     </div>
                   </div>
                 </div>
 
-                <div className="mt-4 pt-4 border-t border-slate-600">
-                  <h4 className="text-sm font-medium text-gray-300 mb-2">Active Days (optional)</h4>
-                  <p className="text-xs text-gray-500 mb-2">Only active on selected days (leave empty for all days)</p>
-                  <div className="flex flex-wrap gap-2">
+                <div style={{ marginTop: spacing[4], paddingTop: spacing[4], borderTop: `1px solid ${colors.border}` }}>
+                  <h4 style={{ fontSize: typography.sm, fontWeight: typography.medium, color: colors.textSecondary, marginBottom: spacing[2] }}>
+                    Active Days (optional)
+                  </h4>
+                  <p style={{ fontSize: typography.xs, color: colors.textSubdued, marginBottom: spacing[2] }}>
+                    Only active on selected days (leave empty for all days)
+                  </p>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: spacing[2] }}>
                     {DAY_NAMES.map((day, i) => (
                       <button
                         key={day}
                         type="button"
                         onClick={() => toggleDay(i)}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                          form.active_days.includes(i)
-                            ? 'bg-emerald-600 text-white'
-                            : 'bg-slate-700 text-gray-400 hover:bg-slate-600'
-                        }`}
+                        style={chipStyle(form.active_days.includes(i))}
                       >
                         {day}
                       </button>
@@ -572,16 +723,18 @@ export default function Promotions() {
               </div>
 
               {/* Restrictions Section */}
-              <div className="p-4 bg-slate-700/50 rounded-lg">
-                <h3 className="font-medium text-white mb-3">Restrictions</h3>
+              <div style={{ padding: spacing[4], backgroundColor: colors.bgSubdued, borderRadius: radius.lg }}>
+                <h3 style={{ fontWeight: typography.medium, color: colors.text, marginBottom: spacing[3], fontSize: typography.base }}>
+                  Restrictions
+                </h3>
 
-                <div className="grid gap-4 md:grid-cols-2 mb-4">
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: spacing[4], marginBottom: spacing[4] }}>
                   <div>
-                    <label className="block text-sm text-gray-300 mb-1">Channel</label>
+                    <label style={labelStyle}>Channel</label>
                     <select
                       value={form.channel}
                       onChange={e => setForm(f => ({ ...f, channel: e.target.value as PromotionChannel }))}
-                      className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
+                      style={selectStyle}
                     >
                       {Object.entries(CHANNEL_LABELS).map(([value, label]) => (
                         <option key={value} value={value}>{label}</option>
@@ -589,32 +742,31 @@ export default function Promotions() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm text-gray-300 mb-1">Minimum Value ($)</label>
+                    <label style={labelStyle}>Minimum Value ($)</label>
                     <input
                       type="number"
                       value={form.min_value}
                       onChange={e => setForm(f => ({ ...f, min_value: parseFloat(e.target.value) || 0 }))}
-                      className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
-                      min="0"
-                      step="0.01"
+                      style={inputStyle}
+                      min="0" step="0.01"
                     />
                   </div>
                 </div>
 
-                <div className="mb-4">
-                  <h4 className="text-sm font-medium text-gray-300 mb-2">Member Tiers (optional)</h4>
-                  <p className="text-xs text-gray-500 mb-2">Leave empty for all tiers</p>
-                  <div className="flex flex-wrap gap-2">
+                <div style={{ marginBottom: spacing[4] }}>
+                  <h4 style={{ fontSize: typography.sm, fontWeight: typography.medium, color: colors.textSecondary, marginBottom: spacing[2] }}>
+                    Member Tiers (optional)
+                  </h4>
+                  <p style={{ fontSize: typography.xs, color: colors.textSubdued, marginBottom: spacing[2] }}>
+                    Leave empty for all tiers
+                  </p>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: spacing[2] }}>
                     {['SILVER', 'GOLD', 'PLATINUM'].map(tier => (
                       <button
                         key={tier}
                         type="button"
                         onClick={() => toggleTier(tier)}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                          form.tier_restriction.includes(tier)
-                            ? 'bg-amber-600 text-white'
-                            : 'bg-slate-700 text-gray-400 hover:bg-slate-600'
-                        }`}
+                        style={chipStyle(form.tier_restriction.includes(tier))}
                       >
                         {tier}
                       </button>
@@ -624,19 +776,19 @@ export default function Promotions() {
 
                 {form.promo_type === 'trade_in_bonus' && categories.length > 0 && (
                   <div>
-                    <h4 className="text-sm font-medium text-gray-300 mb-2">Categories (optional)</h4>
-                    <p className="text-xs text-gray-500 mb-2">Leave empty for all categories</p>
-                    <div className="flex flex-wrap gap-2">
+                    <h4 style={{ fontSize: typography.sm, fontWeight: typography.medium, color: colors.textSecondary, marginBottom: spacing[2] }}>
+                      Categories (optional)
+                    </h4>
+                    <p style={{ fontSize: typography.xs, color: colors.textSubdued, marginBottom: spacing[2] }}>
+                      Leave empty for all categories
+                    </p>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: spacing[2] }}>
                       {categories.map(cat => (
                         <button
                           key={cat.id}
                           type="button"
-                          onClick={() => toggleCategory(cat.id)}
-                          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                            form.category_ids.includes(cat.id)
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-slate-700 text-gray-400 hover:bg-slate-600'
-                          }`}
+                          onClick={() => toggleCategory(String(cat.id))}
+                          style={chipStyle(form.category_ids.includes(String(cat.id)))}
                         >
                           {cat.name}
                         </button>
@@ -646,81 +798,171 @@ export default function Promotions() {
                 )}
               </div>
 
+              {/* Product Filters (for purchase_cashback) */}
+              {form.promo_type === 'purchase_cashback' && (
+                <div style={{ padding: spacing[4], backgroundColor: colors.bgSubdued, borderRadius: radius.lg }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing[3] }}>
+                    <h3 style={{ fontWeight: typography.medium, color: colors.text, fontSize: typography.base, margin: 0 }}>
+                      Product Filters
+                    </h3>
+                    {loadingFilterOptions && (
+                      <span style={{ fontSize: typography.xs, color: colors.textSecondary }}>Loading options...</span>
+                    )}
+                  </div>
+                  <p style={{ fontSize: typography.xs, color: colors.textSubdued, marginBottom: spacing[4] }}>
+                    Filter which products qualify. Leave all empty to include all products.
+                  </p>
+
+                  {filterOptions.collections.length > 0 && (
+                    <div style={{ marginBottom: spacing[4] }}>
+                      <h4 style={{ fontSize: typography.sm, fontWeight: typography.medium, color: colors.textSecondary, marginBottom: spacing[2] }}>
+                        Collections ({form.collection_ids.length} selected)
+                      </h4>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: spacing[2], maxHeight: 128, overflowY: 'auto' }}>
+                        {filterOptions.collections.map(col => (
+                          <button
+                            key={col.id}
+                            type="button"
+                            onClick={() => toggleCollection(col.id)}
+                            style={chipStyle(form.collection_ids.includes(col.id))}
+                            title={`${col.productsCount} products`}
+                          >
+                            {col.title}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {filterOptions.vendors.length > 0 && (
+                    <div style={{ marginBottom: spacing[4] }}>
+                      <h4 style={{ fontSize: typography.sm, fontWeight: typography.medium, color: colors.textSecondary, marginBottom: spacing[2] }}>
+                        Vendors/Brands ({form.vendor_filter.length} selected)
+                      </h4>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: spacing[2], maxHeight: 128, overflowY: 'auto' }}>
+                        {filterOptions.vendors.map(vendor => (
+                          <button key={vendor} type="button" onClick={() => toggleVendor(vendor)}
+                            style={chipStyle(form.vendor_filter.includes(vendor))}>
+                            {vendor}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {filterOptions.productTypes.length > 0 && (
+                    <div style={{ marginBottom: spacing[4] }}>
+                      <h4 style={{ fontSize: typography.sm, fontWeight: typography.medium, color: colors.textSecondary, marginBottom: spacing[2] }}>
+                        Product Types ({form.product_type_filter.length} selected)
+                      </h4>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: spacing[2], maxHeight: 128, overflowY: 'auto' }}>
+                        {filterOptions.productTypes.map(pType => (
+                          <button key={pType} type="button" onClick={() => toggleProductType(pType)}
+                            style={chipStyle(form.product_type_filter.includes(pType))}>
+                            {pType}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {filterOptions.productTags.length > 0 && (
+                    <div>
+                      <h4 style={{ fontSize: typography.sm, fontWeight: typography.medium, color: colors.textSecondary, marginBottom: spacing[2] }}>
+                        Product Tags ({form.product_tags_filter.length} selected)
+                      </h4>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: spacing[2], maxHeight: 128, overflowY: 'auto' }}>
+                        {filterOptions.productTags.slice(0, 50).map(tag => (
+                          <button key={tag} type="button" onClick={() => toggleProductTag(tag)}
+                            style={chipStyle(form.product_tags_filter.includes(tag))}>
+                            {tag}
+                          </button>
+                        ))}
+                        {filterOptions.productTags.length > 50 && (
+                          <span style={{ fontSize: typography.xs, color: colors.textSubdued, alignSelf: 'center' }}>
+                            +{filterOptions.productTags.length - 50} more
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Limits Section */}
-              <div className="p-4 bg-slate-700/50 rounded-lg">
-                <h3 className="font-medium text-white mb-3">Limits</h3>
-                <div className="grid gap-4 md:grid-cols-3">
+              <div style={{ padding: spacing[4], backgroundColor: colors.bgSubdued, borderRadius: radius.lg }}>
+                <h3 style={{ fontWeight: typography.medium, color: colors.text, marginBottom: spacing[3], fontSize: typography.base }}>
+                  Limits
+                </h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: spacing[4] }}>
                   <div>
-                    <label className="block text-sm text-gray-300 mb-1">Max Total Uses</label>
+                    <label style={labelStyle}>Max Total Uses</label>
                     <input
                       type="number"
                       value={form.max_uses || ''}
                       onChange={e => setForm(f => ({ ...f, max_uses: e.target.value ? parseInt(e.target.value) : undefined }))}
-                      className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
+                      style={inputStyle}
                       min="1"
                       placeholder="Unlimited"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm text-gray-300 mb-1">Max Per Member</label>
+                    <label style={labelStyle}>Max Per Member</label>
                     <input
                       type="number"
                       value={form.max_uses_per_member || ''}
                       onChange={e => setForm(f => ({ ...f, max_uses_per_member: e.target.value ? parseInt(e.target.value) : undefined }))}
-                      className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
+                      style={inputStyle}
                       min="1"
                       placeholder="Unlimited"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm text-gray-300 mb-1">Priority</label>
+                    <label style={labelStyle}>Priority</label>
                     <input
                       type="number"
                       value={form.priority}
                       onChange={e => setForm(f => ({ ...f, priority: parseInt(e.target.value) || 0 }))}
-                      className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
+                      style={inputStyle}
                       min="0"
                     />
-                    <p className="text-xs text-gray-500 mt-1">Higher = applied first</p>
+                    <p style={{ fontSize: typography.xs, color: colors.textSubdued, marginTop: 4 }}>Higher = applied first</p>
                   </div>
                 </div>
 
-                <div className="mt-4 flex items-center gap-4">
-                  <label className="flex items-center gap-2 cursor-pointer">
+                <div style={{ marginTop: spacing[4], display: 'flex', alignItems: 'center', gap: spacing[6] }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: spacing[2], cursor: 'pointer' }}>
                     <input
                       type="checkbox"
                       checked={form.stackable}
                       onChange={e => setForm(f => ({ ...f, stackable: e.target.checked }))}
-                      className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-emerald-600"
+                      style={{ width: 16, height: 16, accentColor: colors.primary }}
                     />
-                    <span className="text-sm text-gray-300">Stackable (can combine with other promos)</span>
+                    <span style={{ fontSize: typography.sm, color: colors.textSecondary }}>
+                      Stackable (can combine with other promos)
+                    </span>
                   </label>
 
-                  <label className="flex items-center gap-2 cursor-pointer">
+                  <label style={{ display: 'flex', alignItems: 'center', gap: spacing[2], cursor: 'pointer' }}>
                     <input
                       type="checkbox"
                       checked={form.active}
                       onChange={e => setForm(f => ({ ...f, active: e.target.checked }))}
-                      className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-emerald-600"
+                      style={{ width: 16, height: 16, accentColor: colors.primary }}
                     />
-                    <span className="text-sm text-gray-300">Active</span>
+                    <span style={{ fontSize: typography.sm, color: colors.textSecondary }}>Active</span>
                   </label>
                 </div>
               </div>
 
               {/* Actions */}
-              <div className="flex gap-3 justify-end pt-4 border-t border-slate-700">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="px-4 py-2 text-gray-400 hover:text-white"
-                >
+              <div style={{ display: 'flex', gap: spacing[3], justifyContent: 'flex-end', paddingTop: spacing[4],
+                borderTop: `1px solid ${colors.border}` }}>
+                <button type="button" onClick={() => setShowModal(false)}
+                  style={{ ...secondaryButtonStyle, backgroundColor: 'transparent', border: 'none' }}>
                   Cancel
                 </button>
-                <button
-                  type="submit"
-                  className="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
-                >
+                <button type="submit" style={primaryButtonStyle}>
                   {editingPromo ? 'Save Changes' : 'Create Promotion'}
                 </button>
               </div>

@@ -158,6 +158,60 @@ def lookup_shopify_customer():
         return jsonify({'error': str(e)}), 500
 
 
+@admin_bp.route('/shopify/customers/search', methods=['GET'])
+@require_tenant
+def search_shopify_customers():
+    """
+    Search Shopify customers by name, email, phone, or ORB#.
+
+    Query params:
+        q: Search query (required, min 2 chars)
+        limit: Max results (default 10, max 25)
+
+    Searches intelligently:
+        - If query contains @, searches by email
+        - If query is mostly digits, searches by phone
+        - If query starts with ORB or #ORB, searches by tag
+        - Otherwise searches by name
+    """
+    query = request.args.get('q', '').strip()
+    limit = min(request.args.get('limit', 10, type=int), 25)
+
+    if len(query) < 2:
+        return jsonify({'customers': [], 'query': query})
+
+    try:
+        client = ShopifyClient(g.tenant_id)
+        customers = client.search_customers(query, limit=limit)
+
+        # Format customers for frontend
+        results = []
+        for c in customers:
+            results.append({
+                'id': c.get('id'),
+                'gid': c.get('gid'),
+                'email': c.get('email'),
+                'firstName': c.get('firstName', ''),
+                'lastName': c.get('lastName', ''),
+                'displayName': c.get('displayName') or c.get('name', ''),
+                'phone': c.get('phone'),
+                'tags': c.get('tags', []),
+                'orbNumber': c.get('orb_number'),
+                'ordersCount': c.get('numberOfOrders', 0),
+                'totalSpent': c.get('amountSpent', 0),
+                'storeCreditBalance': c.get('storeCredit', 0),
+                'createdAt': c.get('createdAt')
+            })
+
+        return jsonify({
+            'customers': results,
+            'query': query,
+            'count': len(results)
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @admin_bp.route('/shopify/collections', methods=['GET'])
 @require_tenant
 def get_collections():
@@ -394,3 +448,260 @@ def fix_schema():
             'success': False,
             'error': str(e)
         }), 500
+
+
+# ================== Shopify Metafields Sync ==================
+
+@admin_bp.route('/members/<int:member_id>/sync-metafields', methods=['POST'])
+@require_tenant
+def sync_member_metafields(member_id):
+    """
+    Sync a single member's data to Shopify customer metafields.
+
+    This updates the customer's metafields in Shopify Admin with:
+    - tradeup.member_number
+    - tradeup.tier
+    - tradeup.credit_balance
+    - tradeup.trade_in_count
+    - tradeup.total_bonus_earned
+    - tradeup.status
+    - tradeup.joined_date
+    """
+    member = Member.query.get(member_id)
+    if not member or member.tenant_id != g.tenant_id:
+        return jsonify({'error': 'Member not found'}), 404
+
+    if not member.shopify_customer_id:
+        return jsonify({'error': 'Member has no linked Shopify customer'}), 400
+
+    try:
+        from ..services.membership_service import MembershipService
+        client = ShopifyClient(g.tenant_id)
+        membership_svc = MembershipService(g.tenant_id, client)
+        result = membership_svc.sync_member_metafields_to_shopify(member)
+
+        return jsonify({
+            'success': True,
+            'member_id': member_id,
+            'member_number': member.member_number,
+            'shopify_customer_id': member.shopify_customer_id,
+            'metafields_synced': result.get('metafields_set', [])
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@admin_bp.route('/members/sync-metafields', methods=['POST'])
+@require_tenant
+def sync_all_member_metafields():
+    """
+    Bulk sync all members' metafields to Shopify.
+
+    Use this to backfill metafields for existing members.
+    Only syncs members that have a linked Shopify customer.
+
+    Request body (optional):
+        limit: Max members to sync (default 100, max 500)
+        offset: Skip first N members (for pagination)
+    """
+    data = request.get_json() or {}
+    limit = min(data.get('limit', 100), 500)
+    offset = data.get('offset', 0)
+
+    # Get members with Shopify customer IDs
+    members = Member.query.filter(
+        Member.tenant_id == g.tenant_id,
+        Member.shopify_customer_id.isnot(None),
+        Member.status == 'active'
+    ).order_by(Member.id).offset(offset).limit(limit).all()
+
+    if not members:
+        return jsonify({
+            'success': True,
+            'message': 'No members to sync',
+            'synced': 0,
+            'failed': 0
+        })
+
+    try:
+        from ..services.membership_service import MembershipService
+        client = ShopifyClient(g.tenant_id)
+        membership_svc = MembershipService(g.tenant_id, client)
+
+        results = {
+            'synced': [],
+            'failed': []
+        }
+
+        for member in members:
+            try:
+                membership_svc.sync_member_metafields_to_shopify(member)
+                results['synced'].append({
+                    'member_id': member.id,
+                    'member_number': member.member_number
+                })
+            except Exception as e:
+                results['failed'].append({
+                    'member_id': member.id,
+                    'member_number': member.member_number,
+                    'error': str(e)
+                })
+
+        # Get total count for pagination info
+        total_count = Member.query.filter(
+            Member.tenant_id == g.tenant_id,
+            Member.shopify_customer_id.isnot(None),
+            Member.status == 'active'
+        ).count()
+
+        return jsonify({
+            'success': True,
+            'synced_count': len(results['synced']),
+            'failed_count': len(results['failed']),
+            'total_members': total_count,
+            'offset': offset,
+            'limit': limit,
+            'has_more': offset + limit < total_count,
+            'synced': results['synced'],
+            'failed': results['failed']
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@admin_bp.route('/members/<int:member_id>/metafields', methods=['GET'])
+@require_tenant
+def get_member_metafields(member_id):
+    """
+    Get metafields for a member from Shopify.
+
+    Returns the current metafield values stored on the Shopify customer.
+    """
+    member = Member.query.get(member_id)
+    if not member or member.tenant_id != g.tenant_id:
+        return jsonify({'error': 'Member not found'}), 404
+
+    if not member.shopify_customer_id:
+        return jsonify({'error': 'Member has no linked Shopify customer'}), 400
+
+    try:
+        client = ShopifyClient(g.tenant_id)
+        metafields = client.get_customer_metafields(
+            member.shopify_customer_id,
+            namespace='tradeup'
+        )
+
+        return jsonify({
+            'member_id': member_id,
+            'member_number': member.member_number,
+            'shopify_customer_id': member.shopify_customer_id,
+            'metafields': metafields
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ================== Tier Discounts ==================
+
+@admin_bp.route('/discounts/tier-codes', methods=['GET'])
+@require_tenant
+def get_tier_discount_codes():
+    """
+    Get all tier discount codes configuration.
+
+    Returns the discount codes that should be created for each tier.
+    """
+    try:
+        from ..services.tier_service import TierService
+        tier_svc = TierService(g.tenant_id)
+        codes = tier_svc.get_tier_discount_codes()
+
+        return jsonify({
+            'success': True,
+            'codes': codes,
+            'count': len(codes)
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@admin_bp.route('/discounts/sync-tiers', methods=['POST'])
+@require_tenant
+def sync_tier_discounts():
+    """
+    Sync all tier discount codes to Shopify.
+
+    Creates discount codes like TRADEUP-GOLD, TRADEUP-SILVER, etc.
+    for each tier that has a store discount configured.
+    """
+    try:
+        from ..services.tier_service import TierService
+        client = ShopifyClient(g.tenant_id)
+        tier_svc = TierService(g.tenant_id)
+
+        result = tier_svc.sync_tier_discounts_to_shopify(client)
+
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@admin_bp.route('/discounts/shopify', methods=['GET'])
+@require_tenant
+def list_shopify_discounts():
+    """
+    List all automatic discounts from Shopify.
+    """
+    try:
+        client = ShopifyClient(g.tenant_id)
+        result = client.list_automatic_discounts()
+
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@admin_bp.route('/discounts/create', methods=['POST'])
+@require_tenant
+def create_discount():
+    """
+    Create a new discount code in Shopify.
+
+    Request body:
+        tier_name: Name of tier (e.g., "Gold")
+        percentage: Discount percentage (e.g., 20)
+        customer_tag: Required customer tag (e.g., "tradeup-gold")
+    """
+    data = request.get_json()
+
+    tier_name = data.get('tier_name')
+    percentage = data.get('percentage')
+    customer_tag = data.get('customer_tag')
+
+    if not all([tier_name, percentage]):
+        return jsonify({'error': 'tier_name and percentage required'}), 400
+
+    try:
+        client = ShopifyClient(g.tenant_id)
+        result = client.create_tier_discount_code(
+            tier_name=tier_name,
+            percentage=float(percentage),
+            customer_tag=customer_tag or f'tradeup-{tier_name.lower()}'
+        )
+
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@admin_bp.route('/discounts/<discount_id>', methods=['DELETE'])
+@require_tenant
+def delete_discount(discount_id):
+    """Delete a discount by ID."""
+    try:
+        client = ShopifyClient(g.tenant_id)
+        result = client.delete_discount(discount_id)
+
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500

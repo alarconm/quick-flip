@@ -97,9 +97,26 @@ class Promotion(db.Model):
     # Channel restriction
     channel = db.Column(db.String(20), default='all')  # all, in_store, online
 
-    # Category restrictions (JSON array of category IDs, empty = all)
-    category_ids = db.Column(db.Text)  # JSON: [1, 2, 3] or null for all
+    # ==================== Product Filter Options ====================
+    # All filters are JSON arrays - products must match ALL non-null filters (AND logic)
+    # Empty/null = no restriction for that filter type
 
+    # Collection IDs (Shopify collections - like categories)
+    collection_ids = db.Column(db.Text)  # JSON: ["gid://shopify/Collection/123", ...]
+
+    # Vendor filter (product brands/vendors)
+    vendor_filter = db.Column(db.Text)  # JSON: ["Pokemon", "Magic", "Sports"]
+
+    # Product type filter
+    product_type_filter = db.Column(db.Text)  # JSON: ["Sealed Product", "Singles", "Graded"]
+
+    # Product tags filter (Shopify tags)
+    product_tags_filter = db.Column(db.Text)  # JSON: ["preorder", "exclusive", "sale"]
+
+    # Legacy category_ids - keeping for backwards compatibility
+    category_ids = db.Column(db.Text)  # JSON: [1, 2, 3] or null for all (deprecated)
+
+    # ==================== Member Restrictions ====================
     # Tier restrictions (JSON array, empty = all tiers)
     tier_restriction = db.Column(db.Text)  # JSON: ["GOLD", "PLATINUM"] or null
 
@@ -154,7 +171,7 @@ class Promotion(db.Model):
         return True
 
     def applies_to_category(self, category_id: int) -> bool:
-        """Check if promotion applies to a specific category."""
+        """Check if promotion applies to a specific category (legacy)."""
         if not self.category_ids:
             return True  # No restriction = all categories
 
@@ -164,6 +181,89 @@ class Promotion(db.Model):
             return category_id in allowed
         except (json.JSONDecodeError, TypeError):
             return True
+
+    def applies_to_collection(self, collection_id: str) -> bool:
+        """Check if promotion applies to a specific Shopify collection."""
+        if not self.collection_ids:
+            return True  # No restriction = all collections
+
+        import json
+        try:
+            allowed = json.loads(self.collection_ids)
+            return collection_id in allowed
+        except (json.JSONDecodeError, TypeError):
+            return True
+
+    def applies_to_vendor(self, vendor: str) -> bool:
+        """Check if promotion applies to a specific vendor/brand."""
+        if not self.vendor_filter:
+            return True  # No restriction = all vendors
+
+        import json
+        try:
+            allowed = json.loads(self.vendor_filter)
+            # Case-insensitive match
+            return vendor.lower() in [v.lower() for v in allowed]
+        except (json.JSONDecodeError, TypeError):
+            return True
+
+    def applies_to_product_type(self, product_type: str) -> bool:
+        """Check if promotion applies to a specific product type."""
+        if not self.product_type_filter:
+            return True  # No restriction = all types
+
+        import json
+        try:
+            allowed = json.loads(self.product_type_filter)
+            # Case-insensitive match
+            return product_type.lower() in [t.lower() for t in allowed]
+        except (json.JSONDecodeError, TypeError):
+            return True
+
+    def applies_to_product_tags(self, tags: List[str]) -> bool:
+        """Check if promotion applies based on product tags (ANY match)."""
+        if not self.product_tags_filter:
+            return True  # No restriction = all products
+
+        import json
+        try:
+            required_tags = json.loads(self.product_tags_filter)
+            # Product must have at least one of the required tags
+            tags_lower = [t.lower() for t in tags]
+            required_lower = [t.lower() for t in required_tags]
+            return any(tag in tags_lower for tag in required_lower)
+        except (json.JSONDecodeError, TypeError):
+            return True
+
+    def applies_to_product(self, product: Dict[str, Any]) -> bool:
+        """
+        Check if promotion applies to a specific product.
+
+        Product dict should have: collection_ids, vendor, product_type, tags
+        All non-null filters must match (AND logic).
+        """
+        # Check collection
+        if self.collection_ids:
+            product_collections = product.get('collection_ids', [])
+            if not any(self.applies_to_collection(c) for c in product_collections):
+                return False
+
+        # Check vendor
+        if self.vendor_filter:
+            if not self.applies_to_vendor(product.get('vendor', '')):
+                return False
+
+        # Check product type
+        if self.product_type_filter:
+            if not self.applies_to_product_type(product.get('product_type', '')):
+                return False
+
+        # Check tags
+        if self.product_tags_filter:
+            if not self.applies_to_product_tags(product.get('tags', [])):
+                return False
+
+        return True
 
     def applies_to_tier(self, tier: str) -> bool:
         """Check if promotion applies to a member tier."""
@@ -198,6 +298,15 @@ class Promotion(db.Model):
     def to_dict(self) -> Dict[str, Any]:
         """Serialize promotion to dictionary."""
         import json
+
+        def safe_json_loads(value):
+            if not value:
+                return None
+            try:
+                return json.loads(value)
+            except (json.JSONDecodeError, TypeError):
+                return None
+
         return {
             'id': self.id,
             'name': self.name,
@@ -213,8 +322,14 @@ class Promotion(db.Model):
             'daily_end_time': self.daily_end_time.strftime('%H:%M') if self.daily_end_time else None,
             'active_days': self.active_days,
             'channel': self.channel,
-            'category_ids': json.loads(self.category_ids) if self.category_ids else None,
-            'tier_restriction': json.loads(self.tier_restriction) if self.tier_restriction else None,
+            # Product filters
+            'collection_ids': safe_json_loads(self.collection_ids),
+            'vendor_filter': safe_json_loads(self.vendor_filter),
+            'product_type_filter': safe_json_loads(self.product_type_filter),
+            'product_tags_filter': safe_json_loads(self.product_tags_filter),
+            'category_ids': safe_json_loads(self.category_ids),  # Legacy
+            # Member restrictions
+            'tier_restriction': safe_json_loads(self.tier_restriction),
             'min_items': self.min_items,
             'min_value': float(self.min_value or 0),
             'stackable': self.stackable,

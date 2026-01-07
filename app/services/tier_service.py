@@ -140,6 +140,32 @@ class TierService:
                 f'Tier assigned: {member.member_number} -> {tier.name} ({source_type}:{source_reference})'
             )
 
+            # Sync member metafields to Shopify (non-blocking)
+            try:
+                from .membership_service import MembershipService
+                membership_svc = MembershipService(self.tenant_id, self.shopify_client)
+                membership_svc.sync_member_metafields_to_shopify(member)
+            except Exception as sync_err:
+                current_app.logger.warning(f'Metafield sync failed: {sync_err}')
+
+            # Trigger Shopify Flow event for tier change
+            if previous_tier_name != tier.name:  # Only if tier actually changed
+                try:
+                    from .flow_service import FlowService
+                    flow_svc = FlowService(self.tenant_id, self.shopify_client)
+                    flow_svc.trigger_tier_changed(
+                        member_id=member.id,
+                        member_number=member.member_number,
+                        email=member.email,
+                        old_tier=previous_tier_name or 'None',
+                        new_tier=tier.name,
+                        change_type=change_type,
+                        source=source_type,
+                        shopify_customer_id=member.shopify_customer_id
+                    )
+                except Exception as flow_err:
+                    current_app.logger.warning(f'Flow trigger failed: {flow_err}')
+
             return {
                 'success': True,
                 'member_id': member_id,
@@ -1094,3 +1120,125 @@ class TierService:
             return threshold <= current_value <= (rule.threshold_max or threshold)
 
         return False
+
+    # ==================== Shopify Discount Management ====================
+
+    def sync_tier_discounts_to_shopify(self, shopify_client) -> Dict[str, Any]:
+        """
+        Sync all tier discount codes to Shopify.
+
+        Creates discount codes for each tier that has a store_discount_pct > 0.
+        The discount codes are:
+        - TRADEUP-BRONZE (10% off)
+        - TRADEUP-SILVER (15% off)
+        - TRADEUP-GOLD (20% off)
+
+        Members can use their tier's discount code at checkout.
+        Validation happens via customer tags (tradeup-bronze, etc.)
+
+        Args:
+            shopify_client: ShopifyClient instance
+
+        Returns:
+            Dict with sync results
+        """
+        from ..models.promotions import TierConfiguration
+
+        tiers = TierConfiguration.query.filter_by(
+            tenant_id=self.tenant_id,
+            is_active=True
+        ).order_by(TierConfiguration.rank).all()
+
+        results = {
+            'created': [],
+            'updated': [],
+            'skipped': [],
+            'errors': []
+        }
+
+        for tier in tiers:
+            discount_pct = float(tier.store_discount_pct or 0)
+
+            if discount_pct <= 0:
+                results['skipped'].append({
+                    'tier': tier.name,
+                    'reason': 'No store discount configured'
+                })
+                continue
+
+            customer_tag = f'tradeup-{tier.name.lower()}'
+
+            try:
+                result = shopify_client.create_tier_discount_code(
+                    tier_name=tier.name,
+                    percentage=discount_pct,
+                    customer_tag=customer_tag
+                )
+
+                if result.get('success'):
+                    results['created'].append({
+                        'tier': tier.name,
+                        'code': result.get('code'),
+                        'percentage': discount_pct,
+                        'discount_id': result.get('discount_id')
+                    })
+                else:
+                    # Might already exist
+                    errors = result.get('errors', [])
+                    if any('taken' in str(e).lower() for e in errors):
+                        results['updated'].append({
+                            'tier': tier.name,
+                            'code': f'TRADEUP-{tier.name.upper()}',
+                            'percentage': discount_pct,
+                            'note': 'Code already exists'
+                        })
+                    else:
+                        results['errors'].append({
+                            'tier': tier.name,
+                            'error': result.get('errors') or result.get('error')
+                        })
+            except Exception as e:
+                results['errors'].append({
+                    'tier': tier.name,
+                    'error': str(e)
+                })
+
+        return {
+            'success': len(results['errors']) == 0,
+            'summary': {
+                'created': len(results['created']),
+                'updated': len(results['updated']),
+                'skipped': len(results['skipped']),
+                'errors': len(results['errors'])
+            },
+            'details': results
+        }
+
+    def get_tier_discount_codes(self) -> List[Dict[str, Any]]:
+        """
+        Get all tier discount codes configuration.
+
+        Returns:
+            List of tier discount code info
+        """
+        from ..models.promotions import TierConfiguration
+
+        tiers = TierConfiguration.query.filter_by(
+            tenant_id=self.tenant_id,
+            is_active=True
+        ).order_by(TierConfiguration.rank).all()
+
+        codes = []
+        for tier in tiers:
+            discount_pct = float(tier.store_discount_pct or 0)
+            if discount_pct > 0:
+                codes.append({
+                    'tier_id': tier.id,
+                    'tier_name': tier.name,
+                    'code': f'TRADEUP-{tier.name.upper()}',
+                    'percentage': discount_pct,
+                    'customer_tag': f'tradeup-{tier.name.lower()}',
+                    'description': f'{int(discount_pct)}% off for {tier.name} members'
+                })
+
+        return codes

@@ -89,3 +89,45 @@ uri = "/webhook/customers/data_request"
 
 [build]
 automatically_update_urls_on_dev = true
+
+# ==================== Shopify Flow Integration ====================
+# Flow Triggers - Events our app sends to start Flow workflows
+# Flow Actions - Actions Flow can call in our app
+
+[flow]
+# Flow triggers that can start workflows
+[[flow.triggers]]
+title = "TradeUp: Member Enrolled"
+description = "Triggered when a new member enrolls in the loyalty program"
+uri = "/flow/triggers/member-enrolled"
+
+[[flow.triggers]]
+title = "TradeUp: Tier Changed"
+description = "Triggered when a member's tier is upgraded or downgraded"
+uri = "/flow/triggers/tier-changed"
+
+[[flow.triggers]]
+title = "TradeUp: Trade-In Completed"
+description = "Triggered when a trade-in batch is completed and credit issued"
+uri = "/flow/triggers/trade-in-completed"
+
+[[flow.triggers]]
+title = "TradeUp: Store Credit Issued"
+description = "Triggered when store credit is added to a member's account"
+uri = "/flow/triggers/credit-issued"
+
+# Flow actions that can be used in workflows
+[[flow.actions]]
+title = "TradeUp: Add Store Credit"
+description = "Add store credit to a customer's account"
+uri = "/flow/actions/add-credit"
+
+[[flow.actions]]
+title = "TradeUp: Change Member Tier"
+description = "Upgrade or downgrade a member's tier"
+uri = "/flow/actions/change-tier"
+
+[[flow.actions]]
+title = "TradeUp: Get Member Info"
+description = "Retrieve membership information for a customer"
+uri = "/flow/actions/get-member"

@@ -1,11 +1,17 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
 import { AppProvider } from '@shopify/polaris';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import '@shopify/polaris/build/esm/styles.css';
 import enTranslations from '@shopify/polaris/locales/en.json';
 import { ErrorBoundary } from './components';
+import { ThemeProvider } from './contexts/ThemeContext';
+import { initSentry } from './utils/sentry';
 import App from './App';
+
+// Initialize Sentry error tracking (must be first)
+initSentry();
 
 // React Query client with default error handling
 const queryClient = new QueryClient({
@@ -24,11 +30,15 @@ const queryClient = new QueryClient({
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <AppProvider i18n={enTranslations}>
-          <App />
-        </AppProvider>
-      </QueryClientProvider>
+      <BrowserRouter>
+        <QueryClientProvider client={queryClient}>
+          <ThemeProvider>
+            <AppProvider i18n={enTranslations}>
+              <App />
+            </AppProvider>
+          </ThemeProvider>
+        </QueryClientProvider>
+      </BrowserRouter>
     </ErrorBoundary>
   </StrictMode>,
 );

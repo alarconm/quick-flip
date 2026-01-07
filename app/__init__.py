@@ -2212,6 +2212,9 @@ def register_blueprints(app: Flask) -> None:
     # Referral Program
     from .api.referrals import referrals_bp
 
+    # Onboarding
+    from .api.onboarding import onboarding_bp
+
     # Webhooks
     from .webhooks.shopify import webhooks_bp
     from .webhooks.shopify_billing import shopify_billing_webhook_bp
@@ -2259,6 +2262,9 @@ def register_blueprints(app: Flask) -> None:
     # Referral Program routes
     app.register_blueprint(referrals_bp, url_prefix='/api/referrals')
 
+    # Onboarding routes
+    app.register_blueprint(onboarding_bp, url_prefix='/api/onboarding')
+
     # Webhook routes
     app.register_blueprint(webhooks_bp, url_prefix='/webhook')
     app.register_blueprint(shopify_billing_webhook_bp, url_prefix='/webhook/shopify-billing')
@@ -2266,6 +2272,10 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(order_lifecycle_bp, url_prefix='/webhook')
     app.register_blueprint(subscription_lifecycle_bp, url_prefix='/webhook')
     app.register_blueprint(app_lifecycle_bp, url_prefix='/webhook')
+
+    # Shopify Flow integration
+    from .api.flow import flow_bp
+    app.register_blueprint(flow_bp, url_prefix='/flow')
 
 
 def register_error_handlers(app: Flask) -> None:

@@ -374,3 +374,192 @@ def reorder_tiers():
         'success': True,
         'tiers': [t.to_dict() for t in tiers]
     })
+
+
+# ==================== Bulk Email Operations ====================
+
+@members_bp.route('/email/preview', methods=['POST'])
+def preview_tier_email():
+    """
+    Preview tier email - get recipient counts without sending.
+
+    JSON body:
+        tier_names: List of tier names (e.g., ['GOLD', 'PLATINUM'])
+
+    Returns:
+        Counts of members per tier
+    """
+    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+    data = request.json
+
+    tier_names = data.get('tier_names', [])
+    if not tier_names:
+        return jsonify({'error': 'tier_names is required'}), 400
+
+    # Get member counts by tier
+    tiers = MembershipTier.query.filter(
+        MembershipTier.tenant_id == tenant_id,
+        MembershipTier.name.in_(tier_names),
+        MembershipTier.is_active == True
+    ).all()
+
+    if not tiers:
+        return jsonify({'error': f'No active tiers found matching: {tier_names}'}), 400
+
+    tier_ids = [t.id for t in tiers]
+
+    # Count active members in these tiers
+    member_counts = {}
+    total = 0
+    for tier in tiers:
+        count = Member.query.filter(
+            Member.tenant_id == tenant_id,
+            Member.tier_id == tier.id,
+            Member.status == 'active'
+        ).count()
+        member_counts[tier.name] = count
+        total += count
+
+    return jsonify({
+        'tier_names': tier_names,
+        'member_counts': member_counts,
+        'total_recipients': total
+    })
+
+
+@members_bp.route('/email/send', methods=['POST'])
+def send_tier_email():
+    """
+    Send bulk email to members in specified tiers.
+
+    JSON body:
+        tier_names: List of tier names (e.g., ['GOLD', 'PLATINUM'])
+        subject: Email subject line
+        message: Plain text message body
+        html_message: HTML message body (optional)
+
+    Personalization variables available:
+        {member_name} - Member's name
+        {member_number} - Member number (TU1001)
+        {tier_name} - Member's tier name
+
+    Returns:
+        Send results (sent count, failed count, etc.)
+    """
+    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+    staff_email = request.headers.get('X-Staff-Email', 'admin')
+    data = request.json
+
+    tier_names = data.get('tier_names', [])
+    subject = data.get('subject', '').strip()
+    message = data.get('message', '').strip()
+    html_message = data.get('html_message')
+
+    # Validation
+    if not tier_names:
+        return jsonify({'error': 'tier_names is required'}), 400
+    if not subject:
+        return jsonify({'error': 'subject is required'}), 400
+    if not message:
+        return jsonify({'error': 'message is required'}), 400
+
+    # Send via notification service
+    from ..services.notification_service import notification_service
+
+    result = notification_service.send_bulk_tier_email(
+        tenant_id=tenant_id,
+        tier_names=tier_names,
+        subject=subject,
+        text_content=message,
+        html_content=html_message,
+        created_by=staff_email
+    )
+
+    if result.get('success'):
+        return jsonify(result)
+    else:
+        return jsonify(result), 400
+
+
+@members_bp.route('/email/templates', methods=['GET'])
+def get_email_templates():
+    """Get pre-built email templates for common scenarios."""
+    templates = [
+        {
+            'id': 'promotion_announcement',
+            'name': 'Promotion Announcement',
+            'subject': 'Exclusive Offer for {tier_name} Members!',
+            'message': '''Hi {member_name},
+
+As a valued {tier_name} member, you have exclusive access to our latest promotion!
+
+[Describe your promotion here]
+
+Use your member benefits to maximize your savings.
+
+Thank you for being a loyal member!
+
+Best regards,
+The Team''',
+            'category': 'marketing'
+        },
+        {
+            'id': 'new_arrival',
+            'name': 'New Arrivals',
+            'subject': 'New Inventory Just Dropped!',
+            'message': '''Hi {member_name},
+
+Exciting news! We just got in new inventory you won't want to miss.
+
+[Describe new arrivals here]
+
+As a {tier_name} member, you get early access before the general public.
+
+See you soon!
+
+Best regards,
+The Team''',
+            'category': 'marketing'
+        },
+        {
+            'id': 'event_invite',
+            'name': 'Event Invitation',
+            'subject': 'You\'re Invited: {tier_name} Member Event',
+            'message': '''Hi {member_name},
+
+You're invited to an exclusive event for our members!
+
+Event Details:
+[Date, time, location]
+
+[Event description]
+
+RSVP by replying to this email.
+
+We look forward to seeing you there!
+
+Best regards,
+The Team''',
+            'category': 'events'
+        },
+        {
+            'id': 'tier_benefit_reminder',
+            'name': 'Tier Benefits Reminder',
+            'subject': 'Maximize Your {tier_name} Benefits',
+            'message': '''Hi {member_name},
+
+Just a friendly reminder of your amazing {tier_name} member benefits:
+
+• Trade-in bonus: Extra credit on every trade
+• Purchase cashback: Earn on every order
+• Exclusive access to member events
+
+Make sure you're taking full advantage!
+
+Best regards,
+The Team''',
+            'category': 'engagement'
+        }
+    ]
+
+    return jsonify({'templates': templates})

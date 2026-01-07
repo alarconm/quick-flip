@@ -202,8 +202,20 @@ def create_promotion():
 
     # Serialize arrays to JSON
     import json
-    category_ids = json.dumps(data['category_ids']) if data.get('category_ids') else None
-    tier_restriction = json.dumps(data['tier_restriction']) if data.get('tier_restriction') else None
+
+    def to_json_or_none(value):
+        """Convert to JSON string or None."""
+        return json.dumps(value) if value else None
+
+    # Product filters
+    collection_ids = to_json_or_none(data.get('collection_ids'))
+    vendor_filter = to_json_or_none(data.get('vendor_filter'))
+    product_type_filter = to_json_or_none(data.get('product_type_filter'))
+    product_tags_filter = to_json_or_none(data.get('product_tags_filter'))
+    category_ids = to_json_or_none(data.get('category_ids'))  # Legacy
+
+    # Member restrictions
+    tier_restriction = to_json_or_none(data.get('tier_restriction'))
 
     promotion = Promotion(
         name=data['name'],
@@ -219,7 +231,13 @@ def create_promotion():
         daily_end_time=daily_end,
         active_days=data.get('active_days'),
         channel=data.get('channel', 'all'),
-        category_ids=category_ids,
+        # Product filters
+        collection_ids=collection_ids,
+        vendor_filter=vendor_filter,
+        product_type_filter=product_type_filter,
+        product_tags_filter=product_tags_filter,
+        category_ids=category_ids,  # Legacy
+        # Member restrictions
         tier_restriction=tier_restriction,
         min_items=data.get('min_items', 0),
         min_value=data.get('min_value', 0),
@@ -293,10 +311,26 @@ def update_promotion(promo_id: int):
         promotion.channel = data['channel']
 
     import json
+
+    def to_json_or_none(value):
+        """Convert to JSON string or None."""
+        return json.dumps(value) if value else None
+
+    # Product filters
+    if 'collection_ids' in data:
+        promotion.collection_ids = to_json_or_none(data['collection_ids'])
+    if 'vendor_filter' in data:
+        promotion.vendor_filter = to_json_or_none(data['vendor_filter'])
+    if 'product_type_filter' in data:
+        promotion.product_type_filter = to_json_or_none(data['product_type_filter'])
+    if 'product_tags_filter' in data:
+        promotion.product_tags_filter = to_json_or_none(data['product_tags_filter'])
     if 'category_ids' in data:
-        promotion.category_ids = json.dumps(data['category_ids']) if data['category_ids'] else None
+        promotion.category_ids = to_json_or_none(data['category_ids'])
+
+    # Member restrictions
     if 'tier_restriction' in data:
-        promotion.tier_restriction = json.dumps(data['tier_restriction']) if data['tier_restriction'] else None
+        promotion.tier_restriction = to_json_or_none(data['tier_restriction'])
 
     if 'min_items' in data:
         promotion.min_items = data['min_items']
@@ -653,6 +687,7 @@ def update_tier(tier_id: int):
 
 # ==================== Dashboard Stats ====================
 
+@promotions_bp.route('/dashboard/stats', methods=['GET'])
 @promotions_bp.route('/stats', methods=['GET'])
 def get_promotion_stats():
     """Get promotion and store credit statistics."""
@@ -755,3 +790,101 @@ def get_promotion_stats():
             'error': 'Failed to fetch stats',
             'message': str(e),
         }), 500
+
+
+# ==================== Product Filter Options ====================
+
+@promotions_bp.route('/filter-options', methods=['GET'])
+def get_filter_options():
+    """
+    Get all product filter options from Shopify for promotion configuration.
+
+    Returns:
+        - collections: List of Shopify collections
+        - vendors: List of unique product vendors
+        - productTypes: List of unique product types
+        - productTags: List of unique product tags
+
+    Query params:
+        tenant_id: Tenant ID to get Shopify client (required)
+    """
+    # Get tenant from session or query param
+    from flask import session
+    tenant_id = session.get('tenant_id') or request.args.get('tenant_id')
+
+    if not tenant_id:
+        return jsonify({'error': 'tenant_id is required'}), 400
+
+    try:
+        from ..services.shopify_client import ShopifyClient
+        client = ShopifyClient(int(tenant_id))
+
+        # Fetch all filter options
+        options = client.get_promotion_filter_options()
+
+        return jsonify({
+            'collections': options['collections'],
+            'vendors': options['vendors'],
+            'productTypes': options['productTypes'],
+            'productTags': options['productTags']
+        }), 200
+
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        current_app.logger.exception(f"Failed to fetch filter options: {e}")
+        return jsonify({'error': f'Failed to fetch filter options: {e}'}), 500
+
+
+@promotions_bp.route('/filter-options/collections', methods=['GET'])
+def get_collections():
+    """Get just collections for the filter."""
+    from flask import session
+    tenant_id = session.get('tenant_id') or request.args.get('tenant_id')
+
+    if not tenant_id:
+        return jsonify({'error': 'tenant_id is required'}), 400
+
+    try:
+        from ..services.shopify_client import ShopifyClient
+        client = ShopifyClient(int(tenant_id))
+        collections = client.get_collections()
+        return jsonify({'collections': collections}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@promotions_bp.route('/filter-options/vendors', methods=['GET'])
+def get_vendors():
+    """Get just vendors for the filter."""
+    from flask import session
+    tenant_id = session.get('tenant_id') or request.args.get('tenant_id')
+
+    if not tenant_id:
+        return jsonify({'error': 'tenant_id is required'}), 400
+
+    try:
+        from ..services.shopify_client import ShopifyClient
+        client = ShopifyClient(int(tenant_id))
+        vendors = client.get_vendors()
+        return jsonify({'vendors': vendors}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@promotions_bp.route('/filter-options/product-types', methods=['GET'])
+def get_product_types():
+    """Get just product types for the filter."""
+    from flask import session
+    tenant_id = session.get('tenant_id') or request.args.get('tenant_id')
+
+    if not tenant_id:
+        return jsonify({'error': 'tenant_id is required'}), 400
+
+    try:
+        from ..services.shopify_client import ShopifyClient
+        client = ShopifyClient(int(tenant_id))
+        product_types = client.get_product_types()
+        return jsonify({'productTypes': product_types}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500

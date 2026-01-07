@@ -1,12 +1,51 @@
 import axios from 'axios'
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+// Use relative URL in development (goes through Vite proxy) or env-provided URL in production
+const API_BASE = import.meta.env.VITE_API_URL || ''
+
+// Get shop domain from URL params, localStorage, or env for development
+function getShopDomain(): string | null {
+  // Check URL params first (Shopify embeds include ?shop=xxx)
+  const urlParams = new URLSearchParams(window.location.search)
+  const shopFromUrl = urlParams.get('shop')
+  if (shopFromUrl) {
+    localStorage.setItem('shopify_shop', shopFromUrl)
+    return shopFromUrl
+  }
+
+  // Check localStorage (persisted from previous visit)
+  const shopFromStorage = localStorage.getItem('shopify_shop')
+  if (shopFromStorage) return shopFromStorage
+
+  // Development fallback
+  const devShop = import.meta.env.VITE_SHOPIFY_SHOP
+  if (devShop) return devShop
+
+  // Default for local development testing
+  if (import.meta.env.DEV) {
+    return 'uy288y-nx.myshopify.com'
+  }
+
+  return null
+}
 
 export const api = axios.create({
   baseURL: `${API_BASE}/api`,
   headers: {
     'Content-Type': 'application/json',
   },
+})
+
+// Add shop domain and tenant ID to all requests
+api.interceptors.request.use((config) => {
+  const shop = getShopDomain()
+  if (shop) {
+    config.headers['X-Shopify-Shop-Domain'] = shop
+  }
+  // Also send X-Tenant-ID for endpoints that use it directly
+  // Default to 1 for development (matches most endpoint defaults)
+  config.headers['X-Tenant-ID'] = '1'
+  return config
 })
 
 // Types
@@ -344,7 +383,14 @@ export interface Promotion {
   daily_end_time: string | null
   active_days: string | null
   channel: PromotionChannel
-  category_ids: number[] | null
+  // Shopify-based product filters
+  collection_ids: string[] | null
+  vendor_filter: string[] | null
+  product_type_filter: string[] | null
+  product_tags_filter: string[] | null
+  // Legacy category filter (now uses product_tags_filter)
+  category_ids: string[] | null
+  // Member restrictions
   tier_restriction: string[] | null
   min_items: number
   min_value: number
@@ -460,6 +506,23 @@ export const deletePromotion = (id: number) =>
 export const getPromotionTemplates = () =>
   api.get<{ templates: PromotionTemplate[] }>('/promotions/promotions/templates').then(r => r.data)
 
+// Promotion Filter Options (Shopify-based)
+interface PromotionFilterOptions {
+  collections: Array<{
+    id: string
+    title: string
+    handle: string
+    productsCount: number
+    isSmart: boolean
+  }>
+  vendors: string[]
+  productTypes: string[]
+  productTags: string[]
+}
+
+export const getPromotionFilterOptions = () =>
+  api.get<PromotionFilterOptions>('/promotions/filter-options').then(r => r.data)
+
 // ==================== Store Credit API ====================
 
 export const getMemberCreditBalance = (memberId: number) =>
@@ -534,3 +597,90 @@ export const getPromotionsStats = () =>
     total_bulk_credits_30d: number
     credit_by_type: Record<string, number>
   }>('/promotions/dashboard/stats').then(r => r.data)
+
+// ==================== Onboarding Types ====================
+
+export interface OnboardingStep {
+  id: number
+  name: string
+  description: string
+  status: 'complete' | 'pending' | 'in_progress'
+  action: string | null
+}
+
+export interface OnboardingStatus {
+  setup_complete: boolean
+  current_step: number
+  steps: OnboardingStep[]
+  subscription_plan: string
+  subscription_active: boolean
+}
+
+export interface StoreCreditCheck {
+  enabled: boolean
+  status: 'ready' | 'not_enabled' | 'error'
+  message: string
+  instructions?: string[]
+  settings_url?: string
+  shop_name?: string
+  currency?: string
+}
+
+export interface TierTemplateTier {
+  name: string
+  slug: string
+  trade_in_rate: number
+  monthly_fee: number
+  color: string
+  icon: string
+  benefits: string[]
+  is_default?: boolean
+  min_spend_requirement?: number
+}
+
+export interface TierTemplate {
+  key: string
+  name: string
+  description: string
+  tier_count: number
+  tiers: TierTemplateTier[]
+}
+
+export interface TemplateApplyResult {
+  success: boolean
+  template: string
+  tiers_created: number
+  tiers: Array<{
+    id: number
+    name: string
+    slug: string
+    trade_in_rate: number
+  }>
+}
+
+// ==================== Onboarding API ====================
+
+export const getOnboardingStatus = () =>
+  api.get<OnboardingStatus>('/onboarding/status').then(r => r.data)
+
+export const checkStoreCredit = () =>
+  api.get<StoreCreditCheck>('/onboarding/store-credit-check').then(r => r.data)
+
+export const getOnboardingTemplates = () =>
+  api.get<{
+    templates: TierTemplate[]
+    subscription_plan: string
+    can_upgrade: boolean
+  }>('/onboarding/templates').then(r => r.data)
+
+export const previewTemplate = (templateKey: string) =>
+  api.get<TierTemplate>(`/onboarding/templates/${templateKey}/preview`).then(r => r.data)
+
+export const applyTemplate = (templateKey: string) =>
+  api.post<TemplateApplyResult>(`/onboarding/templates/${templateKey}/apply`).then(r => r.data)
+
+export const completeOnboarding = () =>
+  api.post<{ success: boolean; message: string }>('/onboarding/complete').then(r => r.data)
+
+export const skipOnboarding = () =>
+  api.post<{ success: boolean; message: string }>('/onboarding/skip').then(r => r.data)

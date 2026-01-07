@@ -506,3 +506,201 @@ def update_general_settings():
         'success': True,
         'general': get_settings_with_defaults(tenant.settings)['general']
     })
+
+
+# ==============================================
+# Shopify Customer Segments
+# ==============================================
+
+@settings_bp.route('/segments', methods=['GET'])
+def get_shopify_segments():
+    """
+    Get all customer segments from Shopify, highlighting TradeUp ones.
+
+    Returns:
+        segments: List of all segments
+        tradeup_segments: List of TradeUp-specific segments
+    """
+    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+
+    tenant = Tenant.query.get_or_404(tenant_id)
+
+    try:
+        from ..services.shopify_client import ShopifyClient
+        client = ShopifyClient(tenant_id)
+        segments = client.get_segments()
+
+        # Separate TradeUp segments
+        tradeup_segments = [s for s in segments if s.get('name', '').startswith('TradeUp')]
+        other_segments = [s for s in segments if not s.get('name', '').startswith('TradeUp')]
+
+        return jsonify({
+            'success': True,
+            'tradeup_segments': tradeup_segments,
+            'other_segments': other_segments,
+            'total_count': len(segments)
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@settings_bp.route('/segments/sync', methods=['POST'])
+def sync_tradeup_segments():
+    """
+    Create/update Shopify customer segments for all TradeUp tiers.
+
+    Creates:
+    1. "TradeUp Members" - All members with any tier tag
+    2. One segment per tier (e.g., "TradeUp Gold Members")
+
+    These segments can then be used with Shopify Email or other
+    marketing tools that support customer segments.
+
+    Returns:
+        segments: List of created/updated segments
+        errors: Any errors that occurred
+    """
+    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+
+    tenant = Tenant.query.get_or_404(tenant_id)
+
+    try:
+        # Get all tiers for this tenant
+        from ..models.tier import Tier
+        tiers = Tier.query.filter_by(tenant_id=tenant_id, is_active=True).all()
+
+        if not tiers:
+            return jsonify({
+                'success': False,
+                'error': 'No active tiers found. Create tiers first.'
+            }), 400
+
+        # Build tier data for segment creation
+        tier_data = [{'name': t.name, 'slug': t.slug} for t in tiers]
+
+        # Create segments in Shopify
+        from ..services.shopify_client import ShopifyClient
+        client = ShopifyClient(tenant_id)
+        result = client.create_tradeup_segments(tier_data)
+
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@settings_bp.route('/segments/<segment_id>', methods=['DELETE'])
+def delete_shopify_segment(segment_id: str):
+    """
+    Delete a customer segment from Shopify.
+
+    Args:
+        segment_id: Shopify segment GID
+
+    Returns:
+        success: bool
+    """
+    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+
+    try:
+        from ..services.shopify_client import ShopifyClient
+        client = ShopifyClient(tenant_id)
+        result = client.delete_segment(segment_id)
+
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+# ==============================================
+# Shopify Membership Products
+# ==============================================
+
+@settings_bp.route('/products', methods=['GET'])
+def get_membership_products():
+    """
+    Get all TradeUp membership products from Shopify.
+
+    Returns:
+        products: List of membership products with their variants
+    """
+    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+
+    try:
+        from ..services.shopify_client import ShopifyClient
+        client = ShopifyClient(tenant_id)
+        products = client.get_products_by_tag('tradeup-membership')
+
+        return jsonify({
+            'success': True,
+            'products': products,
+            'count': len(products)
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@settings_bp.route('/products/sync', methods=['POST'])
+def sync_membership_products():
+    """
+    Create/update Shopify products for all TradeUp tiers.
+
+    Creates purchasable membership products that customers can buy
+    to join a tier. Products have monthly/yearly variants with
+    appropriate pricing from the tier configuration.
+
+    Returns:
+        products: List of created/updated products
+        errors: Any errors that occurred
+    """
+    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+
+    tenant = Tenant.query.get_or_404(tenant_id)
+
+    try:
+        # Get all tiers for this tenant
+        from ..models.tier import Tier
+        tiers = Tier.query.filter_by(tenant_id=tenant_id, is_active=True).all()
+
+        if not tiers:
+            return jsonify({
+                'success': False,
+                'error': 'No active tiers found. Create tiers first.'
+            }), 400
+
+        # Build tier data for product creation
+        tier_data = [{
+            'name': t.name,
+            'slug': t.slug,
+            'price': float(t.price) if t.price else 0,
+            'yearly_price': float(t.yearly_price) if t.yearly_price else None,
+            'description': t.description,
+            'trade_in_bonus_percent': t.trade_in_bonus_percent,
+            'cashback_percent': t.cashback_percent
+        } for t in tiers]
+
+        # Create products in Shopify
+        from ..services.shopify_client import ShopifyClient
+        client = ShopifyClient(tenant_id)
+        result = client.create_tradeup_membership_products(
+            tier_data,
+            shop_name=tenant.shop_name or 'TradeUp'
+        )
+
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500

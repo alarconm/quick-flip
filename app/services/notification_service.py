@@ -578,6 +578,140 @@ Use it on your next purchase!
             from_name=settings['from_name']
         )
 
+    def send_bulk_tier_email(
+        self,
+        tenant_id: int,
+        tier_names: List[str],
+        subject: str,
+        text_content: str,
+        html_content: Optional[str] = None,
+        created_by: str = 'admin'
+    ) -> Dict[str, Any]:
+        """
+        Send bulk email to all members in specified tiers.
+
+        Args:
+            tenant_id: Tenant ID
+            tier_names: List of tier names to email (e.g., ['GOLD', 'PLATINUM'])
+            subject: Email subject
+            text_content: Plain text content
+            html_content: HTML content (optional)
+            created_by: Staff email for audit
+
+        Returns:
+            Dict with send results (sent count, failed count, etc.)
+        """
+        from ..models import Member, Tier
+
+        settings = self._get_tenant_settings(tenant_id)
+
+        if not settings.get('enabled'):
+            return {'success': False, 'skipped': True, 'reason': 'Email disabled'}
+
+        # Get tier IDs for the specified tier names
+        tiers = Tier.query.filter(
+            Tier.tenant_id == tenant_id,
+            Tier.name.in_(tier_names)
+        ).all()
+
+        if not tiers:
+            return {'success': False, 'error': f'No tiers found matching: {tier_names}'}
+
+        tier_ids = [t.id for t in tiers]
+
+        # Get active members in these tiers
+        members = Member.query.filter(
+            Member.tenant_id == tenant_id,
+            Member.tier_id.in_(tier_ids),
+            Member.status == 'active'
+        ).all()
+
+        if not members:
+            return {
+                'success': True,
+                'sent': 0,
+                'failed': 0,
+                'message': 'No active members found in specified tiers'
+            }
+
+        # Send emails
+        sent_count = 0
+        failed_count = 0
+        failed_emails = []
+
+        for member in members:
+            if not member.email:
+                failed_count += 1
+                continue
+
+            # Personalize content with member variables
+            personalized_text = text_content.replace('{member_name}', member.name or 'Member')
+            personalized_text = personalized_text.replace('{member_number}', member.member_number or '')
+            personalized_text = personalized_text.replace('{tier_name}', member.tier.name if member.tier else 'Member')
+
+            personalized_html = html_content or personalized_text
+            if html_content:
+                personalized_html = html_content.replace('{member_name}', member.name or 'Member')
+                personalized_html = personalized_html.replace('{member_number}', member.member_number or '')
+                personalized_html = personalized_html.replace('{tier_name}', member.tier.name if member.tier else 'Member')
+
+            result = self._send_email(
+                to_email=member.email,
+                to_name=member.name,
+                subject=subject,
+                text_content=personalized_text,
+                html_content=personalized_html,
+                from_email=settings['from_email'],
+                from_name=settings['from_name']
+            )
+
+            if result.get('success'):
+                sent_count += 1
+            else:
+                failed_count += 1
+                failed_emails.append(member.email)
+
+        # Log the bulk operation
+        current_app.logger.info(
+            f"Bulk email to tiers {tier_names}: {sent_count} sent, {failed_count} failed. By: {created_by}"
+        )
+
+        return {
+            'success': True,
+            'tiers': tier_names,
+            'total_recipients': len(members),
+            'sent': sent_count,
+            'failed': failed_count,
+            'failed_emails': failed_emails[:10],  # Limit to first 10 for response size
+            'created_by': created_by
+        }
+
+    def get_tier_member_counts(self, tenant_id: int) -> Dict[str, int]:
+        """
+        Get counts of active members by tier.
+
+        Args:
+            tenant_id: Tenant ID
+
+        Returns:
+            Dict mapping tier names to member counts
+        """
+        from ..models import Member, Tier
+        from ..extensions import db
+        from sqlalchemy import func
+
+        counts = db.session.query(
+            Tier.name,
+            func.count(Member.id)
+        ).join(
+            Member, Member.tier_id == Tier.id
+        ).filter(
+            Member.tenant_id == tenant_id,
+            Member.status == 'active'
+        ).group_by(Tier.name).all()
+
+        return {tier_name: count for tier_name, count in counts}
+
 
 # Singleton instance
 notification_service = NotificationService()

@@ -1,9 +1,18 @@
 /**
- * Trade-Ins List Page
- * Shows all trade-in batches with filtering, status badges, and quick actions.
+ * TradeIns - Premium Light Mode
+ * World-class Shopify App Store design
  */
 import { useState, useEffect, useCallback } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
+import {
+  Plus,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  X,
+  ArrowRightLeft,
+  Eye,
+} from 'lucide-react';
 import {
   getTradeInBatches,
   getTradeInCategories,
@@ -11,58 +20,48 @@ import {
   type TradeInCategory,
 } from '../api/adminApi';
 
-// Icons
-const Icons = {
-  Plus: () => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M5 12h14" />
-      <path d="M12 5v14" />
-    </svg>
-  ),
-  ChevronDown: () => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="m6 9 6 6 6-6" />
-    </svg>
-  ),
-  ChevronLeft: () => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="m15 18-6-6 6-6" />
-    </svg>
-  ),
-  ChevronRight: () => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="m9 18 6-6-6-6" />
-    </svg>
-  ),
-  X: () => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M18 6 6 18" />
-      <path d="m6 6 12 12" />
-    </svg>
-  ),
-  ArrowRightLeft: () => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="m16 3 4 4-4 4" />
-      <path d="M20 7H4" />
-      <path d="m8 21-4-4 4-4" />
-      <path d="M4 17h16" />
-    </svg>
-  ),
-  Package: () => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="m7.5 4.27 9 5.15" />
-      <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
-      <path d="m3.3 7 8.7 5 8.7-5" />
-      <path d="M12 22V12" />
-    </svg>
-  ),
-  Eye: () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-  ),
+// Design tokens
+const colors = {
+  bgPage: '#f6f6f7',
+  bgSurface: '#ffffff',
+  bgSurfaceHover: '#f9fafb',
+  bgSubdued: '#fafbfb',
+  text: '#202223',
+  textSecondary: '#6d7175',
+  textSubdued: '#8c9196',
+  border: '#e1e3e5',
+  borderSubdued: '#ebebeb',
+  primary: '#5c6ac4',
+  primaryLight: '#f4f5fa',
+  success: '#008060',
+  successLight: '#e3f1ed',
+  warning: '#b98900',
+  warningLight: '#fcf1cd',
+  critical: '#d72c0d',
+  criticalLight: '#fbeae5',
+  interactive: '#2c6ecb',
+  interactiveLight: '#e8f4fd',
 };
+
+const shadows = {
+  card: '0 1px 2px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.1)',
+};
+
+// Responsive hook
+function useResponsive() {
+  const [breakpoint, setBreakpoint] = useState<'mobile' | 'tablet' | 'desktop'>('desktop');
+  useEffect(() => {
+    const check = () => {
+      if (window.innerWidth < 640) setBreakpoint('mobile');
+      else if (window.innerWidth < 1024) setBreakpoint('tablet');
+      else setBreakpoint('desktop');
+    };
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+  return breakpoint;
+}
 
 // Category icons map
 const CATEGORY_ICONS: Record<string, string> = {
@@ -76,20 +75,35 @@ const CATEGORY_ICONS: Record<string, string> = {
 
 // Status badge component
 function StatusBadge({ status }: { status: string }) {
-  const statusColors: Record<string, { bg: string; dot: string; text: string }> = {
-    pending: { bg: 'bg-amber-500/10', dot: '#f59e0b', text: 'text-amber-400' },
-    listed: { bg: 'bg-blue-500/10', dot: '#3b82f6', text: 'text-blue-400' },
-    completed: { bg: 'bg-green-500/10', dot: '#10b981', text: 'text-green-400' },
-    cancelled: { bg: 'bg-red-500/10', dot: '#ef4444', text: 'text-red-400' },
+  const statusStyles: Record<string, { bg: string; color: string; dot: string }> = {
+    pending: { bg: colors.warningLight, color: colors.warning, dot: colors.warning },
+    listed: { bg: colors.interactiveLight, color: colors.interactive, dot: colors.interactive },
+    completed: { bg: colors.successLight, color: colors.success, dot: colors.success },
+    cancelled: { bg: colors.criticalLight, color: colors.critical, dot: colors.critical },
   };
-
-  const colors = statusColors[status] || statusColors.pending;
+  const style = statusStyles[status] || statusStyles.pending;
 
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium ${colors.bg} ${colors.text}`}>
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 6,
+        padding: '4px 10px',
+        borderRadius: 6,
+        backgroundColor: style.bg,
+        color: style.color,
+        fontSize: 12,
+        fontWeight: 500,
+      }}
+    >
       <span
-        className="w-1.5 h-1.5 rounded-full"
-        style={{ background: colors.dot }}
+        style={{
+          width: 6,
+          height: 6,
+          borderRadius: '50%',
+          backgroundColor: style.dot,
+        }}
       />
       {status.charAt(0).toUpperCase() + status.slice(1)}
     </span>
@@ -106,11 +120,13 @@ function formatCurrency(amount: number): string {
 
 export default function TradeIns() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [batches, setBatches] = useState<TradeInBatch[]>([]);
   const [categories, setCategories] = useState<TradeInCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
   const [pages, setPages] = useState(1);
+  const breakpoint = useResponsive();
 
   // Filter state
   const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || '');
@@ -179,31 +195,88 @@ export default function TradeIns() {
 
   const hasFilters = statusFilter || categoryFilter;
 
+  // Card style
+  const cardStyle: React.CSSProperties = {
+    backgroundColor: colors.bgSurface,
+    borderRadius: 12,
+    border: `1px solid ${colors.border}`,
+    boxShadow: shadows.card,
+  };
+
+  // Select style
+  const selectStyle: React.CSSProperties = {
+    width: '100%',
+    padding: '10px 32px 10px 12px',
+    backgroundColor: colors.bgSurface,
+    border: `1px solid ${colors.border}`,
+    borderRadius: 8,
+    fontSize: 14,
+    color: colors.text,
+    outline: 'none',
+    appearance: 'none',
+    cursor: 'pointer',
+  };
+
   return (
-    <div className="space-y-6 admin-fade-in">
+    <div style={{ maxWidth: 1200, margin: '0 auto' }}>
       {/* Header */}
-      <div className="admin-header">
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: breakpoint === 'mobile' ? 'column' : 'row',
+          justifyContent: 'space-between',
+          alignItems: breakpoint === 'mobile' ? 'flex-start' : 'center',
+          gap: 16,
+          marginBottom: 24,
+        }}
+      >
         <div>
-          <h1 className="admin-page-title">Trade-Ins</h1>
-          <p className="text-white/50 mt-1">
+          <h1 style={{ fontSize: 24, fontWeight: 700, color: colors.text, margin: 0, letterSpacing: '-0.5px' }}>
+            Trade-Ins
+          </h1>
+          <p style={{ fontSize: 14, color: colors.textSecondary, margin: '4px 0 0 0' }}>
             {total} total batch{total !== 1 ? 'es' : ''}
           </p>
         </div>
-        <Link to="/admin/tradeins/new" className="admin-btn admin-btn-primary">
-          <Icons.Plus />
+        <Link
+          to="/admin/tradeins/new"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '10px 16px',
+            backgroundColor: colors.primary,
+            border: 'none',
+            borderRadius: 8,
+            color: '#fff',
+            fontSize: 14,
+            fontWeight: 500,
+            textDecoration: 'none',
+            transition: 'background 150ms ease',
+            width: breakpoint === 'mobile' ? '100%' : 'auto',
+            justifyContent: 'center',
+          }}
+        >
+          <Plus size={18} />
           New Trade-In
         </Link>
       </div>
 
       {/* Filters */}
-      <div className="admin-glass admin-glass-glow p-4">
-        <div className="flex flex-col lg:flex-row gap-4">
+      <div style={{ ...cardStyle, padding: 16, marginBottom: 24 }}>
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: breakpoint === 'desktop' ? 'row' : 'column',
+            gap: 12,
+          }}
+        >
           {/* Status Filter */}
-          <div className="relative min-w-[160px]">
+          <div style={{ position: 'relative', minWidth: breakpoint === 'mobile' ? '100%' : 150 }}>
             <select
               value={statusFilter}
               onChange={(e) => handleFilterChange('status', e.target.value)}
-              className="admin-input appearance-none pr-10 cursor-pointer"
+              style={selectStyle}
             >
               <option value="">All Status</option>
               <option value="pending">Pending</option>
@@ -211,17 +284,25 @@ export default function TradeIns() {
               <option value="completed">Completed</option>
               <option value="cancelled">Cancelled</option>
             </select>
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-white/40">
-              <Icons.ChevronDown />
-            </span>
+            <ChevronDown
+              size={16}
+              style={{
+                position: 'absolute',
+                right: 12,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                color: colors.textSubdued,
+                pointerEvents: 'none',
+              }}
+            />
           </div>
 
           {/* Category Filter */}
-          <div className="relative min-w-[160px]">
+          <div style={{ position: 'relative', minWidth: breakpoint === 'mobile' ? '100%' : 170 }}>
             <select
               value={categoryFilter}
               onChange={(e) => handleFilterChange('category', e.target.value)}
-              className="admin-input appearance-none pr-10 cursor-pointer"
+              style={selectStyle}
             >
               <option value="">All Categories</option>
               {categories.map((cat) => (
@@ -230,165 +311,487 @@ export default function TradeIns() {
                 </option>
               ))}
             </select>
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-white/40">
-              <Icons.ChevronDown />
-            </span>
+            <ChevronDown
+              size={16}
+              style={{
+                position: 'absolute',
+                right: 12,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                color: colors.textSubdued,
+                pointerEvents: 'none',
+              }}
+            />
           </div>
 
           {/* Clear Filters */}
           {hasFilters && (
-            <button onClick={clearFilters} className="admin-btn admin-btn-ghost">
-              <Icons.X />
+            <button
+              onClick={clearFilters}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '10px 14px',
+                backgroundColor: colors.bgSurface,
+                border: `1px solid ${colors.border}`,
+                borderRadius: 8,
+                color: colors.text,
+                fontSize: 14,
+                fontWeight: 500,
+                cursor: 'pointer',
+                transition: 'background 150ms ease',
+                minWidth: breakpoint === 'mobile' ? '100%' : 'auto',
+                justifyContent: 'center',
+              }}
+            >
+              <X size={16} />
               Clear
             </button>
           )}
         </div>
       </div>
 
-      {/* Table */}
-      <div className="admin-glass admin-glass-glow overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="admin-table">
-            <thead>
-              <tr>
-                <th>Batch</th>
-                <th>Member</th>
-                <th>Category</th>
-                <th>Items</th>
-                <th>Trade Value</th>
-                <th>Bonus</th>
-                <th>Status</th>
-                <th>Date</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                // Loading skeleton
-                Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i}>
-                    <td><div className="admin-skeleton h-4 w-28" /></td>
-                    <td><div className="admin-skeleton h-4 w-24" /></td>
-                    <td><div className="admin-skeleton h-4 w-16" /></td>
-                    <td><div className="admin-skeleton h-4 w-8" /></td>
-                    <td><div className="admin-skeleton h-4 w-20" /></td>
-                    <td><div className="admin-skeleton h-4 w-16" /></td>
-                    <td><div className="admin-skeleton h-6 w-20 rounded" /></td>
-                    <td><div className="admin-skeleton h-4 w-24" /></td>
-                    <td></td>
-                  </tr>
-                ))
-              ) : batches.length === 0 ? (
-                <tr>
-                  <td colSpan={9} className="text-center py-12">
-                    <Icons.ArrowRightLeft />
-                    <div className="text-white/30 mt-4">
-                      {hasFilters ? 'No batches match your filters' : 'No trade-ins yet'}
+      {/* Mobile Card View */}
+      {breakpoint === 'mobile' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {loading ? (
+            Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} style={{ ...cardStyle, padding: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{ width: 40, height: 40, borderRadius: 8, backgroundColor: colors.bgSubdued }} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ height: 16, width: '60%', backgroundColor: colors.bgSubdued, borderRadius: 4, marginBottom: 8 }} />
+                    <div style={{ height: 12, width: '40%', backgroundColor: colors.bgSubdued, borderRadius: 4 }} />
+                  </div>
+                </div>
+              </div>
+            ))
+          ) : batches.length === 0 ? (
+            <div style={{ ...cardStyle, padding: 48, textAlign: 'center' }}>
+              <div
+                style={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: 28,
+                  backgroundColor: colors.primaryLight,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto 16px',
+                }}
+              >
+                <ArrowRightLeft size={28} color={colors.primary} />
+              </div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: colors.text, marginBottom: 4 }}>
+                {hasFilters ? 'No batches match your filters' : 'No trade-ins yet'}
+              </div>
+              <div style={{ fontSize: 14, color: colors.textSecondary, marginBottom: 16 }}>
+                {hasFilters ? 'Try adjusting your filters' : 'Get started by creating your first trade-in'}
+              </div>
+            </div>
+          ) : (
+            batches.map((batch) => (
+              <Link
+                key={batch.id}
+                to={`/admin/tradeins/${batch.id}`}
+                style={{
+                  ...cardStyle,
+                  padding: 16,
+                  textDecoration: 'none',
+                  display: 'block',
+                }}
+              >
+                {/* Header row */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div
+                      style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 8,
+                        backgroundColor: colors.primaryLight,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: 20,
+                      }}
+                    >
+                      {CATEGORY_ICONS[batch.category] || CATEGORY_ICONS.other}
                     </div>
-                    {!hasFilters && (
-                      <Link
-                        to="/admin/tradeins/new"
-                        className="inline-flex items-center gap-2 text-orange-400 hover:text-orange-300 mt-2"
+                    <div>
+                      <code
+                        style={{
+                          fontSize: 13,
+                          backgroundColor: colors.primaryLight,
+                          padding: '3px 6px',
+                          borderRadius: 4,
+                          color: colors.primary,
+                          fontWeight: 500,
+                        }}
                       >
-                        <Icons.Plus />
-                        Create your first trade-in
-                      </Link>
-                    )}
-                  </td>
-                </tr>
-              ) : (
-                batches.map((batch, idx) => (
-                  <tr
-                    key={batch.id}
-                    className="admin-slide-in cursor-pointer hover:bg-white/5"
-                    style={{ animationDelay: `${idx * 30}ms` }}
-                    onClick={() => window.location.href = `/admin/tradeins/${batch.id}`}
-                  >
-                    <td>
-                      <code className="text-sm bg-white/5 px-2 py-1 rounded text-orange-400">
                         {batch.batch_reference}
                       </code>
-                    </td>
-                    <td>
-                      <div>
-                        <p className="font-medium text-white/90">
-                          {batch.member_name || batch.member_number}
-                        </p>
-                        {batch.member_tier && (
-                          <p className="text-xs text-white/40">{batch.member_tier} tier</p>
-                        )}
+                    </div>
+                  </div>
+                  <StatusBadge status={batch.status} />
+                </div>
+
+                {/* Member info */}
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: colors.text, marginBottom: 2 }}>
+                    {batch.member_name || batch.member_number}
+                  </div>
+                  {batch.member_tier && (
+                    <div style={{ fontSize: 12, color: colors.textSubdued }}>
+                      {batch.member_tier} tier
+                    </div>
+                  )}
+                </div>
+
+                {/* Stats row */}
+                <div style={{ display: 'flex', gap: 16, marginBottom: 12 }}>
+                  <div>
+                    <div style={{ fontSize: 11, color: colors.textSubdued, textTransform: 'uppercase', marginBottom: 2 }}>Items</div>
+                    <div style={{ fontSize: 14, fontWeight: 500, color: colors.text }}>{batch.total_items}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: colors.textSubdued, textTransform: 'uppercase', marginBottom: 2 }}>Value</div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: colors.text }}>{formatCurrency(batch.total_trade_value)}</div>
+                  </div>
+                  {batch.bonus_amount > 0 && (
+                    <div>
+                      <div style={{ fontSize: 11, color: colors.textSubdued, textTransform: 'uppercase', marginBottom: 2 }}>Bonus</div>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: colors.success }}>+{formatCurrency(batch.bonus_amount)}</div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Footer */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 12, borderTop: `1px solid ${colors.borderSubdued}` }}>
+                  <span style={{ fontSize: 12, color: colors.textSubdued }}>
+                    {new Date(batch.trade_in_date).toLocaleDateString()}
+                  </span>
+                  <ChevronRight size={18} color={colors.textSubdued} />
+                </div>
+              </Link>
+            ))
+          )}
+
+          {/* Mobile Pagination */}
+          {pages > 1 && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: 16,
+                marginTop: 8,
+                backgroundColor: colors.bgSurface,
+                borderRadius: 12,
+                border: `1px solid ${colors.border}`,
+                boxShadow: shadows.card,
+              }}
+            >
+              <p style={{ fontSize: 13, color: colors.textSecondary, margin: 0 }}>
+                {(page - 1) * limit + 1}-{Math.min(page * limit, total)} of {total}
+              </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <button
+                  onClick={() => handlePageChange(page - 1)}
+                  disabled={page <= 1}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 36,
+                    height: 36,
+                    borderRadius: 8,
+                    backgroundColor: colors.bgSurface,
+                    border: `1px solid ${colors.border}`,
+                    color: page <= 1 ? colors.textSubdued : colors.text,
+                    cursor: page <= 1 ? 'not-allowed' : 'pointer',
+                    opacity: page <= 1 ? 0.5 : 1,
+                  }}
+                >
+                  <ChevronLeft size={18} />
+                </button>
+                <span style={{ fontSize: 13, color: colors.textSecondary, minWidth: 60, textAlign: 'center' }}>
+                  {page}/{pages}
+                </span>
+                <button
+                  onClick={() => handlePageChange(page + 1)}
+                  disabled={page >= pages}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 36,
+                    height: 36,
+                    borderRadius: 8,
+                    backgroundColor: colors.bgSurface,
+                    border: `1px solid ${colors.border}`,
+                    color: page >= pages ? colors.textSubdued : colors.text,
+                    cursor: page >= pages ? 'not-allowed' : 'pointer',
+                    opacity: page >= pages ? 0.5 : 1,
+                  }}
+                >
+                  <ChevronRight size={18} />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Desktop/Tablet Table */}
+      {breakpoint !== 'mobile' && (
+        <div style={{ ...cardStyle, overflow: 'hidden' }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ borderBottom: `1px solid ${colors.border}` }}>
+                  {['Batch', 'Member', 'Category', 'Items', 'Trade Value', 'Bonus', 'Status', 'Date', ''].map((header, i) => (
+                    <th
+                      key={i}
+                      style={{
+                        textAlign: 'left',
+                        padding: '12px 16px',
+                        color: colors.textSubdued,
+                        fontWeight: 500,
+                        fontSize: 12,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px',
+                      }}
+                    >
+                      {header}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <tr key={i} style={{ borderBottom: `1px solid ${colors.borderSubdued}` }}>
+                      <td style={{ padding: 16 }}><div style={{ height: 14, width: 100, backgroundColor: colors.bgSubdued, borderRadius: 4 }} /></td>
+                      <td style={{ padding: 16 }}><div style={{ height: 14, width: 90, backgroundColor: colors.bgSubdued, borderRadius: 4 }} /></td>
+                      <td style={{ padding: 16 }}><div style={{ height: 24, width: 30, backgroundColor: colors.bgSubdued, borderRadius: 4 }} /></td>
+                      <td style={{ padding: 16 }}><div style={{ height: 14, width: 30, backgroundColor: colors.bgSubdued, borderRadius: 4 }} /></td>
+                      <td style={{ padding: 16 }}><div style={{ height: 14, width: 70, backgroundColor: colors.bgSubdued, borderRadius: 4 }} /></td>
+                      <td style={{ padding: 16 }}><div style={{ height: 14, width: 50, backgroundColor: colors.bgSubdued, borderRadius: 4 }} /></td>
+                      <td style={{ padding: 16 }}><div style={{ height: 24, width: 80, backgroundColor: colors.bgSubdued, borderRadius: 6 }} /></td>
+                      <td style={{ padding: 16 }}><div style={{ height: 14, width: 80, backgroundColor: colors.bgSubdued, borderRadius: 4 }} /></td>
+                      <td style={{ padding: 16 }} />
+                    </tr>
+                  ))
+                ) : batches.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} style={{ padding: 48, textAlign: 'center' }}>
+                      <div
+                        style={{
+                          width: 56,
+                          height: 56,
+                          borderRadius: 28,
+                          backgroundColor: colors.primaryLight,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          margin: '0 auto 16px',
+                        }}
+                      >
+                        <ArrowRightLeft size={28} color={colors.primary} />
                       </div>
-                    </td>
-                    <td>
-                      <span className="text-lg" title={batch.category}>
-                        {CATEGORY_ICONS[batch.category] || CATEGORY_ICONS.other}
-                      </span>
-                    </td>
-                    <td className="text-white/60">
-                      {batch.total_items}
-                    </td>
-                    <td className="font-medium text-white/90">
-                      {formatCurrency(batch.total_trade_value)}
-                    </td>
-                    <td>
-                      {batch.bonus_amount > 0 ? (
-                        <span className="text-green-400 font-medium">
-                          +{formatCurrency(batch.bonus_amount)}
-                        </span>
-                      ) : (
-                        <span className="text-white/30">—</span>
+                      <div style={{ fontSize: 16, fontWeight: 600, color: colors.text, marginBottom: 4 }}>
+                        {hasFilters ? 'No batches match your filters' : 'No trade-ins yet'}
+                      </div>
+                      <div style={{ fontSize: 14, color: colors.textSecondary, marginBottom: 16 }}>
+                        {hasFilters ? 'Try adjusting your filters' : 'Get started by creating your first trade-in'}
+                      </div>
+                      {!hasFilters && (
+                        <Link
+                          to="/admin/tradeins/new"
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            padding: '10px 16px',
+                            backgroundColor: colors.primary,
+                            borderRadius: 8,
+                            color: '#fff',
+                            fontSize: 14,
+                            fontWeight: 500,
+                            textDecoration: 'none',
+                          }}
+                        >
+                          <Plus size={16} />
+                          New Trade-In
+                        </Link>
                       )}
                     </td>
-                    <td>
-                      <StatusBadge status={batch.status} />
-                    </td>
-                    <td className="text-white/60 text-sm">
-                      {new Date(batch.trade_in_date).toLocaleDateString()}
-                    </td>
-                    <td>
-                      <Link
-                        to={`/admin/tradeins/${batch.id}`}
-                        className="p-2 rounded-lg hover:bg-white/10 text-white/40 hover:text-white transition-colors inline-flex"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <Icons.Eye />
-                      </Link>
-                    </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination */}
-        {pages > 1 && (
-          <div className="flex items-center justify-between p-4 border-t border-white/5">
-            <p className="text-sm text-white/40">
-              Showing {(page - 1) * limit + 1} to {Math.min(page * limit, total)} of {total}
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => handlePageChange(page - 1)}
-                disabled={page <= 1}
-                className="admin-btn admin-btn-ghost admin-btn-icon disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                <Icons.ChevronLeft />
-              </button>
-              <span className="text-sm text-white/60 min-w-[80px] text-center">
-                Page {page} of {pages}
-              </span>
-              <button
-                onClick={() => handlePageChange(page + 1)}
-                disabled={page >= pages}
-                className="admin-btn admin-btn-ghost admin-btn-icon disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                <Icons.ChevronRight />
-              </button>
-            </div>
+                ) : (
+                  batches.map((batch) => (
+                    <tr
+                      key={batch.id}
+                      style={{
+                        borderBottom: `1px solid ${colors.borderSubdued}`,
+                        transition: 'background 150ms ease',
+                        cursor: 'pointer',
+                      }}
+                      onClick={() => navigate(`/admin/tradeins/${batch.id}`)}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = colors.bgSurfaceHover;
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                      }}
+                    >
+                      <td style={{ padding: 16 }}>
+                        <code
+                          style={{
+                            fontSize: 13,
+                            backgroundColor: colors.primaryLight,
+                            padding: '4px 8px',
+                            borderRadius: 4,
+                            color: colors.primary,
+                            fontWeight: 500,
+                          }}
+                        >
+                          {batch.batch_reference}
+                        </code>
+                      </td>
+                      <td style={{ padding: 16 }}>
+                        <div>
+                          <div style={{ fontSize: 14, fontWeight: 500, color: colors.text }}>
+                            {batch.member_name || batch.member_number}
+                          </div>
+                          {batch.member_tier && (
+                            <div style={{ fontSize: 12, color: colors.textSubdued }}>
+                              {batch.member_tier} tier
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td style={{ padding: 16 }}>
+                        <span style={{ fontSize: 18 }} title={batch.category}>
+                          {CATEGORY_ICONS[batch.category] || CATEGORY_ICONS.other}
+                        </span>
+                      </td>
+                      <td style={{ padding: 16, fontSize: 14, color: colors.textSecondary }}>
+                        {batch.total_items}
+                      </td>
+                      <td style={{ padding: 16, fontSize: 14, fontWeight: 600, color: colors.text }}>
+                        {formatCurrency(batch.total_trade_value)}
+                      </td>
+                      <td style={{ padding: 16 }}>
+                        {batch.bonus_amount > 0 ? (
+                          <span style={{ color: colors.success, fontWeight: 600, fontSize: 14 }}>
+                            +{formatCurrency(batch.bonus_amount)}
+                          </span>
+                        ) : (
+                          <span style={{ color: colors.textSubdued, fontSize: 14 }}>—</span>
+                        )}
+                      </td>
+                      <td style={{ padding: 16 }}>
+                        <StatusBadge status={batch.status} />
+                      </td>
+                      <td style={{ padding: 16, fontSize: 14, color: colors.textSecondary }}>
+                        {new Date(batch.trade_in_date).toLocaleDateString()}
+                      </td>
+                      <td style={{ padding: 16 }}>
+                        <Link
+                          to={`/admin/tradeins/${batch.id}`}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: 32,
+                            height: 32,
+                            borderRadius: 6,
+                            color: colors.textSubdued,
+                            transition: 'all 150ms ease',
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = colors.bgSubdued;
+                            e.currentTarget.style.color = colors.text;
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                            e.currentTarget.style.color = colors.textSubdued;
+                          }}
+                        >
+                          <Eye size={18} />
+                        </Link>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
-        )}
-      </div>
+
+          {/* Pagination */}
+          {pages > 1 && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: 16,
+                borderTop: `1px solid ${colors.border}`,
+              }}
+            >
+              <p style={{ fontSize: 14, color: colors.textSecondary, margin: 0 }}>
+                Showing {(page - 1) * limit + 1} to {Math.min(page * limit, total)} of {total}
+              </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <button
+                  onClick={() => handlePageChange(page - 1)}
+                  disabled={page <= 1}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 36,
+                    height: 36,
+                    borderRadius: 8,
+                    backgroundColor: colors.bgSurface,
+                    border: `1px solid ${colors.border}`,
+                    color: page <= 1 ? colors.textSubdued : colors.text,
+                    cursor: page <= 1 ? 'not-allowed' : 'pointer',
+                    opacity: page <= 1 ? 0.5 : 1,
+                  }}
+                >
+                  <ChevronLeft size={18} />
+                </button>
+                <span style={{ fontSize: 14, color: colors.textSecondary, minWidth: 80, textAlign: 'center' }}>
+                  Page {page} of {pages}
+                </span>
+                <button
+                  onClick={() => handlePageChange(page + 1)}
+                  disabled={page >= pages}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 36,
+                    height: 36,
+                    borderRadius: 8,
+                    backgroundColor: colors.bgSurface,
+                    border: `1px solid ${colors.border}`,
+                    color: page >= pages ? colors.textSubdued : colors.text,
+                    cursor: page >= pages ? 'not-allowed' : 'pointer',
+                    opacity: page >= pages ? 0.5 : 1,
+                  }}
+                >
+                  <ChevronRight size={18} />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

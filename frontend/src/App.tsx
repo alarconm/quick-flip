@@ -1,43 +1,34 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
-import Layout from './admin/components/Layout'
-import Dashboard from './admin/pages/Dashboard'
-import Members from './admin/pages/Members'
-import MemberDetail from './admin/pages/MemberDetail'
-import NewMember from './admin/pages/NewMember'
-import CardSetupQueue from './admin/pages/CardSetupQueue'
-import Settings from './admin/pages/Settings'
-import TradeIns from './admin/pages/TradeIns'
-import TradeInDetail from './admin/pages/TradeInDetail'
-import TradeInCategories from './admin/pages/TradeInCategories'
-import Promotions from './admin/pages/Promotions'
-import BulkCredit from './admin/pages/BulkCredit'
+import { useShopifyBridge } from './hooks/useShopifyBridge'
+import { EmbeddedApp } from './embedded'
+import Onboarding from './admin/pages/Onboarding'
 
 function App() {
+  const { shop } = useShopifyBridge()
+
   return (
     <Routes>
-      <Route path="/admin" element={<Layout />}>
-        {/* Dashboard */}
-        <Route index element={<Dashboard />} />
+      {/* Primary: Embedded App Routes (Shopify Admin) */}
+      <Route path="/app/*" element={<EmbeddedApp shop={shop} />} />
 
-        {/* Membership */}
-        <Route path="members" element={<Members />} />
-        <Route path="members/new" element={<NewMember />} />
-        <Route path="members/:id" element={<MemberDetail />} />
-        <Route path="card-setup" element={<CardSetupQueue />} />
+      {/* Redirect /admin to /app for consolidation */}
+      <Route path="/admin" element={<Navigate to="/app/dashboard" replace />} />
+      <Route path="/admin/members" element={<Navigate to="/app/members" replace />} />
+      <Route path="/admin/members/new" element={<Navigate to="/app/members" replace />} />
+      <Route path="/admin/tradeins" element={<Navigate to="/app/trade-ins" replace />} />
+      <Route path="/admin/tradeins/new" element={<Navigate to="/app/trade-ins/new" replace />} />
+      <Route path="/admin/tradeins/categories" element={<Navigate to="/app/trade-ins/categories" replace />} />
+      <Route path="/admin/promotions" element={<Navigate to="/app/promotions" replace />} />
+      <Route path="/admin/bulk-credit" element={<Navigate to="/app/bulk-credit" replace />} />
+      <Route path="/admin/settings" element={<Navigate to="/app/settings" replace />} />
+      <Route path="/admin/*" element={<Navigate to="/app/dashboard" replace />} />
 
-        {/* Trade-Ins */}
-        <Route path="tradeins" element={<TradeIns />} />
-        <Route path="tradeins/categories" element={<TradeInCategories />} />
-        <Route path="tradeins/:id" element={<TradeInDetail />} />
+      {/* Onboarding (standalone for OAuth flow) */}
+      <Route path="/onboarding" element={<Onboarding />} />
 
-        {/* Promotions & Store Credit */}
-        <Route path="promotions" element={<Promotions />} />
-        <Route path="bulk-credit" element={<BulkCredit />} />
-
-        {/* Settings */}
-        <Route path="settings" element={<Settings />} />
-      </Route>
-      <Route path="*" element={<Navigate to="/admin" replace />} />
+      {/* Default redirect */}
+      <Route path="/" element={<Navigate to="/app/dashboard" replace />} />
+      <Route path="*" element={<Navigate to="/app/dashboard" replace />} />
     </Routes>
   )
 }

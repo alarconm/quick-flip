@@ -22,8 +22,9 @@ import {
   Box,
   Tabs,
 } from '@shopify/polaris';
-import { ViewIcon } from '@shopify/polaris-icons';
-import { useQuery } from '@tanstack/react-query';
+import { ViewIcon, PlusIcon, CheckIcon, XIcon } from '@shopify/polaris-icons';
+import { useNavigate } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getApiUrl, authFetch } from '../../hooks/useShopifyBridge';
 
 interface TradeInsProps {
@@ -79,10 +80,25 @@ async function fetchTradeIns(
   return response.json();
 }
 
+async function updateTradeInStatus(
+  shop: string | null,
+  tradeInId: number,
+  status: string
+): Promise<void> {
+  const response = await authFetch(`${getApiUrl()}/trade-ins/${tradeInId}/status`, shop, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+  });
+  if (!response.ok) throw new Error(`Failed to ${status} trade-in`);
+}
+
 export function EmbeddedTradeIns({ shop }: TradeInsProps) {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [selectedTab, setSelectedTab] = useState(0);
   const [detailTradeIn, setDetailTradeIn] = useState<TradeIn | null>(null);
+  const [actionError, setActionError] = useState('');
 
   const statusMap = ['all', 'pending', 'approved', 'completed', 'rejected'];
   const currentStatus = statusMap[selectedTab];
@@ -92,6 +108,33 @@ export function EmbeddedTradeIns({ shop }: TradeInsProps) {
     queryFn: () => fetchTradeIns(shop, page, currentStatus),
     enabled: !!shop,
   });
+
+  // Status update mutation
+  const statusMutation = useMutation({
+    mutationFn: ({ tradeInId, newStatus }: { tradeInId: number; newStatus: string }) =>
+      updateTradeInStatus(shop, tradeInId, newStatus),
+    onSuccess: (_, variables) => {
+      // Update local state
+      if (detailTradeIn) {
+        setDetailTradeIn({ ...detailTradeIn, status: variables.newStatus });
+      }
+      // Invalidate queries to refresh the list
+      queryClient.invalidateQueries({ queryKey: ['trade-ins'] });
+      setActionError('');
+    },
+    onError: (err: Error) => {
+      setActionError(err.message);
+    },
+  });
+
+  const handleStatusChange = useCallback(
+    (newStatus: string) => {
+      if (detailTradeIn) {
+        statusMutation.mutate({ tradeInId: detailTradeIn.id, newStatus });
+      }
+    },
+    [detailTradeIn, statusMutation]
+  );
 
   const handleTabChange = useCallback((index: number) => {
     setSelectedTab(index);
@@ -141,6 +184,17 @@ export function EmbeddedTradeIns({ shop }: TradeInsProps) {
     <Page
       title="Trade-Ins"
       subtitle={`${data?.total || 0} total trade-ins`}
+      primaryAction={{
+        content: 'New Trade-In',
+        icon: PlusIcon,
+        onAction: () => navigate('/app/trade-ins/new'),
+      }}
+      secondaryActions={[
+        {
+          content: 'Manage Categories',
+          onAction: () => navigate('/app/trade-ins/categories'),
+        },
+      ]}
     >
       <Layout>
         {error && (
@@ -244,6 +298,12 @@ export function EmbeddedTradeIns({ shop }: TradeInsProps) {
         {detailTradeIn && (
           <Modal.Section>
             <BlockStack gap="400">
+              {actionError && (
+                <Banner tone="critical" onDismiss={() => setActionError('')}>
+                  <p>{actionError}</p>
+                </Banner>
+              )}
+
               <InlineStack gap="800">
                 <BlockStack gap="100">
                   <Text as="span" variant="bodySm" tone="subdued">
@@ -267,6 +327,60 @@ export function EmbeddedTradeIns({ shop }: TradeInsProps) {
                   <Text as="span">{detailTradeIn.trade_in_rate}%</Text>
                 </BlockStack>
               </InlineStack>
+
+              {/* Status Action Buttons */}
+              {detailTradeIn.status !== 'completed' && detailTradeIn.status !== 'rejected' && (
+                <Card>
+                  <BlockStack gap="300">
+                    <Text as="h3" variant="headingSm">
+                      Actions
+                    </Text>
+                    <InlineStack gap="300">
+                      {detailTradeIn.status === 'pending' && (
+                        <>
+                          <Button
+                            variant="primary"
+                            icon={CheckIcon}
+                            onClick={() => handleStatusChange('approved')}
+                            loading={statusMutation.isPending}
+                          >
+                            Approve
+                          </Button>
+                          <Button
+                            tone="critical"
+                            icon={XIcon}
+                            onClick={() => handleStatusChange('rejected')}
+                            loading={statusMutation.isPending}
+                          >
+                            Reject
+                          </Button>
+                        </>
+                      )}
+                      {detailTradeIn.status === 'approved' && (
+                        <>
+                          <Button
+                            variant="primary"
+                            tone="success"
+                            icon={CheckIcon}
+                            onClick={() => handleStatusChange('completed')}
+                            loading={statusMutation.isPending}
+                          >
+                            Complete & Issue Credit
+                          </Button>
+                          <Button
+                            tone="critical"
+                            icon={XIcon}
+                            onClick={() => handleStatusChange('rejected')}
+                            loading={statusMutation.isPending}
+                          >
+                            Reject
+                          </Button>
+                        </>
+                      )}
+                    </InlineStack>
+                  </BlockStack>
+                </Card>
+              )}
 
               <Card>
                 <Text as="h3" variant="headingSm">

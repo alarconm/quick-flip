@@ -49,8 +49,11 @@ interface Promotion {
   ends_at: string;
   daily_start_time: string | null;
   daily_end_time: string | null;
+  active_days: string | null;  // "0,1,2,3,4" for Mon-Fri
   channel: 'all' | 'in_store' | 'online';
+  category_ids: string[] | null;  // Product tag IDs (legacy, now uses product_tags_filter)
   tier_restriction: string[] | null;
+  min_value: number;
   stackable: boolean;
   max_uses: number | null;
   current_uses: number;
@@ -90,6 +93,16 @@ const CHANNEL_OPTIONS = [
   { label: 'All Channels', value: 'all' },
   { label: 'In-Store Only', value: 'in_store' },
   { label: 'Online Only', value: 'online' },
+];
+
+const DAY_OPTIONS = [
+  { label: 'Monday', value: '0' },
+  { label: 'Tuesday', value: '1' },
+  { label: 'Wednesday', value: '2' },
+  { label: 'Thursday', value: '3' },
+  { label: 'Friday', value: '4' },
+  { label: 'Saturday', value: '5' },
+  { label: 'Sunday', value: '6' },
 ];
 
 async function fetchPromotions(shop: string | null): Promise<{ promotions: Promotion[]; total: number }> {
@@ -154,8 +167,13 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
     multiplier: 1,
     starts_at: new Date().toISOString().slice(0, 16),
     ends_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16),
+    daily_start_time: '',  // e.g., "18:00" for 6pm
+    daily_end_time: '',    // e.g., "21:00" for 9pm
+    active_days: [] as string[],  // ["0", "1", "5"] for Mon, Tue, Sat
     channel: 'all' as Promotion['channel'],
+    product_tags: '',  // Comma-separated product tags like "pokemon,sports"
     tier_restriction: [] as string[],
+    min_value: '',  // Minimum order value
     stackable: true,
     max_uses: '',
     active: true,
@@ -219,8 +237,13 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
       multiplier: 1,
       starts_at: new Date().toISOString().slice(0, 16),
       ends_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16),
+      daily_start_time: '',
+      daily_end_time: '',
+      active_days: [],
       channel: 'all',
+      product_tags: '',
       tier_restriction: [],
+      min_value: '',
       stackable: true,
       max_uses: '',
       active: true,
@@ -245,8 +268,13 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
       multiplier: promo.multiplier,
       starts_at: promo.starts_at?.slice(0, 16) || '',
       ends_at: promo.ends_at?.slice(0, 16) || '',
+      daily_start_time: promo.daily_start_time || '',
+      daily_end_time: promo.daily_end_time || '',
+      active_days: promo.active_days ? promo.active_days.split(',') : [],
       channel: promo.channel,
+      product_tags: promo.category_ids ? promo.category_ids.join(', ') : '',
       tier_restriction: promo.tier_restriction || [],
+      min_value: promo.min_value?.toString() || '',
       stackable: promo.stackable,
       max_uses: promo.max_uses?.toString() || '',
       active: promo.active,
@@ -260,10 +288,25 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
   }, []);
 
   const handleSubmit = useCallback(() => {
+    // Parse product tags into array
+    const productTags = formData.product_tags
+      .split(',')
+      .map(tag => tag.trim())
+      .filter(tag => tag.length > 0);
+
     const data = {
       ...formData,
-      max_uses: formData.max_uses ? parseInt(formData.max_uses) : null,
-      tier_restriction: formData.tier_restriction.length > 0 ? formData.tier_restriction : null,
+      // Convert active_days array to comma-separated string
+      active_days: formData.active_days.length > 0 ? formData.active_days.join(',') : null,
+      // Convert product tags to category_ids (backend expects this field name)
+      category_ids: productTags.length > 0 ? productTags : null,
+      product_tags: undefined,  // Don't send this field
+      // Convert empty strings to null for optional numeric fields
+      daily_start_time: formData.daily_start_time || undefined,
+      daily_end_time: formData.daily_end_time || undefined,
+      min_value: formData.min_value ? parseFloat(formData.min_value) : 0,
+      max_uses: formData.max_uses ? parseInt(formData.max_uses) : undefined,
+      tier_restriction: formData.tier_restriction.length > 0 ? formData.tier_restriction : undefined,
     };
 
     if (editingPromo) {
@@ -592,6 +635,48 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
               />
             </FormLayout.Group>
 
+            <Divider />
+            <Text as="h3" variant="headingSm">Advanced Scheduling</Text>
+
+            <FormLayout.Group>
+              <TextField
+                label="Daily Start Time"
+                type="time"
+                value={formData.daily_start_time}
+                onChange={(value) => setFormData({ ...formData, daily_start_time: value })}
+                autoComplete="off"
+                helpText="e.g., 18:00 for 6 PM"
+              />
+              <TextField
+                label="Daily End Time"
+                type="time"
+                value={formData.daily_end_time}
+                onChange={(value) => setFormData({ ...formData, daily_end_time: value })}
+                autoComplete="off"
+                helpText="e.g., 21:00 for 9 PM"
+              />
+            </FormLayout.Group>
+
+            <ChoiceList
+              title="Active Days (optional)"
+              choices={DAY_OPTIONS}
+              selected={formData.active_days}
+              onChange={(value) => setFormData({ ...formData, active_days: value })}
+              allowMultiple
+            />
+
+            <Divider />
+            <Text as="h3" variant="headingSm">Restrictions</Text>
+
+            <TextField
+              label="Product Tags"
+              value={formData.product_tags}
+              onChange={(value) => setFormData({ ...formData, product_tags: value })}
+              autoComplete="off"
+              placeholder="pokemon, sports, magic"
+              helpText="Comma-separated tags. Leave empty for all products."
+            />
+
             <Select
               label="Channel"
               options={CHANNEL_OPTIONS}
@@ -611,14 +696,25 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
               allowMultiple
             />
 
-            <TextField
-              label="Max Uses (optional)"
-              type="number"
-              value={formData.max_uses}
-              onChange={(value) => setFormData({ ...formData, max_uses: value })}
-              autoComplete="off"
-              helpText="Leave empty for unlimited uses"
-            />
+            <FormLayout.Group>
+              <TextField
+                label="Min Order Value"
+                type="number"
+                value={formData.min_value}
+                onChange={(value) => setFormData({ ...formData, min_value: value })}
+                prefix="$"
+                autoComplete="off"
+                helpText="Minimum order to apply promo"
+              />
+              <TextField
+                label="Max Uses (optional)"
+                type="number"
+                value={formData.max_uses}
+                onChange={(value) => setFormData({ ...formData, max_uses: value })}
+                autoComplete="off"
+                helpText="Total uses allowed"
+              />
+            </FormLayout.Group>
 
             <Checkbox
               label="Stackable with other promotions"

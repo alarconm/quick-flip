@@ -14,6 +14,7 @@ import {
   CreditCardIcon,
   ListBulletedIcon,
   DiscountIcon,
+  GiftCardIcon,
 } from '@shopify/polaris-icons';
 import { useState, useCallback } from 'react';
 
@@ -22,6 +23,9 @@ import { EmbeddedDashboard } from './pages/EmbeddedDashboard';
 import { EmbeddedTiers } from './pages/EmbeddedTiers';
 import { EmbeddedMembers } from './pages/EmbeddedMembers';
 import { EmbeddedTradeIns } from './pages/EmbeddedTradeIns';
+import { EmbeddedNewTradeIn } from './pages/EmbeddedNewTradeIn';
+import { EmbeddedCategories } from './pages/EmbeddedCategories';
+import { EmbeddedBulkCredit } from './pages/EmbeddedBulkCredit';
 import { EmbeddedPromotions } from './pages/EmbeddedPromotions';
 import { EmbeddedSettings } from './pages/EmbeddedSettings';
 import { EmbeddedBilling } from './pages/EmbeddedBilling';
@@ -85,6 +89,12 @@ export function EmbeddedApp({ shop }: EmbeddedAppProps) {
             icon: DiscountIcon,
             selected: window.location.pathname.startsWith('/app/promotions'),
           },
+          {
+            url: '/app/bulk-credit',
+            label: 'Bulk Credit',
+            icon: GiftCardIcon,
+            selected: window.location.pathname.startsWith('/app/bulk-credit'),
+          },
         ]}
       />
       <Navigation.Section
@@ -121,7 +131,10 @@ export function EmbeddedApp({ shop }: EmbeddedAppProps) {
         <Route path="/tiers" element={<EmbeddedTiers shop={shop} />} />
         <Route path="/members" element={<EmbeddedMembers shop={shop} />} />
         <Route path="/trade-ins" element={<EmbeddedTradeIns shop={shop} />} />
+        <Route path="/trade-ins/new" element={<EmbeddedNewTradeIn shop={shop} />} />
+        <Route path="/trade-ins/categories" element={<EmbeddedCategories shop={shop} />} />
         <Route path="/promotions" element={<EmbeddedPromotions shop={shop} />} />
+        <Route path="/bulk-credit" element={<EmbeddedBulkCredit shop={shop} />} />
         <Route path="/settings" element={<EmbeddedSettings shop={shop} />} />
         <Route path="/billing" element={<EmbeddedBilling shop={shop} />} />
       </Routes>

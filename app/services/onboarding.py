@@ -197,14 +197,108 @@ class OnboardingService:
 
     Flow:
     1. OAuth (automatic)
-    2. Choose template (30 seconds)
-    3. Preview (30 seconds)
-    4. Go live (click)
+    2. Store credit check (automatic)
+    3. Choose template (30 seconds)
+    4. Preview (30 seconds)
+    5. Go live (click)
     """
 
     def __init__(self, tenant_id: int):
         self.tenant_id = tenant_id
         self.tenant = Tenant.query.get(tenant_id)
+
+    def check_store_credit_enabled(self) -> Dict:
+        """
+        Check if Shopify native store credit is enabled for this store.
+
+        Returns status and instructions if not enabled.
+        """
+        from .shopify_client import ShopifyClient
+
+        try:
+            client = ShopifyClient(self.tenant_id)
+
+            # Try to query shop capabilities to check store credit
+            # We'll use a simple query to check if store credit APIs are accessible
+            query = """
+            query checkStoreCreditCapability {
+                shop {
+                    id
+                    name
+                    currencyCode
+                    features {
+                        storefront
+                    }
+                }
+            }
+            """
+            result = client._execute_query(query)
+            shop_data = result.get('shop', {})
+
+            # Try to check if we can access store credit accounts
+            # If this fails, store credit is not enabled
+            try:
+                # Query for any customer's store credit to see if API is accessible
+                test_query = """
+                query testStoreCreditAccess {
+                    customers(first: 1) {
+                        edges {
+                            node {
+                                id
+                                storeCreditAccounts(first: 1) {
+                                    edges {
+                                        node {
+                                            id
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                """
+                client._execute_query(test_query)
+                store_credit_accessible = True
+            except Exception as e:
+                error_msg = str(e).lower()
+                if 'access' in error_msg or 'scope' in error_msg or 'permission' in error_msg:
+                    store_credit_accessible = False
+                else:
+                    # Other error - assume it's accessible but had different issue
+                    store_credit_accessible = True
+
+            if store_credit_accessible:
+                return {
+                    'enabled': True,
+                    'status': 'ready',
+                    'message': 'Store credit is enabled and ready to use!',
+                    'shop_name': shop_data.get('name'),
+                    'currency': shop_data.get('currencyCode', 'USD')
+                }
+            else:
+                return {
+                    'enabled': False,
+                    'status': 'not_enabled',
+                    'message': 'Store credit needs to be enabled in your Shopify settings.',
+                    'instructions': [
+                        'Go to Shopify Admin → Settings → Payments',
+                        'Scroll down to "Store credit"',
+                        'Click "Activate" to enable store credit',
+                        'Return here and refresh to verify'
+                    ],
+                    'settings_url': f"https://{self.tenant.shopify_domain}/admin/settings/payments"
+                }
+
+        except Exception as e:
+            return {
+                'enabled': False,
+                'status': 'error',
+                'message': f'Could not check store credit status: {str(e)}',
+                'instructions': [
+                    'Ensure the app has proper permissions',
+                    'Try reinstalling the app if the issue persists'
+                ]
+            }
 
     def get_available_templates(self) -> List[Dict]:
         """
@@ -250,31 +344,48 @@ class OnboardingService:
         MembershipTier.query.filter_by(tenant_id=self.tenant_id).delete()
 
         # Create tiers from template
+        # Map template fields to MembershipTier model fields
         created_tiers = []
         for idx, tier_data in enumerate(template['tiers']):
+            # Convert trade_in_rate (e.g., 50 for 50%) to bonus_rate (0.50)
+            trade_in_rate = tier_data.get('trade_in_rate', 50)
+            bonus_rate = trade_in_rate / 100.0
+
+            # Store additional template data in benefits JSON
+            benefits = {
+                'description_list': tier_data.get('benefits', []),
+                'trade_in_rate': trade_in_rate,
+                'color': tier_data.get('color', '#e85d27'),
+                'icon': tier_data.get('icon', '⭐'),
+                'is_default': tier_data.get('is_default', False),
+            }
+
+            # Add min_spend_requirement if specified
+            if tier_data.get('min_spend_requirement'):
+                benefits['min_spend_requirement'] = tier_data['min_spend_requirement']
+
             tier = MembershipTier(
                 tenant_id=self.tenant_id,
                 name=tier_data['name'],
-                slug=tier_data['slug'],
-                trade_in_rate=tier_data['trade_in_rate'],
-                monthly_fee=tier_data.get('monthly_fee', 0),
-                color=tier_data.get('color', '#e85d27'),
-                icon=tier_data.get('icon', '⭐'),
-                benefits=tier_data.get('benefits', []),
-                min_spend_requirement=tier_data.get('min_spend_requirement'),
-                is_default=tier_data.get('is_default', False),
-                is_active=True,
-                sort_order=idx
+                monthly_price=tier_data.get('monthly_fee', 0),
+                bonus_rate=bonus_rate,
+                benefits=benefits,
+                display_order=idx,
+                is_active=True
             )
             db.session.add(tier)
             created_tiers.append(tier)
 
         # Mark onboarding as complete
+        from sqlalchemy.orm.attributes import flag_modified
+
         if self.tenant.settings is None:
             self.tenant.settings = {}
         self.tenant.settings['onboarding_complete'] = True
         self.tenant.settings['template_used'] = template_key
 
+        # Explicitly mark the JSON column as modified
+        flag_modified(self.tenant, 'settings')
         db.session.commit()
 
         return {

@@ -1,3 +1,8 @@
+/**
+ * Layout.tsx - Premium Admin Layout with Dark Mode Support
+ * Shopify Polaris-inspired design system
+ */
+import { useState, useEffect } from 'react'
 import { Link, NavLink, Outlet } from 'react-router-dom'
 import {
   LayoutDashboard,
@@ -10,13 +15,19 @@ import {
   Layers,
   Sparkles,
   Gift,
+  Menu,
+  X,
+  ChevronRight,
+  Moon,
+  Sun,
 } from 'lucide-react'
+import { useTheme } from '../../contexts/ThemeContext'
 
 const membershipNav = [
   { to: '/admin', icon: LayoutDashboard, label: 'Dashboard', end: true },
   { to: '/admin/members', icon: Users, label: 'Members' },
   { to: '/admin/members/new', icon: UserPlus, label: 'New Member' },
-  { to: '/admin/card-setup', icon: CreditCard, label: 'Card Setup Queue' },
+  { to: '/admin/card-setup', icon: CreditCard, label: 'Card Setup' },
 ]
 
 const tradeUpNav = [
@@ -34,136 +45,423 @@ const settingsNav = [
 ]
 
 export default function Layout() {
+  const { colors, shadows, isDark, toggleTheme } = useTheme()
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [isDesktop, setIsDesktop] = useState(typeof window !== 'undefined' ? window.innerWidth >= 1024 : true)
+
+  const closeSidebar = () => setSidebarOpen(false)
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsDesktop(window.innerWidth >= 1024)
+      if (window.innerWidth >= 1024) {
+        setSidebarOpen(false)
+      }
+    }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  // Root container
+  const rootStyles: React.CSSProperties = {
+    minHeight: '100vh',
+    display: 'flex',
+    position: 'relative',
+    backgroundColor: colors.bgPage,
+    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+  }
+
+  // Mobile menu button
+  const menuButtonStyles: React.CSSProperties = {
+    position: 'fixed',
+    top: 16,
+    left: 16,
+    zIndex: 50,
+    width: 40,
+    height: 40,
+    display: isDesktop ? 'none' : 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+    backgroundColor: colors.bgSurface,
+    border: `1px solid ${colors.border}`,
+    boxShadow: shadows.md,
+    color: colors.text,
+    cursor: 'pointer',
+  }
+
+  // Mobile overlay
+  const overlayStyles: React.CSSProperties = {
+    position: 'fixed',
+    inset: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    zIndex: 30,
+    opacity: sidebarOpen ? 1 : 0,
+    pointerEvents: sidebarOpen ? 'auto' : 'none',
+    transition: 'opacity 200ms ease',
+  }
+
+  // Sidebar
+  const sidebarStyles: React.CSSProperties = {
+    position: isDesktop ? 'sticky' : 'fixed',
+    top: 0,
+    left: 0,
+    zIndex: 40,
+    height: '100vh',
+    width: 240,
+    backgroundColor: colors.bgSurface,
+    borderRight: `1px solid ${colors.border}`,
+    transform: isDesktop || sidebarOpen ? 'translateX(0)' : 'translateX(-100%)',
+    transition: 'transform 200ms ease',
+    flexShrink: 0,
+    display: 'flex',
+    flexDirection: 'column',
+  }
+
+  const sidebarInnerStyles: React.CSSProperties = {
+    padding: 16,
+    height: '100%',
+    display: 'flex',
+    flexDirection: 'column',
+    overflowY: 'auto',
+  }
+
+  // Logo
+  const logoStyles: React.CSSProperties = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+    padding: '8px 12px',
+    marginBottom: 24,
+    textDecoration: 'none',
+    borderRadius: 8,
+    transition: 'background 150ms ease',
+  }
+
+  const logoIconStyles: React.CSSProperties = {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    background: `linear-gradient(135deg, ${colors.primary}, ${colors.primaryHover})`,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxShadow: '0 2px 4px rgba(92, 106, 196, 0.3)',
+  }
+
+  // Navigation
+  const navStyles: React.CSSProperties = {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 24,
+    flex: 1,
+  }
+
+  const navSectionStyles: React.CSSProperties = {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 2,
+  }
+
+  const navLabelStyles: React.CSSProperties = {
+    fontSize: 12,
+    fontWeight: 600,
+    color: colors.textSubdued,
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
+    marginBottom: 8,
+    paddingLeft: 12,
+  }
+
+  const getNavItemStyles = (isActive: boolean): React.CSSProperties => ({
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    padding: '10px 12px',
+    borderRadius: 8,
+    textDecoration: 'none',
+    transition: 'all 150ms ease',
+    backgroundColor: isActive ? colors.bgSurfaceSelected : 'transparent',
+    color: isActive ? colors.interactive : colors.textSecondary,
+    fontWeight: isActive ? 600 : 500,
+    fontSize: 14,
+  })
+
+  // Footer
+  const footerStyles: React.CSSProperties = {
+    marginTop: 'auto',
+    paddingTop: 16,
+    borderTop: `1px solid ${colors.border}`,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 12,
+  }
+
+  const footerCardStyles: React.CSSProperties = {
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: colors.bgSubdued,
+  }
+
+  // Theme toggle
+  const themeToggleStyles: React.CSSProperties = {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '8px 12px',
+    borderRadius: 8,
+    backgroundColor: 'transparent',
+    border: 'none',
+    cursor: 'pointer',
+    transition: 'background-color 150ms ease',
+    width: '100%',
+  }
+
+  const toggleSwitchStyles: React.CSSProperties = {
+    width: 44,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: isDark ? colors.primary : colors.border,
+    position: 'relative',
+    transition: 'background-color 150ms ease',
+    cursor: 'pointer',
+  }
+
+  const toggleKnobStyles: React.CSSProperties = {
+    position: 'absolute',
+    top: 2,
+    left: isDark ? 22 : 2,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#ffffff',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+    transition: 'left 150ms ease',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  }
+
+  // Main content
+  const mainStyles: React.CSSProperties = {
+    flex: 1,
+    minHeight: '100vh',
+    overflowX: 'hidden',
+  }
+
+  const mainInnerStyles: React.CSSProperties = {
+    padding: isDesktop ? 32 : 16,
+    paddingTop: isDesktop ? 32 : 72,
+    maxWidth: 1400,
+    margin: '0 auto',
+  }
+
   return (
-    <div className="min-h-screen flex">
+    <div style={rootStyles} className="admin-root">
+      {/* Mobile Menu Button */}
+      <button
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+        style={menuButtonStyles}
+        aria-label="Toggle menu"
+      >
+        {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
+      </button>
+
+      {/* Mobile Overlay */}
+      {!isDesktop && (
+        <div
+          style={overlayStyles}
+          onClick={closeSidebar}
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className="w-64 border-r border-slate-800 bg-slate-900/50 backdrop-blur-sm">
-        <div className="p-6">
+      <aside style={sidebarStyles}>
+        <div style={sidebarInnerStyles}>
           {/* Logo */}
-          <Link to="/admin" className="flex items-center gap-3 mb-8">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg glow-sm">
-              <Zap className="w-6 h-6 text-white" />
+          <Link to="/admin" style={logoStyles} onClick={closeSidebar}>
+            <div style={logoIconStyles}>
+              <Zap size={20} color="white" strokeWidth={2.5} />
             </div>
             <div>
-              <h1 className="font-bold text-lg text-white">TradeUp</h1>
-              <p className="text-xs text-slate-400">Admin Dashboard</p>
+              <div style={{ fontWeight: 700, fontSize: 16, color: colors.text, letterSpacing: '-0.3px' }}>
+                TradeUp
+              </div>
+              <div style={{ fontSize: 11, color: colors.textSubdued }}>
+                Loyalty Program
+              </div>
             </div>
           </Link>
 
           {/* Navigation */}
-          <nav className="space-y-6">
-            {/* Membership Section */}
-            <div>
-              <p className="px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                Membership
-              </p>
-              <div className="space-y-1">
-                {membershipNav.map(item => (
-                  <NavLink
-                    key={item.to}
-                    to={item.to}
-                    end={item.end}
-                    className={({ isActive }) =>
-                      `flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
-                        isActive
-                          ? 'bg-primary-500/20 text-primary-400 border border-primary-500/30'
-                          : 'text-slate-400 hover:text-white hover:bg-white/5'
-                      }`
+          <nav style={navStyles}>
+            {/* Membership */}
+            <div style={navSectionStyles}>
+              <div style={navLabelStyles}>Membership</div>
+              {membershipNav.map(item => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.end}
+                  onClick={closeSidebar}
+                  style={({ isActive }) => getNavItemStyles(isActive)}
+                  onMouseEnter={(e) => {
+                    const target = e.currentTarget as HTMLAnchorElement
+                    if (!target.classList.contains('active')) {
+                      target.style.backgroundColor = colors.bgSurfaceHover
                     }
-                  >
-                    <item.icon className="w-5 h-5" />
-                    <span className="font-medium">{item.label}</span>
-                  </NavLink>
-                ))}
-              </div>
+                  }}
+                  onMouseLeave={(e) => {
+                    const target = e.currentTarget as HTMLAnchorElement
+                    if (!target.classList.contains('active')) {
+                      target.style.backgroundColor = 'transparent'
+                    }
+                  }}
+                >
+                  <item.icon size={18} strokeWidth={2} />
+                  <span>{item.label}</span>
+                </NavLink>
+              ))}
             </div>
 
-            {/* Trade-Ins Section */}
-            <div>
-              <p className="px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                Trade-Ins
-              </p>
-              <div className="space-y-1">
-                {tradeUpNav.map(item => (
-                  <NavLink
-                    key={item.to}
-                    to={item.to}
-                    className={({ isActive }) =>
-                      `flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
-                        isActive
-                          ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                          : 'text-slate-400 hover:text-white hover:bg-white/5'
-                      }`
+            {/* Trade-Ins */}
+            <div style={navSectionStyles}>
+              <div style={navLabelStyles}>Trade-Ins</div>
+              {tradeUpNav.map(item => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  onClick={closeSidebar}
+                  style={({ isActive }) => getNavItemStyles(isActive)}
+                  onMouseEnter={(e) => {
+                    const target = e.currentTarget as HTMLAnchorElement
+                    if (!target.classList.contains('active')) {
+                      target.style.backgroundColor = colors.bgSurfaceHover
                     }
-                  >
-                    <item.icon className="w-5 h-5" />
-                    <span className="font-medium">{item.label}</span>
-                  </NavLink>
-                ))}
-              </div>
+                  }}
+                  onMouseLeave={(e) => {
+                    const target = e.currentTarget as HTMLAnchorElement
+                    if (!target.classList.contains('active')) {
+                      target.style.backgroundColor = 'transparent'
+                    }
+                  }}
+                >
+                  <item.icon size={18} strokeWidth={2} />
+                  <span>{item.label}</span>
+                </NavLink>
+              ))}
             </div>
 
-            {/* Promotions & Credit Section */}
-            <div>
-              <p className="px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                Store Credit
-              </p>
-              <div className="space-y-1">
-                {promotionsNav.map(item => (
-                  <NavLink
-                    key={item.to}
-                    to={item.to}
-                    className={({ isActive }) =>
-                      `flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
-                        isActive
-                          ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                          : 'text-slate-400 hover:text-white hover:bg-white/5'
-                      }`
+            {/* Store Credit */}
+            <div style={navSectionStyles}>
+              <div style={navLabelStyles}>Store Credit</div>
+              {promotionsNav.map(item => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  onClick={closeSidebar}
+                  style={({ isActive }) => getNavItemStyles(isActive)}
+                  onMouseEnter={(e) => {
+                    const target = e.currentTarget as HTMLAnchorElement
+                    if (!target.classList.contains('active')) {
+                      target.style.backgroundColor = colors.bgSurfaceHover
                     }
-                  >
-                    <item.icon className="w-5 h-5" />
-                    <span className="font-medium">{item.label}</span>
-                  </NavLink>
-                ))}
-              </div>
+                  }}
+                  onMouseLeave={(e) => {
+                    const target = e.currentTarget as HTMLAnchorElement
+                    if (!target.classList.contains('active')) {
+                      target.style.backgroundColor = 'transparent'
+                    }
+                  }}
+                >
+                  <item.icon size={18} strokeWidth={2} />
+                  <span>{item.label}</span>
+                </NavLink>
+              ))}
             </div>
 
-            {/* Settings Section */}
-            <div>
-              <div className="space-y-1">
-                {settingsNav.map(item => (
-                  <NavLink
-                    key={item.to}
-                    to={item.to}
-                    className={({ isActive }) =>
-                      `flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
-                        isActive
-                          ? 'bg-primary-500/20 text-primary-400 border border-primary-500/30'
-                          : 'text-slate-400 hover:text-white hover:bg-white/5'
-                      }`
+            {/* Settings */}
+            <div style={navSectionStyles}>
+              {settingsNav.map(item => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  onClick={closeSidebar}
+                  style={({ isActive }) => getNavItemStyles(isActive)}
+                  onMouseEnter={(e) => {
+                    const target = e.currentTarget as HTMLAnchorElement
+                    if (!target.classList.contains('active')) {
+                      target.style.backgroundColor = colors.bgSurfaceHover
                     }
-                  >
-                    <item.icon className="w-5 h-5" />
-                    <span className="font-medium">{item.label}</span>
-                  </NavLink>
-                ))}
-              </div>
+                  }}
+                  onMouseLeave={(e) => {
+                    const target = e.currentTarget as HTMLAnchorElement
+                    if (!target.classList.contains('active')) {
+                      target.style.backgroundColor = 'transparent'
+                    }
+                  }}
+                >
+                  <item.icon size={18} strokeWidth={2} />
+                  <span>{item.label}</span>
+                </NavLink>
+              ))}
             </div>
           </nav>
-        </div>
 
-        {/* Footer */}
-        <div className="absolute bottom-0 left-0 w-64 p-6 border-t border-slate-800">
-          <div className="text-xs text-slate-500">
-            <p>ORB Sports Cards</p>
-            <p className="text-primary-500">orbsportscards.com</p>
+          {/* Footer */}
+          <div style={footerStyles}>
+            {/* Theme Toggle */}
+            <button
+              onClick={toggleTheme}
+              style={themeToggleStyles}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.backgroundColor = colors.bgSurfaceHover
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {isDark ? <Moon size={16} /> : <Sun size={16} />}
+                <span style={{ fontSize: 13, color: colors.textSecondary, fontWeight: 500 }}>
+                  {isDark ? 'Dark Mode' : 'Light Mode'}
+                </span>
+              </div>
+              <div style={toggleSwitchStyles}>
+                <div style={toggleKnobStyles}>
+                  {isDark ? <Moon size={12} color={colors.primary} /> : <Sun size={12} color="#f59e0b" />}
+                </div>
+              </div>
+            </button>
+
+            {/* Store Card */}
+            <div style={footerCardStyles}>
+              <div style={{
+                fontSize: 13,
+                fontWeight: 600,
+                color: colors.text,
+                marginBottom: 4,
+              }}>
+                ORB Sports Cards
+              </div>
+              <div style={{
+                fontSize: 12,
+                color: colors.textSubdued,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+              }}>
+                orbsportscards.com
+                <ChevronRight size={14} />
+              </div>
+            </div>
           </div>
         </div>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto">
-        <div className="p-8">
+      <main style={mainStyles}>
+        <div style={mainInnerStyles}>
           <Outlet />
         </div>
       </main>

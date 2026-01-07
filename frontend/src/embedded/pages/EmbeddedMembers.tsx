@@ -26,7 +26,7 @@ import {
   FormLayout,
   Select,
 } from '@shopify/polaris';
-import { ExportIcon } from '@shopify/polaris-icons';
+import { ExportIcon, EmailIcon, PlusIcon, SearchIcon } from '@shopify/polaris-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getApiUrl, authFetch } from '../../hooks/useShopifyBridge';
 
@@ -83,6 +83,8 @@ export function EmbeddedMembers({ shop }: MembersProps) {
   const [search, setSearch] = useState('');
   const [selectedTier, setSelectedTier] = useState<string[]>([]);
   const [detailMember, setDetailMember] = useState<Member | null>(null);
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
+  const [addMemberModalOpen, setAddMemberModalOpen] = useState(false);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['members', shop, page, search, selectedTier[0]],
@@ -165,10 +167,22 @@ export function EmbeddedMembers({ shop }: MembersProps) {
       title="Members"
       subtitle={`${data?.total || 0} total members`}
       primaryAction={{
-        content: 'Export',
-        icon: ExportIcon,
-        disabled: !data?.members?.length,
+        content: 'Add Member',
+        icon: PlusIcon,
+        onAction: () => setAddMemberModalOpen(true),
       }}
+      secondaryActions={[
+        {
+          content: 'Email Members',
+          icon: EmailIcon,
+          onAction: () => setEmailModalOpen(true),
+        },
+        {
+          content: 'Export',
+          icon: ExportIcon,
+          disabled: !data?.members?.length,
+        },
+      ]}
     >
       <Layout>
         {error && (
@@ -281,6 +295,20 @@ export function EmbeddedMembers({ shop }: MembersProps) {
         onClose={() => setDetailMember(null)}
         formatCurrency={formatCurrency}
         formatDate={formatDate}
+      />
+
+      {/* Bulk Email Modal */}
+      <BulkEmailModal
+        open={emailModalOpen}
+        onClose={() => setEmailModalOpen(false)}
+        shop={shop}
+      />
+
+      {/* Add Member Modal */}
+      <AddMemberModal
+        open={addMemberModalOpen}
+        onClose={() => setAddMemberModalOpen(false)}
+        shop={shop}
       />
     </Page>
   );
@@ -549,5 +577,479 @@ function MemberDetailModal({
         </Modal.Section>
       </Modal>
     </>
+  );
+}
+
+/**
+ * Bulk Email Modal for Tier-Based Communication
+ */
+interface BulkEmailModalProps {
+  open: boolean;
+  onClose: () => void;
+  shop: string | null;
+}
+
+interface EmailTemplate {
+  id: string;
+  name: string;
+  subject: string;
+  message: string;
+  category: string;
+}
+
+interface PreviewResponse {
+  tier_names: string[];
+  member_counts: Record<string, number>;
+  total_recipients: number;
+}
+
+function BulkEmailModal({ open, onClose, shop }: BulkEmailModalProps) {
+  const [selectedTiers, setSelectedTiers] = useState<string[]>([]);
+  const [subject, setSubject] = useState('');
+  const [message, setMessage] = useState('');
+  const [sendSuccess, setSendSuccess] = useState(false);
+  const [sendResult, setSendResult] = useState<{ sent: number; failed: number } | null>(null);
+
+  // Fetch email templates
+  const { data: templates } = useQuery<{ templates: EmailTemplate[] }>({
+    queryKey: ['email-templates', shop],
+    queryFn: async () => {
+      const response = await authFetch(`${getApiUrl()}/members/email/templates`, shop);
+      if (!response.ok) throw new Error('Failed to fetch templates');
+      return response.json();
+    },
+    enabled: !!shop && open,
+  });
+
+  // Preview mutation (get recipient counts)
+  const previewMutation = useMutation({
+    mutationFn: async () => {
+      const response = await authFetch(`${getApiUrl()}/members/email/preview`, shop, {
+        method: 'POST',
+        body: JSON.stringify({ tier_names: selectedTiers }),
+      });
+      if (!response.ok) throw new Error('Failed to preview');
+      return response.json() as Promise<PreviewResponse>;
+    },
+  });
+
+  // Send email mutation
+  const sendMutation = useMutation({
+    mutationFn: async () => {
+      const response = await authFetch(`${getApiUrl()}/members/email/send`, shop, {
+        method: 'POST',
+        body: JSON.stringify({
+          tier_names: selectedTiers,
+          subject,
+          message,
+        }),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to send emails');
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setSendSuccess(true);
+      setSendResult({ sent: data.sent, failed: data.failed });
+    },
+  });
+
+  // Preview when tiers change
+  const handleTierChange = useCallback((value: string[]) => {
+    setSelectedTiers(value);
+    if (value.length > 0) {
+      previewMutation.mutate();
+    }
+  }, []);
+
+  // Apply template
+  const applyTemplate = useCallback((template: EmailTemplate) => {
+    setSubject(template.subject);
+    setMessage(template.message);
+  }, []);
+
+  // Reset and close
+  const handleClose = useCallback(() => {
+    setSelectedTiers([]);
+    setSubject('');
+    setMessage('');
+    setSendSuccess(false);
+    setSendResult(null);
+    onClose();
+  }, [onClose]);
+
+  const canSend = selectedTiers.length > 0 && subject.trim() && message.trim();
+  const recipientCount = previewMutation.data?.total_recipients || 0;
+
+  return (
+    <Modal
+      open={open}
+      onClose={handleClose}
+      title="Email Members by Tier"
+      primaryAction={
+        sendSuccess
+          ? { content: 'Done', onAction: handleClose }
+          : {
+              content: `Send to ${recipientCount} ${recipientCount === 1 ? 'Member' : 'Members'}`,
+              onAction: () => sendMutation.mutate(),
+              disabled: !canSend || recipientCount === 0,
+              loading: sendMutation.isPending,
+            }
+      }
+      secondaryActions={
+        sendSuccess ? [] : [{ content: 'Cancel', onAction: handleClose }]
+      }
+      size="large"
+    >
+      {sendSuccess ? (
+        <Modal.Section>
+          <Banner tone="success">
+            <BlockStack gap="200">
+              <Text as="p" variant="headingMd">Email Sent Successfully!</Text>
+              <Text as="p">
+                Sent {sendResult?.sent} emails
+                {sendResult?.failed ? ` (${sendResult.failed} failed)` : ''}.
+              </Text>
+            </BlockStack>
+          </Banner>
+        </Modal.Section>
+      ) : (
+        <>
+          <Modal.Section>
+            <BlockStack gap="400">
+              {sendMutation.isError && (
+                <Banner tone="critical">
+                  <p>{sendMutation.error?.message || 'Failed to send emails'}</p>
+                </Banner>
+              )}
+
+              <ChoiceList
+                title="Select Tiers to Email"
+                choices={[
+                  { label: 'Bronze', value: 'BRONZE' },
+                  { label: 'Silver', value: 'SILVER' },
+                  { label: 'Gold', value: 'GOLD' },
+                  { label: 'Platinum', value: 'PLATINUM' },
+                ]}
+                selected={selectedTiers}
+                onChange={handleTierChange}
+                allowMultiple
+              />
+
+              {previewMutation.data && (
+                <Banner>
+                  <Text as="p">
+                    <strong>{recipientCount}</strong> active members will receive this email:
+                    {Object.entries(previewMutation.data.member_counts).map(([tier, count]) => (
+                      <span key={tier}> {tier}: {count}</span>
+                    ))}
+                  </Text>
+                </Banner>
+              )}
+            </BlockStack>
+          </Modal.Section>
+
+          <Modal.Section>
+            <BlockStack gap="400">
+              <Text as="h3" variant="headingSm">Quick Templates</Text>
+              <InlineStack gap="200" wrap>
+                {templates?.templates.map((t) => (
+                  <Button
+                    key={t.id}
+                    size="slim"
+                    onClick={() => applyTemplate(t)}
+                  >
+                    {t.name}
+                  </Button>
+                ))}
+              </InlineStack>
+            </BlockStack>
+          </Modal.Section>
+
+          <Modal.Section>
+            <FormLayout>
+              <TextField
+                label="Subject"
+                value={subject}
+                onChange={setSubject}
+                autoComplete="off"
+                placeholder="e.g., Exclusive Member Offer!"
+                requiredIndicator
+              />
+
+              <TextField
+                label="Message"
+                value={message}
+                onChange={setMessage}
+                multiline={8}
+                autoComplete="off"
+                placeholder="Write your message here..."
+                helpText="Use {member_name}, {member_number}, and {tier_name} for personalization"
+                requiredIndicator
+              />
+            </FormLayout>
+          </Modal.Section>
+        </>
+      )}
+    </Modal>
+  );
+}
+
+/**
+ * Add Member Modal - Search Shopify customers and enroll as members
+ */
+interface AddMemberModalProps {
+  open: boolean;
+  onClose: () => void;
+  shop: string | null;
+}
+
+interface ShopifyCustomer {
+  id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  phone: string | null;
+  orders_count: number;
+  total_spent: string;
+}
+
+function AddMemberModal({ open, onClose, shop }: AddMemberModalProps) {
+  const queryClient = useQueryClient();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCustomer, setSelectedCustomer] = useState<ShopifyCustomer | null>(null);
+  const [selectedTierId, setSelectedTierId] = useState<string>('');
+  const [searchResults, setSearchResults] = useState<ShopifyCustomer[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [success, setSuccess] = useState(false);
+
+  // Fetch available tiers
+  const { data: tiers } = useQuery<{ id: number; name: string }[]>({
+    queryKey: ['tiers-list', shop],
+    queryFn: async () => {
+      const response = await authFetch(`${getApiUrl()}/membership/tiers`, shop);
+      if (!response.ok) throw new Error('Failed to fetch tiers');
+      return response.json();
+    },
+    enabled: !!shop && open,
+  });
+
+  // Search Shopify customers
+  const handleSearch = useCallback(async () => {
+    if (!searchQuery || searchQuery.length < 2) return;
+
+    setSearching(true);
+    try {
+      const response = await authFetch(
+        `${getApiUrl()}/shopify/customers/search?q=${encodeURIComponent(searchQuery)}`,
+        shop
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setSearchResults(data.customers || []);
+      }
+    } catch (err) {
+      console.error('Search failed:', err);
+    } finally {
+      setSearching(false);
+    }
+  }, [searchQuery, shop]);
+
+  // Enroll customer as member
+  const enrollMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedCustomer) throw new Error('No customer selected');
+
+      const response = await authFetch(`${getApiUrl()}/members`, shop, {
+        method: 'POST',
+        body: JSON.stringify({
+          shopify_customer_id: selectedCustomer.id,
+          email: selectedCustomer.email,
+          first_name: selectedCustomer.first_name,
+          last_name: selectedCustomer.last_name,
+          phone: selectedCustomer.phone,
+          tier_id: selectedTierId ? parseInt(selectedTierId) : null,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to enroll member');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      setSuccess(true);
+      queryClient.invalidateQueries({ queryKey: ['members'] });
+    },
+  });
+
+  const handleClose = useCallback(() => {
+    setSearchQuery('');
+    setSelectedCustomer(null);
+    setSelectedTierId('');
+    setSearchResults([]);
+    setSuccess(false);
+    onClose();
+  }, [onClose]);
+
+  const tierOptions = [
+    { label: 'No Tier (Start at base)', value: '' },
+    ...(tiers?.map((t) => ({ label: t.name, value: String(t.id) })) || []),
+  ];
+
+  return (
+    <Modal
+      open={open}
+      onClose={handleClose}
+      title="Add Member"
+      primaryAction={
+        success
+          ? { content: 'Done', onAction: handleClose }
+          : selectedCustomer
+          ? {
+              content: 'Enroll Member',
+              onAction: () => enrollMutation.mutate(),
+              loading: enrollMutation.isPending,
+            }
+          : undefined
+      }
+      secondaryActions={
+        success
+          ? []
+          : selectedCustomer
+          ? [
+              {
+                content: 'Back',
+                onAction: () => setSelectedCustomer(null),
+              },
+            ]
+          : [{ content: 'Cancel', onAction: handleClose }]
+      }
+    >
+      {success ? (
+        <Modal.Section>
+          <Banner tone="success">
+            <BlockStack gap="200">
+              <Text as="p" variant="headingMd">Member Enrolled!</Text>
+              <Text as="p">
+                {selectedCustomer?.first_name} {selectedCustomer?.last_name} has been enrolled
+                in your loyalty program.
+              </Text>
+            </BlockStack>
+          </Banner>
+        </Modal.Section>
+      ) : selectedCustomer ? (
+        <Modal.Section>
+          <BlockStack gap="400">
+            {enrollMutation.isError && (
+              <Banner tone="critical">
+                <p>{enrollMutation.error?.message || 'Failed to enroll member'}</p>
+              </Banner>
+            )}
+
+            <Card background="bg-surface-secondary">
+              <BlockStack gap="200">
+                <Text as="h3" variant="headingSm">
+                  {selectedCustomer.first_name} {selectedCustomer.last_name}
+                </Text>
+                <Text as="p" tone="subdued">
+                  {selectedCustomer.email}
+                </Text>
+                <InlineStack gap="400">
+                  <Text as="span" variant="bodySm">
+                    {selectedCustomer.orders_count} orders
+                  </Text>
+                  <Text as="span" variant="bodySm">
+                    ${selectedCustomer.total_spent} spent
+                  </Text>
+                </InlineStack>
+              </BlockStack>
+            </Card>
+
+            <Select
+              label="Starting Tier"
+              options={tierOptions}
+              value={selectedTierId}
+              onChange={setSelectedTierId}
+              helpText="Select an initial tier or leave at base level"
+            />
+          </BlockStack>
+        </Modal.Section>
+      ) : (
+        <Modal.Section>
+          <BlockStack gap="400">
+            <InlineStack gap="200">
+              <div style={{ flex: 1 }}>
+                <TextField
+                  label="Search Shopify Customers"
+                  value={searchQuery}
+                  onChange={setSearchQuery}
+                  placeholder="Search by name or email..."
+                  autoComplete="off"
+                  onBlur={() => {}}
+                  connectedRight={
+                    <Button
+                      onClick={handleSearch}
+                      loading={searching}
+                      icon={SearchIcon}
+                    >
+                      Search
+                    </Button>
+                  }
+                />
+              </div>
+            </InlineStack>
+
+            {searchResults.length > 0 ? (
+              <BlockStack gap="200">
+                <Text as="h3" variant="headingSm">
+                  Search Results ({searchResults.length})
+                </Text>
+                {searchResults.map((customer) => (
+                  <Box
+                    key={customer.id}
+                    padding="300"
+                    background="bg-surface-secondary"
+                    borderRadius="200"
+                    as="button"
+                    onClick={() => setSelectedCustomer(customer)}
+                  >
+                    <InlineStack align="space-between" blockAlign="center">
+                      <BlockStack gap="100">
+                        <Text as="span" fontWeight="semibold">
+                          {customer.first_name} {customer.last_name}
+                        </Text>
+                        <Text as="span" variant="bodySm" tone="subdued">
+                          {customer.email}
+                        </Text>
+                      </BlockStack>
+                      <BlockStack gap="050" inlineAlign="end">
+                        <Text as="span" variant="bodySm">
+                          {customer.orders_count} orders
+                        </Text>
+                        <Text as="span" variant="bodySm" tone="subdued">
+                          ${customer.total_spent}
+                        </Text>
+                      </BlockStack>
+                    </InlineStack>
+                  </Box>
+                ))}
+              </BlockStack>
+            ) : searchQuery.length >= 2 && !searching ? (
+              <Text as="p" tone="subdued" alignment="center">
+                No customers found. Try a different search.
+              </Text>
+            ) : (
+              <Text as="p" tone="subdued" alignment="center">
+                Search for a Shopify customer to enroll as a member.
+              </Text>
+            )}
+          </BlockStack>
+        </Modal.Section>
+      )}
+    </Modal>
   );
 }

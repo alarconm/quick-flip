@@ -413,6 +413,32 @@ class TradeInService:
             # Log but don't fail the completion
             print(f"Failed to send trade-in completion email: {e}")
 
+        # Sync member metafields to Shopify (trade count, bonus earned, etc.)
+        if not is_guest and member.shopify_customer_id:
+            try:
+                from .membership_service import MembershipService
+                from .shopify_client import ShopifyClient
+                shopify_client = ShopifyClient(self.tenant_id)
+                membership_svc = MembershipService(self.tenant_id, shopify_client)
+                membership_svc.sync_member_metafields_to_shopify(member)
+
+                # Trigger Shopify Flow event for trade-in completion
+                from .flow_service import FlowService
+                flow_svc = FlowService(self.tenant_id, shopify_client)
+                flow_svc.trigger_trade_in_completed(
+                    member_id=member.id,
+                    member_number=member.member_number,
+                    email=member.email,
+                    batch_reference=batch.batch_reference,
+                    trade_value=float(batch.total_trade_value or 0),
+                    bonus_amount=float(bonus_info['bonus_amount']),
+                    item_count=batch.total_items,
+                    category=batch.category or 'other',
+                    shopify_customer_id=member.shopify_customer_id
+                )
+            except Exception as sync_err:
+                print(f"Failed to sync metafields/trigger Flow: {sync_err}")
+
         # Build response
         result = {
             'success': True,
