@@ -72,6 +72,18 @@ DEFAULT_SETTINGS = {
     'contact': {
         'support_email': None,
         'support_phone': None
+    },
+    'trade_ins': {
+        'enabled': True,
+        'auto_approve_under': 50.00,  # Auto-approve trade-ins under this value
+        'require_review_over': 500.00,  # Require manual review over this value
+        'allow_guest_trade_ins': True,  # Allow non-member trade-ins
+        'default_category': 'other',
+        'require_photos': False,
+    },
+    'general': {
+        'currency': 'USD',
+        'timezone': 'America/Los_Angeles',
     }
 }
 
@@ -402,4 +414,95 @@ def update_notification_settings():
     return jsonify({
         'success': True,
         'notifications': get_settings_with_defaults(tenant.settings)['notifications']
+    })
+
+
+@settings_bp.route('/trade-ins', methods=['GET'])
+def get_trade_in_settings():
+    """Get trade-in settings."""
+    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+
+    tenant = Tenant.query.get_or_404(tenant_id)
+    settings = get_settings_with_defaults(tenant.settings or {})
+
+    return jsonify({
+        'trade_ins': settings['trade_ins']
+    })
+
+
+@settings_bp.route('/trade-ins', methods=['PATCH'])
+def update_trade_in_settings():
+    """
+    Update trade-in settings.
+
+    Request body:
+        enabled: bool - Enable trade-in feature
+        auto_approve_under: float - Auto-approve threshold
+        require_review_over: float - Manual review threshold
+        allow_guest_trade_ins: bool - Allow non-member trade-ins
+        default_category: str - Default category
+        require_photos: bool - Require photo uploads
+    """
+    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+    data = request.json
+
+    tenant = Tenant.query.get_or_404(tenant_id)
+
+    current_settings = tenant.settings or {}
+    current_trade_ins = current_settings.get('trade_ins', {})
+
+    for key, value in data.items():
+        current_trade_ins[key] = value
+
+    current_settings['trade_ins'] = current_trade_ins
+    tenant.settings = current_settings
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'trade_ins': get_settings_with_defaults(tenant.settings)['trade_ins']
+    })
+
+
+@settings_bp.route('/general', methods=['GET'])
+def get_general_settings():
+    """Get general settings."""
+    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+
+    tenant = Tenant.query.get_or_404(tenant_id)
+    settings = get_settings_with_defaults(tenant.settings or {})
+
+    return jsonify({
+        'general': settings['general'],
+        'branding': settings['branding']
+    })
+
+
+@settings_bp.route('/general', methods=['PATCH'])
+def update_general_settings():
+    """
+    Update general settings.
+
+    Request body:
+        currency: str - Currency code (USD, CAD, EUR, etc.)
+        timezone: str - Timezone identifier
+    """
+    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+    data = request.json
+
+    tenant = Tenant.query.get_or_404(tenant_id)
+
+    current_settings = tenant.settings or {}
+    current_general = current_settings.get('general', {})
+
+    for key, value in data.items():
+        current_general[key] = value
+
+    current_settings['general'] = current_general
+    tenant.settings = current_settings
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'general': get_settings_with_defaults(tenant.settings)['general']
     })
