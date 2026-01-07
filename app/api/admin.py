@@ -314,6 +314,7 @@ def fix_schema():
     from sqlalchemy import text
 
     columns_to_add = [
+        # Members - Shopify subscription columns
         ("members", "shopify_subscription_contract_id", "VARCHAR(100)"),
         ("members", "subscription_status", "VARCHAR(20) DEFAULT 'none'"),
         ("members", "tier_assigned_by", "VARCHAR(100)"),
@@ -321,6 +322,12 @@ def fix_schema():
         ("members", "tier_expires_at", "TIMESTAMP"),
         ("members", "shopify_customer_gid", "VARCHAR(100)"),
         ("members", "partner_customer_id", "VARCHAR(100)"),
+        # Members - Referral program columns
+        ("members", "referral_code", "VARCHAR(20)"),
+        ("members", "referred_by_id", "INTEGER"),
+        ("members", "referral_count", "INTEGER DEFAULT 0"),
+        ("members", "referral_earnings", "NUMERIC(12,2) DEFAULT 0"),
+        # Membership tiers
         ("membership_tiers", "shopify_selling_plan_id", "VARCHAR(100)"),
         ("membership_tiers", "yearly_price", "NUMERIC(10,2)"),
     ]
