@@ -4,7 +4,18 @@ import { EmbeddedApp } from './embedded'
 import Onboarding from './admin/pages/Onboarding'
 
 function App() {
-  const { shop } = useShopifyBridge()
+  const { shop, isLoading } = useShopifyBridge()
+
+  console.log('[TradeUp] App render:', { shop, isLoading })
+
+  // Show loading while detecting shop
+  if (isLoading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <p>Loading...</p>
+      </div>
+    )
+  }
 
   return (
     <Routes>
