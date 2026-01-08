@@ -96,16 +96,29 @@ export function useShopifyBridge(): ShopifyBridgeState {
         }
       }
 
-      // 3. In embedded mode, try App Bridge config
+      // 3. In embedded mode, get shop from session token (App Bridge 4.x)
       if (!shop && isEmbedded) {
-        // Wait for App Bridge to initialize (it loads from CDN)
-        for (let i = 0; i < 20; i++) {
+        // Wait for App Bridge to initialize and get session token
+        for (let i = 0; i < 30; i++) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const shopify = (window as any).shopify;
-          if (shopify?.config?.shop) {
-            shop = shopify.config.shop;
-            console.log('[TradeUp] Got shop from App Bridge config:', shop);
-            break;
+          if (shopify?.idToken) {
+            try {
+              const token = await shopify.idToken();
+              if (token) {
+                // Decode JWT payload to get shop (tokens are base64url encoded)
+                const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+                if (payload.dest) {
+                  // dest is the shop URL like "https://myshop.myshopify.com"
+                  const shopUrl = new URL(payload.dest);
+                  shop = shopUrl.hostname;
+                  console.log('[TradeUp] Got shop from session token:', shop);
+                  break;
+                }
+              }
+            } catch (e) {
+              console.warn('[TradeUp] Failed to decode session token:', e);
+            }
           }
           await new Promise(resolve => setTimeout(resolve, 100));
         }
