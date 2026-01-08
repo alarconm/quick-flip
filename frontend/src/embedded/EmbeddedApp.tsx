@@ -4,9 +4,10 @@
  * This component renders inside the Shopify Admin when merchants
  * access the TradeUp app. Uses Shopify Polaris for consistent UX.
  *
- * Navigation is handled by App Bridge NavMenu component
+ * Navigation is handled by App Bridge NavMenu component.
+ * App Bridge CDN is loaded in index.html with the API key.
  */
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, Link } from 'react-router-dom';
 import { NavMenu } from '@shopify/app-bridge-react';
 
 // Embedded app pages
@@ -32,12 +33,12 @@ export function EmbeddedApp({ shop }: EmbeddedAppProps) {
     <>
       {/* App Bridge NavMenu - configures Shopify Admin sidebar navigation */}
       <NavMenu>
-        <a href="/app/dashboard" rel="home">Dashboard</a>
-        <a href="/app/members">Members</a>
-        <a href="/app/trade-ins">Trade-Ins</a>
-        <a href="/app/promotions">Promotions</a>
-        <a href="/app/tiers">Membership Tiers</a>
-        <a href="/app/settings">Settings</a>
+        <Link to="/app/dashboard" rel="home">Dashboard</Link>
+        <Link to="/app/members">Members</Link>
+        <Link to="/app/trade-ins">Trade-Ins</Link>
+        <Link to="/app/promotions">Promotions</Link>
+        <Link to="/app/tiers">Membership Tiers</Link>
+        <Link to="/app/settings">Settings</Link>
       </NavMenu>
 
       {/* App Routes */}
