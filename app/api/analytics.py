@@ -67,20 +67,26 @@ def get_dashboard_analytics():
         else:
             member_growth_pct = 100 if new_members_this_period > 0 else 0
 
-        # Get trade-in statistics
-        total_trade_ins = db.session.query(func.count(TradeInBatch.id)).filter(
-            TradeInBatch.tenant_id == tenant_id
+        # Get trade-in statistics (join through Member for tenant filtering)
+        total_trade_ins = db.session.query(func.count(TradeInBatch.id)).join(
+            Member, Member.id == TradeInBatch.member_id
+        ).filter(
+            Member.tenant_id == tenant_id
         ).scalar() or 0
 
-        trade_ins_this_period = db.session.query(func.count(TradeInBatch.id)).filter(
-            TradeInBatch.tenant_id == tenant_id,
+        trade_ins_this_period = db.session.query(func.count(TradeInBatch.id)).join(
+            Member, Member.id == TradeInBatch.member_id
+        ).filter(
+            Member.tenant_id == tenant_id,
             TradeInBatch.created_at >= start_date
         ).scalar() or 0
 
         trade_in_value_this_period = db.session.query(
-            func.coalesce(func.sum(TradeInBatch.total_credit_amount), 0)
+            func.coalesce(func.sum(TradeInBatch.total_trade_value), 0)
+        ).join(
+            Member, Member.id == TradeInBatch.member_id
         ).filter(
-            TradeInBatch.tenant_id == tenant_id,
+            Member.tenant_id == tenant_id,
             TradeInBatch.created_at >= start_date
         ).scalar() or 0
 
@@ -147,7 +153,7 @@ def get_dashboard_analytics():
             func.coalesce(Member.first_name, '').label('first_name'),
             func.coalesce(Member.last_name, '').label('last_name'),
             func.count(TradeInBatch.id).label('trade_in_count'),
-            func.coalesce(func.sum(TradeInBatch.total_credit_amount), 0).label('total_credit')
+            func.coalesce(func.sum(TradeInBatch.total_trade_value), 0).label('total_credit')
         ).outerjoin(
             TradeInBatch, TradeInBatch.member_id == Member.id
         ).filter(
@@ -176,17 +182,20 @@ def get_dashboard_analytics():
             })
 
         # Get category performance (top categories by trade-in count)
+        # Category is on TradeInBatch, not TradeInItem; use trade_value not credit_amount
         category_performance = db.session.query(
-            TradeInItem.category,
+            TradeInBatch.category,
             func.count(TradeInItem.id).label('item_count'),
-            func.coalesce(func.sum(TradeInItem.credit_amount), 0).label('total_value')
+            func.coalesce(func.sum(TradeInItem.trade_value), 0).label('total_value')
         ).join(
-            TradeInBatch, TradeInBatch.id == TradeInItem.batch_id
+            TradeInItem, TradeInItem.batch_id == TradeInBatch.id
+        ).join(
+            Member, Member.id == TradeInBatch.member_id
         ).filter(
-            TradeInBatch.tenant_id == tenant_id,
-            TradeInItem.category.isnot(None)
+            Member.tenant_id == tenant_id,
+            TradeInBatch.category.isnot(None)
         ).group_by(
-            TradeInItem.category
+            TradeInBatch.category
         ).order_by(
             func.count(TradeInItem.id).desc()
         ).limit(5).all()
@@ -218,9 +227,11 @@ def get_dashboard_analytics():
                 Member.created_at <= month_end
             ).scalar() or 0
 
-            # Count trade-ins this month
-            trade_ins_count = db.session.query(func.count(TradeInBatch.id)).filter(
-                TradeInBatch.tenant_id == tenant_id,
+            # Count trade-ins this month (join through Member for tenant filtering)
+            trade_ins_count = db.session.query(func.count(TradeInBatch.id)).join(
+                Member, Member.id == TradeInBatch.member_id
+            ).filter(
+                Member.tenant_id == tenant_id,
                 TradeInBatch.created_at >= month_start,
                 TradeInBatch.created_at <= month_end
             ).scalar() or 0
@@ -322,10 +333,12 @@ def export_analytics():
             filename = f'members_export_{datetime.utcnow().strftime("%Y%m%d")}.csv'
 
         elif export_type == 'trade_ins':
-            # Export trade-ins
-            writer.writerow(['Reference', 'Member', 'Category', 'Items', 'Trade Value', 'Credit Amount', 'Status', 'Created'])
-            batches = TradeInBatch.query.filter(
-                TradeInBatch.tenant_id == tenant_id,
+            # Export trade-ins (join through Member for tenant filtering)
+            writer.writerow(['Reference', 'Member', 'Category', 'Items', 'Trade Value', 'Status', 'Created'])
+            batches = TradeInBatch.query.join(
+                Member, Member.id == TradeInBatch.member_id
+            ).filter(
+                Member.tenant_id == tenant_id,
                 TradeInBatch.created_at >= start_date
             ).order_by(TradeInBatch.created_at.desc()).all()
             for b in batches:
@@ -336,7 +349,6 @@ def export_analytics():
                     b.category or 'General',
                     b.total_items or 0,
                     float(b.total_trade_value or 0),
-                    float(b.total_credit_amount or 0),
                     b.status,
                     b.created_at.strftime('%Y-%m-%d %H:%M') if b.created_at else ''
                 ])
@@ -378,8 +390,10 @@ def export_analytics():
             ).scalar() or 0
             writer.writerow(['Active Members', active_members])
 
-            total_trade_ins = db.session.query(func.count(TradeInBatch.id)).filter(
-                TradeInBatch.tenant_id == tenant_id
+            total_trade_ins = db.session.query(func.count(TradeInBatch.id)).join(
+                Member, Member.id == TradeInBatch.member_id
+            ).filter(
+                Member.tenant_id == tenant_id
             ).scalar() or 0
             writer.writerow(['Total Trade-Ins', total_trade_ins])
 
