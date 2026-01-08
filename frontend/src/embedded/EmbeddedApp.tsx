@@ -4,9 +4,10 @@
  * This component renders inside the Shopify Admin when merchants
  * access the TradeUp app. Uses Shopify Polaris for consistent UX.
  *
- * Navigation is handled by Shopify Admin's sidebar - configured in shopify.app.toml
+ * Navigation is handled by App Bridge NavMenu component
  */
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { NavMenu } from '@shopify/app-bridge-react';
 
 // Embedded app pages
 import { EmbeddedDashboard } from './pages/EmbeddedDashboard';
@@ -27,23 +28,34 @@ interface EmbeddedAppProps {
 }
 
 export function EmbeddedApp({ shop }: EmbeddedAppProps) {
-  // Navigation is handled by Shopify Admin sidebar (via shopify.app.toml)
-  // No custom Frame/Navigation needed - just render pages directly
   return (
-    <Routes>
-      <Route path="/" element={<Navigate to="/app/dashboard" replace />} />
-      <Route path="/dashboard" element={<EmbeddedDashboard shop={shop} />} />
-      <Route path="/tiers" element={<EmbeddedTiers shop={shop} />} />
-      <Route path="/members" element={<EmbeddedMembers shop={shop} />} />
-      <Route path="/trade-ins" element={<EmbeddedTradeIns shop={shop} />} />
-      <Route path="/trade-ins/new" element={<EmbeddedNewTradeIn shop={shop} />} />
-      <Route path="/trade-ins/categories" element={<EmbeddedCategories shop={shop} />} />
-      <Route path="/promotions" element={<EmbeddedPromotions shop={shop} />} />
-      <Route path="/bulk-credit" element={<EmbeddedBulkCredit shop={shop} />} />
-      <Route path="/settings" element={<EmbeddedSettings shop={shop} />} />
-      <Route path="/billing" element={<EmbeddedBilling shop={shop} />} />
-      <Route path="/referrals" element={<EmbeddedReferrals shop={shop} />} />
-      <Route path="/analytics" element={<EmbeddedAnalytics shop={shop} />} />
-    </Routes>
+    <>
+      {/* App Bridge NavMenu - configures Shopify Admin sidebar navigation */}
+      <NavMenu>
+        <a href="/app/dashboard" rel="home">Dashboard</a>
+        <a href="/app/members">Members</a>
+        <a href="/app/trade-ins">Trade-Ins</a>
+        <a href="/app/promotions">Promotions</a>
+        <a href="/app/tiers">Membership Tiers</a>
+        <a href="/app/settings">Settings</a>
+      </NavMenu>
+
+      {/* App Routes */}
+      <Routes>
+        <Route path="/" element={<Navigate to="/app/dashboard" replace />} />
+        <Route path="/dashboard" element={<EmbeddedDashboard shop={shop} />} />
+        <Route path="/tiers" element={<EmbeddedTiers shop={shop} />} />
+        <Route path="/members" element={<EmbeddedMembers shop={shop} />} />
+        <Route path="/trade-ins" element={<EmbeddedTradeIns shop={shop} />} />
+        <Route path="/trade-ins/new" element={<EmbeddedNewTradeIn shop={shop} />} />
+        <Route path="/trade-ins/categories" element={<EmbeddedCategories shop={shop} />} />
+        <Route path="/promotions" element={<EmbeddedPromotions shop={shop} />} />
+        <Route path="/bulk-credit" element={<EmbeddedBulkCredit shop={shop} />} />
+        <Route path="/settings" element={<EmbeddedSettings shop={shop} />} />
+        <Route path="/billing" element={<EmbeddedBilling shop={shop} />} />
+        <Route path="/referrals" element={<EmbeddedReferrals shop={shop} />} />
+        <Route path="/analytics" element={<EmbeddedAnalytics shop={shop} />} />
+      </Routes>
+    </>
   );
 }
