@@ -72,16 +72,21 @@ async function fetchRecentActivity(shop: string | null): Promise<RecentActivity[
 }
 
 export function EmbeddedDashboard({ shop }: DashboardProps) {
+  // Both queries run in parallel with caching for faster subsequent loads
   const { data: stats, isLoading: statsLoading, error: statsError } = useQuery({
     queryKey: ['dashboard', shop],
     queryFn: () => fetchDashboard(shop),
     enabled: !!shop,
+    staleTime: 30000, // Cache for 30s
+    gcTime: 60000, // Keep in cache for 60s
   });
 
   const { data: activity, isLoading: activityLoading } = useQuery({
     queryKey: ['activity', shop],
     queryFn: () => fetchRecentActivity(shop),
     enabled: !!shop,
+    staleTime: 30000,
+    gcTime: 60000,
   });
 
   if (!shop) {
@@ -96,12 +101,34 @@ export function EmbeddedDashboard({ shop }: DashboardProps) {
 
   if (statsLoading) {
     return (
-      <Page title="Dashboard">
-        <Box padding="1600">
-          <InlineStack align="center">
-            <Spinner size="large" />
-          </InlineStack>
-        </Box>
+      <Page
+        title="Dashboard"
+        subtitle="Loading your membership program data..."
+      >
+        <Layout>
+          <Layout.Section>
+            <InlineStack gap="400" wrap={false}>
+              {[1, 2, 3, 4].map((i) => (
+                <Card key={i}>
+                  <BlockStack gap="200">
+                    <Box background="bg-surface-secondary" borderRadius="100" minHeight="20px" />
+                    <Box background="bg-surface-secondary" borderRadius="100" minHeight="40px" />
+                    <Box background="bg-surface-secondary" borderRadius="100" minHeight="20px" maxWidth="60px" />
+                  </BlockStack>
+                </Card>
+              ))}
+            </InlineStack>
+          </Layout.Section>
+          <Layout.Section variant="oneThird">
+            <Card>
+              <BlockStack gap="400">
+                <Box background="bg-surface-secondary" borderRadius="100" minHeight="24px" />
+                <Box background="bg-surface-secondary" borderRadius="100" minHeight="40px" />
+                <Box background="bg-surface-secondary" borderRadius="100" minHeight="40px" />
+              </BlockStack>
+            </Card>
+          </Layout.Section>
+        </Layout>
       </Page>
     );
   }
