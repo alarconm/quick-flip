@@ -84,18 +84,22 @@ def get_dashboard_analytics():
             TradeInBatch.created_at >= start_date
         ).scalar() or 0
 
-        # Get store credit statistics
+        # Get store credit statistics (join through Member for tenant filtering)
         total_credit_issued = db.session.query(
             func.coalesce(func.sum(StoreCreditLedger.amount), 0)
+        ).join(
+            Member, Member.id == StoreCreditLedger.member_id
         ).filter(
-            StoreCreditLedger.tenant_id == tenant_id,
+            Member.tenant_id == tenant_id,
             StoreCreditLedger.amount > 0
         ).scalar() or 0
 
         credit_this_period = db.session.query(
             func.coalesce(func.sum(StoreCreditLedger.amount), 0)
+        ).join(
+            Member, Member.id == StoreCreditLedger.member_id
         ).filter(
-            StoreCreditLedger.tenant_id == tenant_id,
+            Member.tenant_id == tenant_id,
             StoreCreditLedger.amount > 0,
             StoreCreditLedger.created_at >= start_date
         ).scalar() or 0
@@ -221,11 +225,13 @@ def get_dashboard_analytics():
                 TradeInBatch.created_at <= month_end
             ).scalar() or 0
 
-            # Sum credit issued this month
+            # Sum credit issued this month (join through Member for tenant filtering)
             credit_issued = db.session.query(
                 func.coalesce(func.sum(StoreCreditLedger.amount), 0)
+            ).join(
+                Member, Member.id == StoreCreditLedger.member_id
             ).filter(
-                StoreCreditLedger.tenant_id == tenant_id,
+                Member.tenant_id == tenant_id,
                 StoreCreditLedger.amount > 0,
                 StoreCreditLedger.created_at >= month_start,
                 StoreCreditLedger.created_at <= month_end
@@ -337,10 +343,12 @@ def export_analytics():
             filename = f'trade_ins_export_{datetime.utcnow().strftime("%Y%m%d")}.csv'
 
         elif export_type == 'credits':
-            # Export credit transactions
+            # Export credit transactions (join through Member for tenant filtering)
             writer.writerow(['Date', 'Member', 'Amount', 'Type', 'Description', 'Balance After'])
-            ledger = StoreCreditLedger.query.filter(
-                StoreCreditLedger.tenant_id == tenant_id,
+            ledger = StoreCreditLedger.query.join(
+                Member, Member.id == StoreCreditLedger.member_id
+            ).filter(
+                Member.tenant_id == tenant_id,
                 StoreCreditLedger.created_at >= start_date
             ).order_by(StoreCreditLedger.created_at.desc()).all()
             for entry in ledger:
@@ -377,8 +385,10 @@ def export_analytics():
 
             total_credit = db.session.query(
                 func.coalesce(func.sum(StoreCreditLedger.amount), 0)
+            ).join(
+                Member, Member.id == StoreCreditLedger.member_id
             ).filter(
-                StoreCreditLedger.tenant_id == tenant_id,
+                Member.tenant_id == tenant_id,
                 StoreCreditLedger.amount > 0
             ).scalar() or 0
             writer.writerow(['Total Credit Issued', f'${float(total_credit):.2f}'])
