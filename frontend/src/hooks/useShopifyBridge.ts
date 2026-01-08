@@ -310,18 +310,36 @@ export async function authFetch(
 
   console.log('[TradeUp] authFetch fetching:', absoluteUrl);
   console.log('[TradeUp] Current origin:', baseUrl);
+
+  // Create AbortController for timeout
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    console.error('[TradeUp] Fetch timeout after 10s - aborting');
+    controller.abort();
+  }, 10000);
+
   try {
     const response = await fetch(absoluteUrl, {
       ...options,
+      // Explicit CORS settings for embedded iframe context
+      mode: 'cors',
+      credentials: 'omit', // Don't send cookies - avoids third-party cookie blocking
+      signal: controller.signal,
       headers: {
         ...headers,
         ...options.headers,
       },
     });
+    clearTimeout(timeoutId);
     console.log('[TradeUp] authFetch response received:', response.status);
     return response;
   } catch (error) {
-    console.error('[TradeUp] authFetch FAILED:', error);
+    clearTimeout(timeoutId);
+    if (error instanceof Error && error.name === 'AbortError') {
+      console.error('[TradeUp] authFetch TIMEOUT - request aborted');
+    } else {
+      console.error('[TradeUp] authFetch FAILED:', error);
+    }
     throw error;
   }
 }
