@@ -2,24 +2,24 @@
 Store Credit Events API endpoints.
 For running promotional store credit events like Trade Night.
 """
-import os
 from datetime import datetime
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
+from ..middleware.shop_auth import require_shop_auth
 from ..services.store_credit_events import StoreCreditEventsService
 
 store_credit_events_bp = Blueprint('store_credit_events', __name__)
 
 
-def get_service():
-    """Get store credit events service from environment."""
-    shop_domain = os.getenv('SHOPIFY_DOMAIN')
-    access_token = os.getenv('SHOPIFY_ACCESS_TOKEN')
-    if not shop_domain or not access_token:
+def get_service_for_tenant():
+    """Get store credit events service for the authenticated tenant."""
+    tenant = getattr(g, 'tenant', None)
+    if not tenant or not tenant.shopify_access_token:
         return None
-    return StoreCreditEventsService(shop_domain, access_token)
+    return StoreCreditEventsService(tenant.shopify_domain, tenant.shopify_access_token)
 
 
 @store_credit_events_bp.route('/preview', methods=['POST'])
+@require_shop_auth
 def preview_event():
     """
     Preview a store credit event.
@@ -34,11 +34,9 @@ def preview_event():
     Returns:
         Preview with order counts, customer totals, top customers
     """
-    # TODO: Add admin authentication
-
-    service = get_service()
+    service = get_service_for_tenant()
     if not service:
-        return jsonify({'error': 'Shopify not configured'}), 500
+        return jsonify({'error': 'Shopify not configured for this shop'}), 500
 
     data = request.json
     if not data:
@@ -64,6 +62,7 @@ def preview_event():
 
 
 @store_credit_events_bp.route('/run', methods=['POST'])
+@require_shop_auth
 def run_event():
     """
     Run a store credit event (apply credits).
@@ -80,11 +79,9 @@ def run_event():
     Returns:
         Event results with success/failure counts
     """
-    # TODO: Add admin authentication
-
-    service = get_service()
+    service = get_service_for_tenant()
     if not service:
-        return jsonify({'error': 'Shopify not configured'}), 500
+        return jsonify({'error': 'Shopify not configured for this shop'}), 500
 
     data = request.json
     if not data:
@@ -119,6 +116,7 @@ def run_event():
 
 
 @store_credit_events_bp.route('/sources', methods=['GET'])
+@require_shop_auth
 def list_sources():
     """
     List available order sources for a date range.
@@ -130,9 +128,9 @@ def list_sources():
     Returns:
         List of sources with order counts
     """
-    service = get_service()
+    service = get_service_for_tenant()
     if not service:
-        return jsonify({'error': 'Shopify not configured'}), 500
+        return jsonify({'error': 'Shopify not configured for this shop'}), 500
 
     start = request.args.get('start_datetime')
     end = request.args.get('end_datetime')

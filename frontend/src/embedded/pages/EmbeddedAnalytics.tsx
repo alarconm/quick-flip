@@ -160,17 +160,30 @@ export function EmbeddedAnalytics({ shop }: AnalyticsProps) {
   const topMembers = analytics?.top_members || [];
   const categoryPerformance = analytics?.category_performance || [];
 
+  const handleExport = (exportType: string = 'summary') => {
+    // Build export URL with auth params
+    const params = new URLSearchParams();
+    params.set('type', exportType);
+    params.set('period', period);
+    if (shop) params.set('shop', shop);
+
+    // Open in new tab to trigger download
+    window.open(`${getApiUrl()}/analytics/export?${params.toString()}`, '_blank');
+  };
+
   return (
     <Page
       title="Analytics"
       subtitle="Track your loyalty program performance"
       primaryAction={{
         content: 'Export Report',
-        onAction: () => {
-          // TODO: Implement CSV export
-          console.log('Export report');
-        },
+        onAction: () => handleExport('summary'),
       }}
+      secondaryActions={[
+        { content: 'Export Members', onAction: () => handleExport('members') },
+        { content: 'Export Trade-Ins', onAction: () => handleExport('trade_ins') },
+        { content: 'Export Credits', onAction: () => handleExport('credits') },
+      ]}
     >
       <Layout>
         {/* Period Selector */}

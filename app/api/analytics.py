@@ -197,6 +197,48 @@ def get_dashboard_analytics():
                 'avg_value': avg_value
             })
 
+        # Calculate monthly trends (last 6 months)
+        monthly_trends = []
+        for i in range(5, -1, -1):
+            # Calculate month start/end
+            month_end = datetime.utcnow().replace(day=1) - timedelta(days=1)  # End of previous month
+            for _ in range(i):
+                month_end = month_end.replace(day=1) - timedelta(days=1)
+            month_start = month_end.replace(day=1)
+            month_end = (month_start + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+
+            # Count members added this month
+            members_added = db.session.query(func.count(Member.id)).filter(
+                Member.tenant_id == tenant_id,
+                Member.created_at >= month_start,
+                Member.created_at <= month_end
+            ).scalar() or 0
+
+            # Count trade-ins this month
+            trade_ins_count = db.session.query(func.count(TradeInBatch.id)).filter(
+                TradeInBatch.tenant_id == tenant_id,
+                TradeInBatch.created_at >= month_start,
+                TradeInBatch.created_at <= month_end
+            ).scalar() or 0
+
+            # Sum credit issued this month
+            credit_issued = db.session.query(
+                func.coalesce(func.sum(StoreCreditLedger.amount), 0)
+            ).filter(
+                StoreCreditLedger.tenant_id == tenant_id,
+                StoreCreditLedger.amount > 0,
+                StoreCreditLedger.created_at >= month_start,
+                StoreCreditLedger.created_at <= month_end
+            ).scalar() or 0
+
+            monthly_trends.append({
+                'month': month_start.strftime('%b %Y'),
+                'month_start': month_start.isoformat(),
+                'new_members': members_added,
+                'trade_ins': trade_ins_count,
+                'credit_issued': float(credit_issued)
+            })
+
         return jsonify({
             'overview': {
                 'total_members': total_members,
@@ -214,7 +256,7 @@ def get_dashboard_analytics():
             'tier_distribution': tier_distribution,
             'top_members': top_members_list,
             'category_performance': category_list,
-            'monthly_trends': []  # TODO: Implement monthly trends
+            'monthly_trends': monthly_trends
         })
 
     except Exception as e:
@@ -231,6 +273,10 @@ def export_analytics():
         type: 'members', 'trade_ins', 'credits', 'summary'
         period: '7', '30', '90', '365', 'all'
     """
+    import csv
+    import io
+    from flask import Response
+
     tenant_id = g.tenant_id
     export_type = request.args.get('type', 'summary')
     period = request.args.get('period', '30')
@@ -243,9 +289,115 @@ def export_analytics():
         days = int(period)
         start_date = end_date - timedelta(days=days)
 
-    # TODO: Implement CSV export
-    return jsonify({
-        'message': 'Export functionality coming soon',
-        'type': export_type,
-        'period': period
-    })
+    try:
+        output = io.StringIO()
+        writer = csv.writer(output)
+
+        if export_type == 'members':
+            # Export members
+            writer.writerow(['Member Number', 'Name', 'Email', 'Tier', 'Status', 'Trade-Ins', 'Total Credit', 'Joined'])
+            members = Member.query.filter(
+                Member.tenant_id == tenant_id,
+                Member.created_at >= start_date
+            ).all()
+            for m in members:
+                tier_name = m.tier.name if m.tier else 'None'
+                name = f"{m.first_name or ''} {m.last_name or ''}".strip() or m.email
+                writer.writerow([
+                    m.member_number,
+                    name,
+                    m.email,
+                    tier_name,
+                    m.status,
+                    m.total_trade_ins or 0,
+                    float(m.total_credit_earned or 0),
+                    m.created_at.strftime('%Y-%m-%d') if m.created_at else ''
+                ])
+            filename = f'members_export_{datetime.utcnow().strftime("%Y%m%d")}.csv'
+
+        elif export_type == 'trade_ins':
+            # Export trade-ins
+            writer.writerow(['Reference', 'Member', 'Category', 'Items', 'Trade Value', 'Credit Amount', 'Status', 'Created'])
+            batches = TradeInBatch.query.filter(
+                TradeInBatch.tenant_id == tenant_id,
+                TradeInBatch.created_at >= start_date
+            ).order_by(TradeInBatch.created_at.desc()).all()
+            for b in batches:
+                member_name = b.member.member_number if b.member else 'Unknown'
+                writer.writerow([
+                    b.batch_reference,
+                    member_name,
+                    b.category or 'General',
+                    b.total_items or 0,
+                    float(b.total_trade_value or 0),
+                    float(b.total_credit_amount or 0),
+                    b.status,
+                    b.created_at.strftime('%Y-%m-%d %H:%M') if b.created_at else ''
+                ])
+            filename = f'trade_ins_export_{datetime.utcnow().strftime("%Y%m%d")}.csv'
+
+        elif export_type == 'credits':
+            # Export credit transactions
+            writer.writerow(['Date', 'Member', 'Amount', 'Type', 'Description', 'Balance After'])
+            ledger = StoreCreditLedger.query.filter(
+                StoreCreditLedger.tenant_id == tenant_id,
+                StoreCreditLedger.created_at >= start_date
+            ).order_by(StoreCreditLedger.created_at.desc()).all()
+            for entry in ledger:
+                member_num = entry.member.member_number if entry.member else 'Unknown'
+                writer.writerow([
+                    entry.created_at.strftime('%Y-%m-%d %H:%M') if entry.created_at else '',
+                    member_num,
+                    float(entry.amount),
+                    entry.source_type or 'manual',
+                    entry.description or '',
+                    float(entry.balance_after or 0)
+                ])
+            filename = f'credits_export_{datetime.utcnow().strftime("%Y%m%d")}.csv'
+
+        else:  # summary
+            # Export summary metrics
+            writer.writerow(['Metric', 'Value'])
+
+            total_members = db.session.query(func.count(Member.id)).filter(
+                Member.tenant_id == tenant_id
+            ).scalar() or 0
+            writer.writerow(['Total Members', total_members])
+
+            active_members = db.session.query(func.count(Member.id)).filter(
+                Member.tenant_id == tenant_id,
+                Member.status == 'active'
+            ).scalar() or 0
+            writer.writerow(['Active Members', active_members])
+
+            total_trade_ins = db.session.query(func.count(TradeInBatch.id)).filter(
+                TradeInBatch.tenant_id == tenant_id
+            ).scalar() or 0
+            writer.writerow(['Total Trade-Ins', total_trade_ins])
+
+            total_credit = db.session.query(
+                func.coalesce(func.sum(StoreCreditLedger.amount), 0)
+            ).filter(
+                StoreCreditLedger.tenant_id == tenant_id,
+                StoreCreditLedger.amount > 0
+            ).scalar() or 0
+            writer.writerow(['Total Credit Issued', f'${float(total_credit):.2f}'])
+
+            writer.writerow(['Export Date', datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')])
+            writer.writerow(['Period', f'Last {period} days' if period != 'all' else 'All time'])
+
+            filename = f'summary_export_{datetime.utcnow().strftime("%Y%m%d")}.csv'
+
+        # Return CSV response
+        output.seek(0)
+        return Response(
+            output.getvalue(),
+            mimetype='text/csv',
+            headers={
+                'Content-Disposition': f'attachment; filename={filename}',
+                'Content-Type': 'text/csv; charset=utf-8'
+            }
+        )
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
