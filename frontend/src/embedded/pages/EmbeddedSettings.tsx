@@ -497,7 +497,8 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
         name: tier.name,
         monthly_price: String(tier.monthly_price),
         yearly_price: tier.yearly_price ? String(tier.yearly_price) : '',
-        bonus_rate: String(tier.bonus_rate),
+        // Convert decimal to percentage for display (0.05 -> 5)
+        bonus_rate: String((tier.bonus_rate || 0) * 100),
         discount_percent: String(tier.benefits?.discount_percent || 0),
         purchase_cashback_pct: String(tier.purchase_cashback_pct || 0),
         monthly_credit: String(tier.monthly_credit_amount || 0),
@@ -509,7 +510,7 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
         name: '',
         monthly_price: '9.99',
         yearly_price: '',
-        bonus_rate: '0.05',
+        bonus_rate: '5', // 5% default (displayed as percentage)
         discount_percent: '0',
         purchase_cashback_pct: '0',
         monthly_credit: '0',
@@ -673,7 +674,8 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
       name: tierForm.name.trim(),
       monthly_price: parseFloat(tierForm.monthly_price) || 0,
       yearly_price: tierForm.yearly_price ? parseFloat(tierForm.yearly_price) : undefined,
-      bonus_rate: parseFloat(tierForm.bonus_rate) || 0,
+      // Convert percentage to decimal for storage (5 -> 0.05)
+      bonus_rate: (parseFloat(tierForm.bonus_rate) || 0) / 100,
       purchase_cashback_pct: parseFloat(tierForm.purchase_cashback_pct) || 0,
       monthly_credit_amount: parseFloat(tierForm.monthly_credit) || 0,
       credit_expiration_days: tierForm.credit_expiration_days ? parseInt(tierForm.credit_expiration_days) : null,
@@ -1158,7 +1160,7 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
                               {tier.yearly_price ? ` · $${tier.yearly_price}/yr` : ''}
                             </Text>
                             <Text as="span" variant="bodySm" tone="subdued">
-                              +{(tier.bonus_rate * 100).toFixed(0)}% trade-in
+                              +{(tier.bonus_rate * 100).toFixed(1).replace(/\.0$/, '')}% trade-in bonus
                             </Text>
                             {tier.purchase_cashback_pct ? (
                               <Text as="span" variant="bodySm" tone="subdued">
@@ -2080,9 +2082,9 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
               type="number"
               value={tierForm.bonus_rate}
               onChange={(value) => setTierForm({ ...tierForm, bonus_rate: value })}
-              suffix="(decimal)"
+              suffix="%"
               autoComplete="off"
-              helpText="E.g., 0.05 = 5% bonus, 0.10 = 10% bonus on trade-in values"
+              helpText="Extra percentage added to trade-in value. E.g., 5% bonus on $100 trade = $5 extra credit."
             />
 
             <TextField
