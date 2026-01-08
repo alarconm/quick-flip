@@ -119,34 +119,49 @@ def install():
 
     Shopify redirects here with: shop, timestamp, hmac
     """
-    shop = request.args.get('shop')
+    try:
+        shop = request.args.get('shop')
 
-    if not shop:
-        return jsonify({'error': 'Missing shop parameter'}), 400
+        if not shop:
+            return jsonify({'error': 'Missing shop parameter'}), 400
 
-    # Verify HMAC if present
-    if request.args.get('hmac') and not verify_hmac(dict(request.args)):
-        return jsonify({'error': 'Invalid HMAC signature'}), 401
+        # Debug: Check if credentials are configured
+        if not SHOPIFY_API_KEY:
+            return jsonify({
+                'error': 'App configuration error',
+                'message': 'SHOPIFY_CLIENT_ID/SHOPIFY_API_KEY not configured'
+            }), 500
 
-    # Check if already installed
-    tenant = Tenant.query.filter_by(shopify_domain=shop).first()
-    if tenant and tenant.shopify_access_token:
-        # Already installed, redirect to app
-        return redirect(f"https://{shop}/admin/apps/{SHOPIFY_API_KEY}")
+        # Verify HMAC if present
+        if request.args.get('hmac') and not verify_hmac(dict(request.args)):
+            return jsonify({'error': 'Invalid HMAC signature'}), 401
 
-    # Generate state that encodes shop for verification (no session needed)
-    state = generate_state(shop)
+        # Check if already installed
+        tenant = Tenant.query.filter_by(shopify_domain=shop).first()
+        if tenant and tenant.shopify_access_token:
+            # Already installed, redirect to app
+            return redirect(f"https://{shop}/admin/apps/{SHOPIFY_API_KEY}")
 
-    # Build OAuth URL
-    oauth_params = {
-        'client_id': SHOPIFY_API_KEY,
-        'scope': ','.join(SCOPES),
-        'redirect_uri': f"{APP_URL}/api/shopify/callback",
-        'state': state,
-    }
+        # Generate state that encodes shop for verification (no session needed)
+        state = generate_state(shop)
 
-    auth_url = f"https://{shop}/admin/oauth/authorize?{urlencode(oauth_params)}"
-    return redirect(auth_url)
+        # Build OAuth URL
+        oauth_params = {
+            'client_id': SHOPIFY_API_KEY,
+            'scope': ','.join(SCOPES),
+            'redirect_uri': f"{APP_URL}/api/shopify/callback",
+            'state': state,
+        }
+
+        auth_url = f"https://{shop}/admin/oauth/authorize?{urlencode(oauth_params)}"
+        return redirect(auth_url)
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'error': 'Install failed',
+            'message': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
 
 
 @shopify_oauth_bp.route('/callback', methods=['GET'])
