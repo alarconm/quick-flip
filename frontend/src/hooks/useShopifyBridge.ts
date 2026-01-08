@@ -73,19 +73,50 @@ export function useShopifyBridge(): ShopifyBridgeState {
     initRef.current = true;
 
     const init = async () => {
-      // Get shop from URL params or local storage
-      const urlParams = new URLSearchParams(window.location.search);
-      const shopParam = urlParams.get('shop');
-
       // Check if embedded in Shopify admin
       const isEmbedded = window.top !== window.self;
 
-      // Try to get shop from various sources
-      let shop = shopParam;
+      // Try to get shop from various sources (in priority order)
+      let shop: string | null = null;
 
+      // 1. First check Flask-injected config (most reliable in production)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const tradeupConfig = (window as any).__TRADEUP_CONFIG__;
+      if (tradeupConfig?.shop) {
+        shop = tradeupConfig.shop;
+        console.log('[TradeUp] Got shop from server config:', shop);
+      }
+
+      // 2. Then check URL params (works for direct navigation)
       if (!shop) {
-        // Try local storage for returning users
+        const urlParams = new URLSearchParams(window.location.search);
+        shop = urlParams.get('shop');
+        if (shop) {
+          console.log('[TradeUp] Got shop from URL params:', shop);
+        }
+      }
+
+      // 3. In embedded mode, try App Bridge config
+      if (!shop && isEmbedded) {
+        // Wait for App Bridge to initialize (it loads from CDN)
+        for (let i = 0; i < 20; i++) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const shopify = (window as any).shopify;
+          if (shopify?.config?.shop) {
+            shop = shopify.config.shop;
+            console.log('[TradeUp] Got shop from App Bridge config:', shop);
+            break;
+          }
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      }
+
+      // 4. Try local storage for returning users
+      if (!shop) {
         shop = localStorage.getItem('tradeup_shop');
+        if (shop) {
+          console.log('[TradeUp] Got shop from localStorage:', shop);
+        }
       }
 
       // Development fallback - use a test shop for local dev
@@ -100,11 +131,11 @@ export function useShopifyBridge(): ShopifyBridgeState {
 
       // Get initial session token if embedded
       let sessionToken: string | null = null;
-      if (isEmbedded) {
-        // Wait a tick for App Bridge to initialize
-        await new Promise(resolve => setTimeout(resolve, 100));
+      if (isEmbedded && shop) {
         sessionToken = await fetchSessionToken();
       }
+
+      console.log('[TradeUp] Bridge initialized:', { shop, isEmbedded, hasToken: !!sessionToken });
 
       setState({
         shop,

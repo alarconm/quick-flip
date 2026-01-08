@@ -158,13 +158,22 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
 <p>Looking for: {dist_path}</p>
 </body></html>'''
 
-    # Inject Shopify App Bridge CDN script before </head>
+    # Inject Shopify context and App Bridge CDN script before </head>
     # This must load BEFORE the React bundle for window.shopify to be available
-    app_bridge_script = '''
+    # We inject the shop directly so React can read it immediately
+    context_script = f'''
+    <script>
+      window.__TRADEUP_CONFIG__ = {{
+        shop: "{shop}",
+        host: "{host}",
+        apiKey: "{api_key}",
+        appUrl: "{app_url}"
+      }};
+    </script>
     <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js"></script>'''
 
-    # Insert App Bridge script before </head>
-    html = html.replace('</head>', f'{app_bridge_script}\n  </head>')
+    # Insert scripts before </head>
+    html = html.replace('</head>', f'{context_script}\n  </head>')
 
     return html
 
