@@ -177,10 +177,17 @@ export function useShopifyBridge(): ShopifyBridgeState {
           }
         }
 
-        // Get initial session token if embedded
+        // Get initial session token if embedded (with timeout to prevent hanging)
         let sessionToken: string | null = null;
         if (isEmbedded && shop) {
-          sessionToken = await fetchSessionToken();
+          try {
+            // Add 3 second timeout to prevent hanging if App Bridge isn't ready
+            const tokenPromise = fetchSessionToken();
+            const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000));
+            sessionToken = await Promise.race([tokenPromise, timeoutPromise]);
+          } catch (e) {
+            console.warn('[TradeUp] Session token fetch failed:', e);
+          }
         }
 
         console.log('[TradeUp] Bridge initialized:', { shop, isEmbedded, hasToken: !!sessionToken });
