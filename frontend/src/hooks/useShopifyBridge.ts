@@ -305,11 +305,11 @@ export async function authFetch(
     : `${url}?shop=${shop}`;
 
   console.log('[TradeUp] authFetch fetching:', urlWithShop);
+  console.log('[TradeUp] Current origin:', window.location.origin);
   try {
     const response = await fetch(urlWithShop, {
       ...options,
-      credentials: 'same-origin',
-      mode: 'same-origin',
+      credentials: 'include',
       headers: {
         ...headers,
         ...options.headers,
