@@ -296,7 +296,7 @@ export default function MemberDetail() {
         </div>
 
         <div style={statCardStyle}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: spacing[2], color: colors.info }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: spacing[2], color: colors.interactive }}>
             <Award size={20} />
             <span style={{ fontSize: typography.sm, color: colors.textSecondary }}>Current Tier</span>
           </div>

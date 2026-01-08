@@ -266,9 +266,7 @@ export function EmbeddedMembers({ shop }: MembersProps) {
                                     variant="plain"
                                     onClick={() => setDetailMember(member)}
                                   >
-                                    <Text as="span" fontWeight="semibold">
-                                      {member.first_name} {member.last_name}
-                                    </Text>
+                                    {member.first_name} {member.last_name}
                                   </Button>
                                   <Text as="p" variant="bodySm" tone="subdued">
                                     {member.email}
@@ -1347,14 +1345,19 @@ function AddMemberModal({ open, onClose, shop }: AddMemberModalProps) {
                   Search Results ({searchResults.length})
                 </Text>
                 {searchResults.map((customer) => (
-                  <Box
+                  <div
                     key={customer.id}
-                    padding="300"
-                    background="bg-surface-secondary"
-                    borderRadius="200"
-                    as="button"
                     onClick={() => setSelectedCustomer(customer)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => e.key === 'Enter' && setSelectedCustomer(customer)}
+                    style={{ cursor: 'pointer' }}
                   >
+                    <Box
+                      padding="300"
+                      background="bg-surface-secondary"
+                      borderRadius="200"
+                    >
                     <InlineStack align="space-between" blockAlign="center">
                       <BlockStack gap="100">
                         <Text as="span" fontWeight="semibold">
@@ -1373,7 +1376,8 @@ function AddMemberModal({ open, onClose, shop }: AddMemberModalProps) {
                         </Text>
                       </BlockStack>
                     </InlineStack>
-                  </Box>
+                    </Box>
+                  </div>
                 ))}
               </BlockStack>
             ) : searchQuery.length >= 2 && !searching ? (

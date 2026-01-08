@@ -365,6 +365,8 @@ export function EmbeddedNewTradeIn({ shop }: NewTradeInProps) {
                   loading={searchLoading}
                   textField={
                     <Autocomplete.TextField
+                      label="Search members"
+                      labelHidden
                       onChange={setMemberSearch}
                       value={memberSearch}
                       prefix={<Icon source={SearchIcon} />}

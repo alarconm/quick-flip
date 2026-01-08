@@ -274,7 +274,7 @@ export function EmbeddedTradeIns({ shop }: TradeInsProps) {
                       <Pagination
                         hasPrevious={page > 1}
                         onPrevious={() => setPage(page - 1)}
-                        hasNext={page < (data?.pages || 1)}
+                        hasNext={page < Math.ceil((data?.total || 0) / (data?.per_page || 10))}
                         onNext={() => setPage(page + 1)}
                       />
                     </InlineStack>

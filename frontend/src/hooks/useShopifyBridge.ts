@@ -34,7 +34,10 @@ async function fetchSessionToken(): Promise<string | null> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const shopify = (window as any).shopify;
     if (shopify?.idToken) {
-      const token = await shopify.idToken();
+      // Add timeout to prevent hanging if App Bridge isn't ready
+      const tokenPromise = shopify.idToken();
+      const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000));
+      const token = await Promise.race([tokenPromise, timeoutPromise]);
       if (token) {
         cachedToken = token;
         // Tokens typically expire in 60 seconds

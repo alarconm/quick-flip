@@ -1128,13 +1128,10 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
                       shortcutActions={[
                         {
                           content: 'Edit',
-                          icon: EditIcon,
                           onAction: () => openTierModal(tier),
                         },
                         {
                           content: 'Delete',
-                          icon: DeleteIcon,
-                          destructive: true,
                           onAction: () => {
                             if (confirm(`Delete the "${tier.name}" tier?`)) {
                               deleteTierMutation.mutate(tier.id);
@@ -1309,8 +1306,8 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
                 <BlockStack gap="500">
                   {Object.entries(emailTemplatesData.by_category).map(([category, templates]) => (
                     <BlockStack key={category} gap="200">
-                      <Text as="h4" variant="headingSm" textTransform="capitalize">
-                        {category.replace('_', ' ')} Emails
+                      <Text as="h4" variant="headingSm">
+                        {category.replace('_', ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')} Emails
                       </Text>
                       <BlockStack gap="100">
                         {templates.map((template) => (
@@ -1852,7 +1849,7 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
                               <Text as="span" variant="bodySm">
                                 {detail.member_number} ({detail.tier})
                               </Text>
-                              <Badge tone="success">${detail.amount.toFixed(2)}</Badge>
+                              <Badge tone="success">{`$${detail.amount.toFixed(2)}`}</Badge>
                             </InlineStack>
                           ))}
                         </BlockStack>
@@ -1940,7 +1937,7 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
                               <Text as="span" variant="bodySm">
                                 {member.member_number} ({member.email || 'No email'})
                               </Text>
-                              <Badge tone="warning">${member.total_expiring.toFixed(2)}</Badge>
+                              <Badge tone="warning">{`$${member.total_expiring.toFixed(2)}`}</Badge>
                             </InlineStack>
                           ))}
                         </BlockStack>

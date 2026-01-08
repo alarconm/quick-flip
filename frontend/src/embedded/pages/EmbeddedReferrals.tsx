@@ -265,7 +265,7 @@ export function EmbeddedReferrals({ shop }: ReferralsProps) {
                   rows={stats.top_referrers.slice(0, 5).map((referrer, index) => [
                     <InlineStack gap="200" key={referrer.id} blockAlign="center">
                       <Badge tone={index === 0 ? 'success' : index === 1 ? 'info' : 'enabled'}>
-                        #{index + 1}
+                        {`#${index + 1}`}
                       </Badge>
                       <BlockStack gap="050">
                         <Text as="span" variant="bodyMd" fontWeight="semibold">

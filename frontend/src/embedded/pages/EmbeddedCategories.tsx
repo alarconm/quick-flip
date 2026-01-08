@@ -260,13 +260,10 @@ export function EmbeddedCategories({ shop }: CategoriesProps) {
                     shortcutActions={[
                       {
                         content: 'Edit',
-                        icon: EditIcon,
                         onAction: () => openEditModal(category),
                       },
                       {
                         content: 'Delete',
-                        icon: DeleteIcon,
-                        destructive: true,
                         onAction: () => setDeleteConfirmId(category.id),
                       },
                     ]}
@@ -339,9 +336,7 @@ export function EmbeddedCategories({ shop }: CategoriesProps) {
                     onClick={() => setFormIcon(emoji)}
                     accessibilityLabel={label}
                   >
-                    <Text as="span" variant="headingMd">
-                      {emoji}
-                    </Text>
+                    {emoji}
                   </Button>
                 ))}
               </InlineGrid>
