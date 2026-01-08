@@ -3,20 +3,10 @@
  *
  * This component renders inside the Shopify Admin when merchants
  * access the TradeUp app. Uses Shopify Polaris for consistent UX.
+ *
+ * Navigation is handled by Shopify Admin's sidebar - configured in shopify.app.toml
  */
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { Frame, Navigation, TopBar } from '@shopify/polaris';
-import {
-  HomeIcon,
-  PersonIcon,
-  ReceiptIcon,
-  SettingsIcon,
-  CreditCardIcon,
-  ListBulletedIcon,
-  DiscountIcon,
-  GiftCardIcon,
-} from '@shopify/polaris-icons';
-import { useState, useCallback } from 'react';
 
 // Embedded app pages
 import { EmbeddedDashboard } from './pages/EmbeddedDashboard';
@@ -29,115 +19,31 @@ import { EmbeddedBulkCredit } from './pages/EmbeddedBulkCredit';
 import { EmbeddedPromotions } from './pages/EmbeddedPromotions';
 import { EmbeddedSettings } from './pages/EmbeddedSettings';
 import { EmbeddedBilling } from './pages/EmbeddedBilling';
+import { EmbeddedReferrals } from './pages/EmbeddedReferrals';
+import { EmbeddedAnalytics } from './pages/EmbeddedAnalytics';
 
 interface EmbeddedAppProps {
   shop: string | null;
 }
 
 export function EmbeddedApp({ shop }: EmbeddedAppProps) {
-  const [mobileNavActive, setMobileNavActive] = useState(false);
-
-  const toggleMobileNav = useCallback(() => {
-    setMobileNavActive((active) => !active);
-  }, []);
-
-  const logo = {
-    width: 36,
-    topBarSource: '/tradeup-logo.svg',
-    contextualSaveBarSource: '/tradeup-logo.svg',
-    accessibilityLabel: 'TradeUp',
-  };
-
-  const topBarMarkup = (
-    <TopBar
-      showNavigationToggle
-      onNavigationToggle={toggleMobileNav}
-    />
-  );
-
-  const navigationMarkup = (
-    <Navigation location={window.location.pathname}>
-      <Navigation.Section
-        items={[
-          {
-            url: '/app/dashboard',
-            label: 'Dashboard',
-            icon: HomeIcon,
-            selected: window.location.pathname === '/app/dashboard',
-          },
-          {
-            url: '/app/tiers',
-            label: 'Membership Tiers',
-            icon: ListBulletedIcon,
-            selected: window.location.pathname === '/app/tiers',
-          },
-          {
-            url: '/app/members',
-            label: 'Members',
-            icon: PersonIcon,
-            selected: window.location.pathname.startsWith('/app/members'),
-          },
-          {
-            url: '/app/trade-ins',
-            label: 'Trade-Ins',
-            icon: ReceiptIcon,
-            selected: window.location.pathname.startsWith('/app/trade-ins'),
-          },
-          {
-            url: '/app/promotions',
-            label: 'Promotions',
-            icon: DiscountIcon,
-            selected: window.location.pathname.startsWith('/app/promotions'),
-          },
-          {
-            url: '/app/bulk-credit',
-            label: 'Bulk Credit',
-            icon: GiftCardIcon,
-            selected: window.location.pathname.startsWith('/app/bulk-credit'),
-          },
-        ]}
-      />
-      <Navigation.Section
-        title="Settings"
-        items={[
-          {
-            url: '/app/billing',
-            label: 'Plan & Billing',
-            icon: CreditCardIcon,
-            selected: window.location.pathname === '/app/billing',
-          },
-          {
-            url: '/app/settings',
-            label: 'Settings',
-            icon: SettingsIcon,
-            selected: window.location.pathname === '/app/settings',
-          },
-        ]}
-      />
-    </Navigation>
-  );
-
+  // Navigation is handled by Shopify Admin sidebar (via shopify.app.toml)
+  // No custom Frame/Navigation needed - just render pages directly
   return (
-    <Frame
-      logo={logo}
-      topBar={topBarMarkup}
-      navigation={navigationMarkup}
-      showMobileNavigation={mobileNavActive}
-      onNavigationDismiss={toggleMobileNav}
-    >
-      <Routes>
-        <Route path="/" element={<Navigate to="/app/dashboard" replace />} />
-        <Route path="/dashboard" element={<EmbeddedDashboard shop={shop} />} />
-        <Route path="/tiers" element={<EmbeddedTiers shop={shop} />} />
-        <Route path="/members" element={<EmbeddedMembers shop={shop} />} />
-        <Route path="/trade-ins" element={<EmbeddedTradeIns shop={shop} />} />
-        <Route path="/trade-ins/new" element={<EmbeddedNewTradeIn shop={shop} />} />
-        <Route path="/trade-ins/categories" element={<EmbeddedCategories shop={shop} />} />
-        <Route path="/promotions" element={<EmbeddedPromotions shop={shop} />} />
-        <Route path="/bulk-credit" element={<EmbeddedBulkCredit shop={shop} />} />
-        <Route path="/settings" element={<EmbeddedSettings shop={shop} />} />
-        <Route path="/billing" element={<EmbeddedBilling shop={shop} />} />
-      </Routes>
-    </Frame>
+    <Routes>
+      <Route path="/" element={<Navigate to="/app/dashboard" replace />} />
+      <Route path="/dashboard" element={<EmbeddedDashboard shop={shop} />} />
+      <Route path="/tiers" element={<EmbeddedTiers shop={shop} />} />
+      <Route path="/members" element={<EmbeddedMembers shop={shop} />} />
+      <Route path="/trade-ins" element={<EmbeddedTradeIns shop={shop} />} />
+      <Route path="/trade-ins/new" element={<EmbeddedNewTradeIn shop={shop} />} />
+      <Route path="/trade-ins/categories" element={<EmbeddedCategories shop={shop} />} />
+      <Route path="/promotions" element={<EmbeddedPromotions shop={shop} />} />
+      <Route path="/bulk-credit" element={<EmbeddedBulkCredit shop={shop} />} />
+      <Route path="/settings" element={<EmbeddedSettings shop={shop} />} />
+      <Route path="/billing" element={<EmbeddedBilling shop={shop} />} />
+      <Route path="/referrals" element={<EmbeddedReferrals shop={shop} />} />
+      <Route path="/analytics" element={<EmbeddedAnalytics shop={shop} />} />
+    </Routes>
   );
 }
