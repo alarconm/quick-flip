@@ -304,12 +304,15 @@ export async function authFetch(
     ? url.includes('shop=') ? url : `${url}&shop=${shop}`
     : `${url}?shop=${shop}`;
 
-  console.log('[TradeUp] authFetch fetching:', urlWithShop);
-  console.log('[TradeUp] Current origin:', window.location.origin);
+  // Use absolute URL to avoid any relative URL resolution issues
+  const baseUrl = window.location.origin;
+  const absoluteUrl = urlWithShop.startsWith('/') ? `${baseUrl}${urlWithShop}` : urlWithShop;
+
+  console.log('[TradeUp] authFetch fetching:', absoluteUrl);
+  console.log('[TradeUp] Current origin:', baseUrl);
   try {
-    const response = await fetch(urlWithShop, {
+    const response = await fetch(absoluteUrl, {
       ...options,
-      credentials: 'include',
       headers: {
         ...headers,
         ...options.headers,
