@@ -305,13 +305,20 @@ export async function authFetch(
     : `${url}?shop=${shop}`;
 
   console.log('[TradeUp] authFetch fetching:', urlWithShop);
-  const response = await fetch(urlWithShop, {
-    ...options,
-    headers: {
-      ...headers,
-      ...options.headers,
-    },
-  });
-  console.log('[TradeUp] authFetch response received:', response.status);
-  return response;
+  try {
+    const response = await fetch(urlWithShop, {
+      ...options,
+      credentials: 'same-origin',
+      mode: 'same-origin',
+      headers: {
+        ...headers,
+        ...options.headers,
+      },
+    });
+    console.log('[TradeUp] authFetch response received:', response.status);
+    return response;
+  } catch (error) {
+    console.error('[TradeUp] authFetch FAILED:', error);
+    throw error;
+  }
 }
