@@ -147,11 +147,11 @@ def get_dashboard_analytics():
             })
 
         # Get top members by trade-in activity
+        # Member model has 'name' field, not first_name/last_name
         top_members = db.session.query(
             Member.id,
             Member.member_number,
-            func.coalesce(Member.first_name, '').label('first_name'),
-            func.coalesce(Member.last_name, '').label('last_name'),
+            func.coalesce(Member.name, '').label('member_name'),
             func.count(TradeInBatch.id).label('trade_in_count'),
             func.coalesce(func.sum(TradeInBatch.total_trade_value), 0).label('total_credit')
         ).outerjoin(
@@ -159,7 +159,7 @@ def get_dashboard_analytics():
         ).filter(
             Member.tenant_id == tenant_id
         ).group_by(
-            Member.id, Member.member_number, Member.first_name, Member.last_name
+            Member.id, Member.member_number, Member.name
         ).order_by(
             func.count(TradeInBatch.id).desc()
         ).limit(10).all()
@@ -171,11 +171,10 @@ def get_dashboard_analytics():
                 Member.referred_by_id == m.id
             ).scalar() or 0
 
-            name = f"{m.first_name} {m.last_name}".strip() or m.member_number
             top_members_list.append({
                 'id': m.id,
                 'member_number': m.member_number,
-                'name': name,
+                'name': m.member_name or m.member_number,
                 'total_trade_ins': m.trade_in_count,
                 'total_credit_earned': float(m.total_credit),
                 'referral_count': referral_count
@@ -311,7 +310,7 @@ def export_analytics():
         writer = csv.writer(output)
 
         if export_type == 'members':
-            # Export members
+            # Export members (Member model has 'name' and 'total_bonus_earned')
             writer.writerow(['Member Number', 'Name', 'Email', 'Tier', 'Status', 'Trade-Ins', 'Total Credit', 'Joined'])
             members = Member.query.filter(
                 Member.tenant_id == tenant_id,
@@ -319,15 +318,14 @@ def export_analytics():
             ).all()
             for m in members:
                 tier_name = m.tier.name if m.tier else 'None'
-                name = f"{m.first_name or ''} {m.last_name or ''}".strip() or m.email
                 writer.writerow([
                     m.member_number,
-                    name,
+                    m.name or m.email,
                     m.email,
                     tier_name,
                     m.status,
                     m.total_trade_ins or 0,
-                    float(m.total_credit_earned or 0),
+                    float(m.total_bonus_earned or 0),
                     m.created_at.strftime('%Y-%m-%d') if m.created_at else ''
                 ])
             filename = f'members_export_{datetime.utcnow().strftime("%Y%m%d")}.csv'
