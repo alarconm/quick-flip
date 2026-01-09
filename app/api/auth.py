@@ -10,11 +10,25 @@ import jwt
 
 from ..extensions import db
 from ..models import Member, MembershipTier, Tenant
+from ..middleware import ratelimit_strict, ratelimit_standard
 
 auth_bp = Blueprint('auth', __name__)
 
 # JWT configuration
-JWT_SECRET = os.getenv('JWT_SECRET_KEY', 'dev-secret-change-in-production')
+def get_jwt_secret() -> str:
+    """Get JWT secret, failing in production if not set."""
+    secret = os.getenv('JWT_SECRET_KEY')
+    if not secret:
+        if os.getenv('FLASK_ENV') == 'production':
+            raise ValueError(
+                'JWT_SECRET_KEY must be set in production. '
+                'Generate one with: python -c "import secrets; print(secrets.token_hex(32))"'
+            )
+        # Development fallback only
+        return 'dev-secret-change-in-production'
+    return secret
+
+JWT_SECRET = get_jwt_secret()
 JWT_ALGORITHM = 'HS256'
 JWT_ACCESS_EXPIRY = timedelta(hours=1)
 JWT_REFRESH_EXPIRY = timedelta(days=30)
@@ -71,6 +85,7 @@ def get_current_member():
 
 
 @auth_bp.route('/signup', methods=['POST'])
+@ratelimit_strict
 def signup():
     """
     Create a new member account.
@@ -133,6 +148,7 @@ def signup():
 
 
 @auth_bp.route('/login', methods=['POST'])
+@ratelimit_strict
 def login():
     """
     Login with email and password.
@@ -286,6 +302,7 @@ def change_password():
 
 
 @auth_bp.route('/forgot-password', methods=['POST'])
+@ratelimit_strict
 def forgot_password():
     """
     Request password reset email.
@@ -322,6 +339,7 @@ def forgot_password():
 
 
 @auth_bp.route('/reset-password', methods=['POST'])
+@ratelimit_strict
 def reset_password():
     """
     Reset password using token from email.

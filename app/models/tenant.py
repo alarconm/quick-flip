@@ -3,6 +3,7 @@ Tenant model for multi-tenant SaaS.
 """
 from datetime import datetime
 from ..extensions import db
+from ..utils.encryption import encrypt_value, decrypt_value, is_encrypted
 
 
 class Tenant(db.Model):
@@ -18,8 +19,33 @@ class Tenant(db.Model):
 
     # Shopify integration
     shopify_domain = db.Column(db.String(255))
-    shopify_access_token = db.Column(db.Text)  # Encrypted in production
+    _shopify_access_token = db.Column('shopify_access_token', db.Text)  # Encrypted at rest
     webhook_secret = db.Column(db.String(100))
+
+    @property
+    def shopify_access_token(self) -> str:
+        """Get decrypted access token."""
+        if not self._shopify_access_token:
+            return None
+        # Handle legacy unencrypted values (starts with 'shpat_')
+        if self._shopify_access_token.startswith('shpat_'):
+            return self._shopify_access_token
+        return decrypt_value(self._shopify_access_token)
+
+    @shopify_access_token.setter
+    def shopify_access_token(self, value: str):
+        """Set and encrypt access token."""
+        if value is None:
+            self._shopify_access_token = None
+        elif value.startswith('shpat_'):
+            # Encrypt new tokens
+            self._shopify_access_token = encrypt_value(value)
+        elif is_encrypted(value):
+            # Already encrypted, store as-is
+            self._shopify_access_token = value
+        else:
+            # Encrypt any other value
+            self._shopify_access_token = encrypt_value(value)
 
     # Shopify Billing (App Store)
     shopify_subscription_id = db.Column(db.String(255))  # gid://shopify/AppSubscription/...
