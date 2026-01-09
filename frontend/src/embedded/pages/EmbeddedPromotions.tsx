@@ -1268,7 +1268,7 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
               {formData.collection_ids.length > 0 && (
                 <InlineStack gap="100" wrap>
                   {formData.collection_ids.filter(id => id).map(id => {
-                    const collection = collectionsData?.collections.find(c => c.id === id);
+                    const collection = collectionsData?.collections?.find(c => c && c.id === id);
                     return (
                       <Tag
                         key={id}

@@ -291,8 +291,9 @@ export function EmbeddedNewTradeIn({ shop }: NewTradeInProps) {
   }
 
   // Build category choices for ChoiceList
-  const categoryChoices = categories.map((cat) => ({
-    label: `${cat.icon} ${cat.name}`,
+  // IMPORTANT: Filter out null/undefined categories to prevent "Cannot read properties of undefined" errors
+  const categoryChoices = categories.filter(cat => cat && cat.id && cat.name).map((cat) => ({
+    label: `${cat.icon || ''} ${cat.name}`,
     value: cat.id,
   }));
 

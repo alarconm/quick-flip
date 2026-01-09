@@ -412,9 +412,9 @@ export function EmbeddedTradeIns({ shop }: TradeInsProps) {
                   <DataTable
                     columnContentTypes={['text', 'numeric', 'numeric']}
                     headings={['Item', 'Trade Value', 'Market Value']}
-                    rows={detailBatch.items.map((item) => [
+                    rows={detailBatch.items.filter(item => item).map((item) => [
                       item.product_title || item.product_sku || 'Untitled item',
-                      formatCurrency(item.trade_value),
+                      formatCurrency(item.trade_value || 0),
                       item.market_value ? formatCurrency(item.market_value) : '—',
                     ])}
                     totals={[

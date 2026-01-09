@@ -1125,13 +1125,13 @@ function BulkEmailModal({ open, onClose, shop, tiers }: BulkEmailModalProps) {
             <BlockStack gap="400">
               <Text as="h3" variant="headingSm">Quick Templates</Text>
               <InlineStack gap="200" wrap>
-                {templates?.templates.map((t) => (
+                {templates?.templates?.filter(t => t && t.id).map((t) => (
                   <Button
                     key={t.id}
                     size="slim"
                     onClick={() => applyTemplate(t)}
                   >
-                    {t.name}
+                    {t.name || 'Template'}
                   </Button>
                 ))}
               </InlineStack>
