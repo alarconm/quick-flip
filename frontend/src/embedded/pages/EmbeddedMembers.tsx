@@ -191,8 +191,8 @@ export function EmbeddedMembers({ shop }: MembersProps) {
   // IMPORTANT: Check t exists first to prevent "Cannot read properties of undefined" errors
   const tierChoices = tiersData?.tiers
     ? tiersData.tiers.filter(t => t && t.active && t.name).map(tier => ({
-        label: tier.name,
-        value: tier.name?.toLowerCase() || '',
+        label: tier.name || '',
+        value: String(tier.name || '').toLowerCase(),
       }))
     : [];
 
@@ -1098,8 +1098,8 @@ function BulkEmailModal({ open, onClose, shop, tiers }: BulkEmailModalProps) {
                 title="Select Tiers to Email"
                 choices={tiers
                   ? tiers.filter(t => t && t.active && t.name).map(tier => ({
-                      label: tier.name,
-                      value: tier.name?.toUpperCase() || '',
+                      label: tier.name || '',
+                      value: String(tier.name || '').toUpperCase(),
                     }))
                   : []
                 }

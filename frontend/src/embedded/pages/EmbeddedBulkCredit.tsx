@@ -150,8 +150,8 @@ export function EmbeddedBulkCredit({ shop }: BulkCreditProps) {
     { label: 'All Active Members', value: '' },
     ...(tiersData?.tiers
       ? tiersData.tiers.filter(t => t && t.active && t.name).map(tier => ({
-          label: `${tier.name} Only`,
-          value: tier.name?.toUpperCase() || '',
+          label: `${tier.name || ''} Only`,
+          value: String(tier.name || '').toUpperCase(),
         }))
       : []),
   ];

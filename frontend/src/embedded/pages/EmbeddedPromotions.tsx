@@ -948,7 +948,7 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
                 <Card key={tier.id}>
                   <BlockStack gap="300">
                     <InlineStack align="space-between">
-                      <Text as="h3" variant="headingMd">{tier.tier_name?.toUpperCase() || 'UNKNOWN'}</Text>
+                      <Text as="h3" variant="headingMd">{String(tier.tier_name || '').toUpperCase() || 'UNKNOWN'}</Text>
                       <Badge tone={tier.active ? 'success' : undefined}>
                         {tier.active ? 'Active' : 'Inactive'}
                       </Badge>
@@ -1415,7 +1415,7 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
                   .filter(tier => tier && tier.tier_name)
                   .map(tier => ({
                     label: tier.tier_name || '',
-                    value: tier.tier_name?.toUpperCase() || '',
+                    value: String(tier.tier_name || '').toUpperCase(),
                   }))}
                 selected={formData.tier_restriction}
                 onChange={(value) => setFormData({ ...formData, tier_restriction: value })}
