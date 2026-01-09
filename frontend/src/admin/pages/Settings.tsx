@@ -22,6 +22,7 @@ import {
   Edit2,
   Trash2,
   GripVertical,
+  ChevronDown,
 } from 'lucide-react'
 import {
   getSettings,
@@ -172,6 +173,7 @@ export default function Settings() {
   const [activeTab, setActiveTab] = useState<'enrollment' | 'notifications' | 'branding' | 'tiers'>('enrollment')
   const [editingTier, setEditingTier] = useState<Tier | null>(null)
   const [showTierModal, setShowTierModal] = useState(false)
+  const [showAdvancedTierSettings, setShowAdvancedTierSettings] = useState(false)
   const [tierForm, setTierForm] = useState<{
     name: string
     monthly_price: number
@@ -1521,6 +1523,40 @@ export default function Settings() {
                 </p>
               </div>
 
+              {/* Advanced Settings Toggle */}
+              <div style={{ marginTop: spacing[4], marginBottom: spacing[2] }}>
+                <button
+                  type="button"
+                  onClick={() => setShowAdvancedTierSettings(!showAdvancedTierSettings)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: spacing[2],
+                    padding: '8px 12px',
+                    backgroundColor: showAdvancedTierSettings ? colors.primaryLight : 'transparent',
+                    border: `1px solid ${showAdvancedTierSettings ? colors.primary : colors.border}`,
+                    borderRadius: radius.md,
+                    color: showAdvancedTierSettings ? colors.primary : colors.textSecondary,
+                    fontSize: typography.sm,
+                    fontWeight: typography.medium,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  <ChevronDown
+                    size={16}
+                    style={{
+                      transform: showAdvancedTierSettings ? 'rotate(180deg)' : 'rotate(0deg)',
+                      transition: 'transform 0.2s',
+                    }}
+                  />
+                  {showAdvancedTierSettings ? 'Hide Advanced Settings' : 'Show Advanced Settings'}
+                </button>
+              </div>
+
+              {/* Advanced Settings Section */}
+              {showAdvancedTierSettings && (
+              <>
               {/* Purchase Cashback % */}
               <div>
                 <label style={labelStyle}>Purchase Cashback %</label>
@@ -1692,6 +1728,8 @@ export default function Settings() {
                   Order minimum for free shipping (0 = always free)
                 </p>
               </div>
+              </>
+              )}
             </div>
 
             {/* Modal Footer */}
