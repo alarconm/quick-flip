@@ -365,9 +365,10 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
   // Memoized options for autocomplete pickers
   const collectionOptions = useMemo(() => {
     if (!collectionsData?.collections) return [];
-    const filtered = collectionSearch
+    const searchLower = (collectionSearch || '').toLowerCase();
+    const filtered = searchLower
       ? collectionsData.collections.filter(c =>
-          c?.title?.toLowerCase()?.includes(collectionSearch.toLowerCase()) ?? false
+          (c?.title || '').toLowerCase().includes(searchLower)
         )
       : collectionsData.collections;
     return filtered.filter(c => c?.title).map(c => ({ value: c.id, label: c.title }));
@@ -375,9 +376,10 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
 
   const vendorOptions = useMemo(() => {
     if (!vendorsData?.vendors) return [];
-    const filtered = vendorSearch
+    const searchLower = (vendorSearch || '').toLowerCase();
+    const filtered = searchLower
       ? vendorsData.vendors.filter(v =>
-          v?.toLowerCase()?.includes(vendorSearch.toLowerCase()) ?? false
+          (v || '').toLowerCase().includes(searchLower)
         )
       : vendorsData.vendors;
     return filtered.filter(v => v).map(v => ({ value: v, label: v }));
@@ -385,9 +387,10 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
 
   const productTypeOptions = useMemo(() => {
     if (!productTypesData?.product_types) return [];
-    const filtered = productTypeSearch
+    const searchLower = (productTypeSearch || '').toLowerCase();
+    const filtered = searchLower
       ? productTypesData.product_types.filter(pt =>
-          pt?.toLowerCase()?.includes(productTypeSearch.toLowerCase()) ?? false
+          (pt || '').toLowerCase().includes(searchLower)
         )
       : productTypesData.product_types;
     return filtered.filter(pt => pt).map(pt => ({ value: pt, label: pt }));
@@ -395,9 +398,10 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
 
   const tagOptions = useMemo(() => {
     if (!tagsData?.tags) return [];
-    const filtered = tagSearch
+    const searchLower = (tagSearch || '').toLowerCase();
+    const filtered = searchLower
       ? tagsData.tags.filter(t =>
-          t?.toLowerCase()?.includes(tagSearch.toLowerCase()) ?? false
+          (t || '').toLowerCase().includes(searchLower)
         )
       : tagsData.tags;
     return filtered.filter(t => t).map(t => ({ value: t, label: t }));

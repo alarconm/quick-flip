@@ -1325,7 +1325,7 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
                                   {template.name}
                                 </Text>
                                 <Text as="span" variant="bodySm" tone="subdued">
-                                  Subject: {template.subject.substring(0, 50)}...
+                                  Subject: {(template.subject || '').substring(0, 50)}...
                                 </Text>
                               </BlockStack>
                               <InlineStack gap="200">

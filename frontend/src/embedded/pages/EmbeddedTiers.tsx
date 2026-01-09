@@ -250,8 +250,8 @@ export function EmbeddedTiers({ shop }: TiersProps) {
                       <Avatar
                         customer
                         size="md"
-                        name={tier.name}
-                        initials={tier.name.charAt(0)}
+                        name={tier.name || 'Tier'}
+                        initials={(tier.name || 'T').charAt(0)}
                         source={undefined}
                       />
                     }
