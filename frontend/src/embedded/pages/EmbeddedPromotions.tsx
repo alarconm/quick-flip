@@ -1147,7 +1147,7 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
             <TextField
               label="Promo Code (optional)"
               value={formData.code}
-              onChange={(value) => setFormData({ ...formData, code: value.toUpperCase() })}
+              onChange={(value) => setFormData({ ...formData, code: (value || '').toUpperCase() })}
               autoComplete="off"
               helpText="Leave empty for automatic promotions"
             />
@@ -1408,10 +1408,10 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
               <ChoiceList
                 title="Tier Restriction (optional)"
                 choices={tiersData.tiers
-                  .filter(tier => tier.tier_name)
+                  .filter(tier => tier && tier.tier_name)
                   .map(tier => ({
-                    label: tier.tier_name,
-                    value: tier.tier_name.toUpperCase(),
+                    label: tier.tier_name || '',
+                    value: tier.tier_name?.toUpperCase() || '',
                   }))}
                 selected={formData.tier_restriction}
                 onChange={(value) => setFormData({ ...formData, tier_restriction: value })}
