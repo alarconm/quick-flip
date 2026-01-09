@@ -176,11 +176,17 @@ export default function Settings() {
     name: string
     monthly_price: number
     bonus_rate: number
+    purchase_cashback_pct: number
+    monthly_credit_amount: number
+    credit_expiration_days: number | null
     benefits: TierBenefits
   }>({
     name: '',
     monthly_price: 0,
     bonus_rate: 0.05,
+    purchase_cashback_pct: 0,
+    monthly_credit_amount: 0,
+    credit_expiration_days: null,
     benefits: { discount_percent: 0, free_shipping_threshold: 0, monthly_credit: 0 },
   })
 
@@ -259,6 +265,9 @@ export default function Settings() {
         name: tier.name,
         monthly_price: tier.monthly_price,
         bonus_rate: tier.bonus_rate,
+        purchase_cashback_pct: tier.purchase_cashback_pct || 0,
+        monthly_credit_amount: tier.monthly_credit_amount || 0,
+        credit_expiration_days: tier.credit_expiration_days || null,
         benefits: tier.benefits || {},
       })
     } else {
@@ -267,6 +276,9 @@ export default function Settings() {
         name: '',
         monthly_price: 0,
         bonus_rate: 0.05,
+        purchase_cashback_pct: 0,
+        monthly_credit_amount: 0,
+        credit_expiration_days: null,
         benefits: { discount_percent: 0, free_shipping_threshold: 0, monthly_credit: 0 },
       })
     }
@@ -1310,16 +1322,26 @@ export default function Settings() {
                         <strong>${(tier.monthly_price || 0).toFixed(2)}</strong>/mo
                       </span>
                       <span style={{ fontSize: typography.sm, color: colors.textSecondary }}>
-                        Trade-in Bonus: <strong>{((tier.bonus_rate || 0) * 100).toFixed(0)}%</strong>
+                        Trade-in: <strong>{((tier.bonus_rate || 0) * 100).toFixed(0)}%</strong>
                       </span>
-                      {tier.benefits?.discount_percent ? (
-                        <span style={{ fontSize: typography.sm, color: colors.textSecondary }}>
-                          Store Discount: <strong>{tier.benefits.discount_percent}%</strong>
+                      {tier.purchase_cashback_pct ? (
+                        <span style={{ fontSize: typography.sm, color: colors.success }}>
+                          Cashback: <strong>{tier.purchase_cashback_pct}%</strong>
                         </span>
                       ) : null}
-                      {tier.benefits?.monthly_credit ? (
+                      {tier.monthly_credit_amount ? (
+                        <span style={{ fontSize: typography.sm, color: colors.primary }}>
+                          Monthly: <strong>${tier.monthly_credit_amount}</strong>
+                        </span>
+                      ) : null}
+                      {tier.credit_expiration_days ? (
+                        <span style={{ fontSize: typography.sm, color: colors.warning }}>
+                          Expires: <strong>{tier.credit_expiration_days}d</strong>
+                        </span>
+                      ) : null}
+                      {tier.benefits?.discount_percent ? (
                         <span style={{ fontSize: typography.sm, color: colors.textSecondary }}>
-                          Monthly Credit: <strong>${tier.benefits.monthly_credit}</strong>
+                          Discount: <strong>{tier.benefits.discount_percent}%</strong>
                         </span>
                       ) : null}
                     </div>
@@ -1496,6 +1518,87 @@ export default function Settings() {
                 </div>
                 <p style={{ fontSize: typography.xs, color: colors.textSubdued, marginTop: 4 }}>
                   Extra credit given on top of trade-in value
+                </p>
+              </div>
+
+              {/* Purchase Cashback % */}
+              <div>
+                <label style={labelStyle}>Purchase Cashback %</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: spacing[3] }}>
+                  <input
+                    type="range"
+                    min="0"
+                    max="10"
+                    step="0.5"
+                    value={tierForm.purchase_cashback_pct}
+                    onChange={(e) => setTierForm({ ...tierForm, purchase_cashback_pct: parseFloat(e.target.value) })}
+                    style={{ flex: 1 }}
+                  />
+                  <span
+                    style={{
+                      minWidth: 50,
+                      padding: '6px 10px',
+                      backgroundColor: colors.successLight,
+                      color: colors.success,
+                      borderRadius: radius.sm,
+                      fontSize: typography.sm,
+                      fontWeight: typography.semibold,
+                      textAlign: 'center',
+                    }}
+                  >
+                    {(tierForm.purchase_cashback_pct || 0).toFixed(1)}%
+                  </span>
+                </div>
+                <p style={{ fontSize: typography.xs, color: colors.textSubdued, marginTop: 4 }}>
+                  Store credit earned on every purchase (e.g., 2% = $2 back per $100)
+                </p>
+              </div>
+
+              {/* Monthly Credit Amount */}
+              <div>
+                <label style={labelStyle}>Recurring Monthly Credit</label>
+                <div style={{ position: 'relative', maxWidth: 200 }}>
+                  <span
+                    style={{
+                      position: 'absolute',
+                      left: 12,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      color: colors.textSubdued,
+                    }}
+                  >
+                    $
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={tierForm.monthly_credit_amount || ''}
+                    onChange={(e) => setTierForm({ ...tierForm, monthly_credit_amount: parseFloat(e.target.value) || 0 })}
+                    style={{ ...inputStyle, paddingLeft: 28 }}
+                  />
+                </div>
+                <p style={{ fontSize: typography.xs, color: colors.textSubdued, marginTop: 4 }}>
+                  Auto-issued store credit on 1st of each month
+                </p>
+              </div>
+
+              {/* Credit Expiration Days */}
+              <div>
+                <label style={labelStyle}>Credit Expiration (Days)</label>
+                <div style={{ position: 'relative', maxWidth: 200 }}>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    placeholder="Never expires"
+                    value={tierForm.credit_expiration_days || ''}
+                    onChange={(e) => setTierForm({ ...tierForm, credit_expiration_days: e.target.value ? parseInt(e.target.value) : null })}
+                    style={inputStyle}
+                  />
+                </div>
+                <p style={{ fontSize: typography.xs, color: colors.textSubdued, marginTop: 4 }}>
+                  Days until issued credit expires (blank = never)
                 </p>
               </div>
 

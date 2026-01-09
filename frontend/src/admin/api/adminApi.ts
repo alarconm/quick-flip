@@ -64,6 +64,9 @@ export interface Tier {
   name: string;
   monthly_price: number;
   bonus_rate: number;
+  purchase_cashback_pct: number;
+  monthly_credit_amount: number;
+  credit_expiration_days: number | null;
   benefits: TierBenefits;
   is_active?: boolean;
   display_order?: number;

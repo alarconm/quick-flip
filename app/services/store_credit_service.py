@@ -283,23 +283,30 @@ class StoreCreditService:
         order_id: str,
         order_name: str,
         channel: str = 'online',
+        collection_ids: Optional[List[str]] = None,
+        product_tags: Optional[List[str]] = None,
     ) -> Optional[StoreCreditLedger]:
         """
         Process cashback for a purchase.
 
         Calculates tier-based cashback plus any active promotions.
+        Supports collection/tag filtering for category-specific bonuses.
         """
         member = Member.query.get(member_id)
         if not member or member.status != 'active':
             return None
 
-        # Get tier configuration
-        tier_config = TierConfiguration.query.filter_by(tier_name=member.tier).first()
-        if not tier_config:
-            # Use default
-            base_cashback_pct = TIER_CASHBACK.get(member.tier, Decimal('0'))
+        # Get cashback percentage from member's tier (MembershipTier model)
+        if member.tier and member.tier.purchase_cashback_pct:
+            base_cashback_pct = Decimal(str(member.tier.purchase_cashback_pct)) / 100
         else:
-            base_cashback_pct = Decimal(str(tier_config.purchase_cashback_pct)) / 100
+            # Fallback to legacy config or default
+            tier_name = member.tier.name if member.tier else None
+            tier_config = TierConfiguration.query.filter_by(tier_name=tier_name).first()
+            if tier_config and tier_config.purchase_cashback_pct:
+                base_cashback_pct = Decimal(str(tier_config.purchase_cashback_pct)) / 100
+            else:
+                base_cashback_pct = TIER_CASHBACK.get(tier_name, Decimal('0'))
 
         # Calculate base cashback
         base_cashback = order_total * base_cashback_pct
@@ -308,15 +315,25 @@ class StoreCreditService:
         promo_bonus = Decimal('0')
         applied_promo = None
 
+        tier_name = member.tier.name if member.tier else None
         active_promos = self.get_active_promotions(
             promo_type='purchase_cashback',
             channel=channel,
-            tier=member.tier,
+            tier=tier_name,
         )
 
         for promo in active_promos:
             if promo.min_value and order_total < Decimal(str(promo.min_value)):
                 continue
+
+            # Check collection/tag restrictions if specified on promotion
+            if collection_ids is not None and hasattr(promo, 'applies_to_collection'):
+                if not any(promo.applies_to_collection(cid) for cid in collection_ids):
+                    continue
+
+            if product_tags is not None and hasattr(promo, 'applies_to_product_tag'):
+                if not any(promo.applies_to_product_tag(tag) for tag in product_tags):
+                    continue
 
             bonus = promo.calculate_bonus(order_total)
             if bonus > promo_bonus:
@@ -367,24 +384,36 @@ class StoreCreditService:
         """
         bonuses = []
         total_bonus = Decimal('0')
+        tier_name = member.tier.name if member.tier else None
 
-        # 1. Tier bonus
-        tier_config = TierConfiguration.query.filter_by(tier_name=member.tier).first()
-        if tier_config and tier_config.trade_in_bonus_pct:
-            tier_bonus = base_payout * (Decimal(str(tier_config.trade_in_bonus_pct)) / 100)
+        # 1. Tier bonus - first try MembershipTier.bonus_rate, then TierConfiguration
+        if member.tier and member.tier.bonus_rate:
+            tier_bonus = base_payout * Decimal(str(member.tier.bonus_rate))
             total_bonus += tier_bonus
             bonuses.append({
                 'source': 'tier',
-                'name': f'{member.tier} Tier Bonus',
-                'percent': float(tier_config.trade_in_bonus_pct),
+                'name': f'{tier_name} Tier Bonus',
+                'percent': float(member.tier.bonus_rate * 100),
                 'amount': float(tier_bonus),
             })
+        else:
+            # Fallback to TierConfiguration
+            tier_config = TierConfiguration.query.filter_by(tier_name=tier_name).first()
+            if tier_config and tier_config.trade_in_bonus_pct:
+                tier_bonus = base_payout * (Decimal(str(tier_config.trade_in_bonus_pct)) / 100)
+                total_bonus += tier_bonus
+                bonuses.append({
+                    'source': 'tier',
+                    'name': f'{tier_name} Tier Bonus',
+                    'percent': float(tier_config.trade_in_bonus_pct),
+                    'amount': float(tier_bonus),
+                })
 
         # 2. Active promotions
         active_promos = self.get_active_promotions(
             promo_type='trade_in_bonus',
             channel=channel,
-            tier=member.tier,
+            tier=tier_name,
         )
 
         for promo in active_promos:
