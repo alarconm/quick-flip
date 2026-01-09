@@ -940,18 +940,18 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
         {activeTab === 'tiers' && (
           <Layout.Section>
             <InlineGrid columns={isMobile ? 1 : 3} gap="400">
-              {tiers.map((tier) => (
+              {tiers.filter(tier => tier && tier.tier_name).map((tier) => (
                 <Card key={tier.id}>
                   <BlockStack gap="300">
                     <InlineStack align="space-between">
-                      <Text as="h3" variant="headingMd">{tier.tier_name}</Text>
+                      <Text as="h3" variant="headingMd">{tier.tier_name?.toUpperCase() || 'UNKNOWN'}</Text>
                       <Badge tone={tier.active ? 'success' : undefined}>
                         {tier.active ? 'Active' : 'Inactive'}
                       </Badge>
                     </InlineStack>
 
                     <Text as="p" variant="headingLg">
-                      {formatCurrency(tier.monthly_price)}/mo
+                      {formatCurrency(tier.monthly_price ?? 0)}/mo
                     </Text>
 
                     <Divider />
@@ -959,15 +959,15 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
                     <BlockStack gap="200">
                       <InlineStack align="space-between">
                         <Text as="span" variant="bodySm">Trade-In Bonus</Text>
-                        <Badge tone="success">{`+${tier.trade_in_bonus_pct}%`}</Badge>
+                        <Badge tone="success">{`+${tier.trade_in_bonus_pct ?? 0}%`}</Badge>
                       </InlineStack>
                       <InlineStack align="space-between">
                         <Text as="span" variant="bodySm">Purchase Cashback</Text>
-                        <Badge tone="info">{`${tier.purchase_cashback_pct}%`}</Badge>
+                        <Badge tone="info">{`${tier.purchase_cashback_pct ?? 0}%`}</Badge>
                       </InlineStack>
                       <InlineStack align="space-between">
                         <Text as="span" variant="bodySm">Store Discount</Text>
-                        <Badge>{`${tier.store_discount_pct}%`}</Badge>
+                        <Badge>{`${tier.store_discount_pct ?? 0}%`}</Badge>
                       </InlineStack>
                     </BlockStack>
 
