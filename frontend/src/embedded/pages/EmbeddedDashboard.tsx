@@ -305,6 +305,15 @@ export function EmbeddedDashboard({ shop }: DashboardProps) {
             </BlockStack>
           </Card>
         </Layout.Section>
+
+        {/* Build version for debugging cache issues */}
+        <Layout.Section>
+          <Box paddingBlockStart="400">
+            <Text as="p" variant="bodySm" tone="subdued" alignment="center">
+              Build: 2026-01-09-v5
+            </Text>
+          </Box>
+        </Layout.Section>
       </Layout>
     </Page>
   );
