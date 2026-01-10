@@ -16,6 +16,7 @@ from datetime import datetime
 from typing import Optional, Dict, Any, List
 from ..extensions import db
 from ..models import Member, MembershipTier, Tenant
+from .email_service import email_service
 
 
 class ShopifyBillingService:
@@ -492,6 +493,7 @@ class ShopifyBillingWebhookHandler:
         """
         subscription_id = payload.get('app_subscription', {}).get('admin_graphql_api_id')
         status = payload.get('app_subscription', {}).get('status')
+        plan_name = payload.get('app_subscription', {}).get('name', 'TradeUp')
 
         # Find tenant by subscription ID
         tenant = Tenant.query.filter_by(
@@ -502,6 +504,7 @@ class ShopifyBillingWebhookHandler:
             return {'handled': False, 'error': 'Tenant not found'}
 
         # Update tenant subscription status
+        old_status = tenant.subscription_status
         tenant.subscription_status = status.lower() if status else 'unknown'
 
         if status == 'ACTIVE':
@@ -511,10 +514,45 @@ class ShopifyBillingWebhookHandler:
 
         db.session.commit()
 
+        # Send merchant notification email
+        merchant_email = tenant.email
+        merchant_name = tenant.shop_name or 'Merchant'
+
+        if merchant_email:
+            if status == 'ACTIVE' and old_status != 'active':
+                # Subscription activated
+                trial_days = payload.get('app_subscription', {}).get('trialDays')
+                email_service.send_template_email(
+                    template_key='billing_subscription_activated',
+                    tenant_id=tenant.id,
+                    to_email=merchant_email,
+                    to_name=merchant_name,
+                    data={
+                        'merchant_name': merchant_name,
+                        'plan_name': plan_name,
+                        'trial_days': trial_days if trial_days and trial_days > 0 else None,
+                    },
+                )
+            elif status in ['CANCELLED', 'DECLINED', 'EXPIRED']:
+                # Subscription cancelled
+                current_period_end = payload.get('app_subscription', {}).get('currentPeriodEnd', 'immediately')
+                email_service.send_template_email(
+                    template_key='billing_subscription_cancelled',
+                    tenant_id=tenant.id,
+                    to_email=merchant_email,
+                    to_name=merchant_name,
+                    data={
+                        'merchant_name': merchant_name,
+                        'plan_name': plan_name,
+                        'access_until': current_period_end,
+                    },
+                )
+
         return {
             'handled': True,
             'tenant_id': tenant.id,
-            'new_status': status
+            'new_status': status,
+            'notification_sent': bool(merchant_email)
         }
 
     def handle_one_time_purchase_update(self, payload: Dict) -> Dict[str, Any]:
@@ -542,18 +580,45 @@ class ShopifyBillingWebhookHandler:
         Triggered when usage reaches 90% of capped amount.
         """
         subscription_id = payload.get('app_subscription', {}).get('admin_graphql_api_id')
-        balance = payload.get('app_subscription', {}).get('balance_used')
+        balance_used = payload.get('app_subscription', {}).get('balance_used')
 
-        # Alert the merchant (could send email, notification, etc.)
-        print(f"[Shopify Billing] Usage alert: Subscription {subscription_id} at {balance} usage")
+        # Find tenant by subscription ID
+        tenant = Tenant.query.filter_by(
+            shopify_subscription_id=subscription_id
+        ).first()
 
-        # TODO: Send notification to merchant
+        notification_sent = False
+
+        if tenant and tenant.email:
+            # Get capped amount from subscription line items
+            line_items = payload.get('app_subscription', {}).get('lineItems', [])
+            capped_amount = None
+            for item in line_items:
+                pricing = item.get('plan', {}).get('pricingDetails', {})
+                if 'cappedAmount' in pricing:
+                    capped_amount = pricing['cappedAmount'].get('amount')
+                    break
+
+            merchant_name = tenant.shop_name or 'Merchant'
+
+            email_service.send_template_email(
+                template_key='billing_usage_warning',
+                tenant_id=tenant.id,
+                to_email=tenant.email,
+                to_name=merchant_name,
+                data={
+                    'merchant_name': merchant_name,
+                    'balance_used': f"${balance_used}" if balance_used else 'N/A',
+                    'capped_amount': f"${capped_amount}" if capped_amount else 'your plan limit',
+                },
+            )
+            notification_sent = True
 
         return {
             'handled': True,
             'subscription_id': subscription_id,
-            'balance_used': balance,
-            'action': 'alert_sent'
+            'balance_used': balance_used,
+            'notification_sent': notification_sent
         }
 
 

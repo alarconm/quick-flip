@@ -229,6 +229,92 @@ The {{shop_name}} Team
             ''',
             'category': 'referral',
         },
+        'password_reset': {
+            'name': 'Password Reset',
+            'subject': 'Reset your {{program_name}} password',
+            'body': '''
+Hi {{member_name}},
+
+We received a request to reset your password for your {{program_name}} account.
+
+Click the link below to reset your password:
+
+**{{reset_link}}**
+
+This link will expire in 1 hour.
+
+If you didn't request a password reset, you can safely ignore this email. Your password will remain unchanged.
+
+Best,
+The {{shop_name}} Team
+            ''',
+            'category': 'account',
+        },
+        'billing_subscription_activated': {
+            'name': 'Subscription Activated',
+            'subject': 'Your TradeUp subscription is now active',
+            'body': '''
+Hi {{merchant_name}},
+
+Great news! Your TradeUp subscription has been activated.
+
+**Subscription Details:**
+- Plan: {{plan_name}}
+- Status: Active
+{{#if trial_days}}
+- Trial Period: {{trial_days}} days remaining
+{{/if}}
+
+You now have full access to all TradeUp features included in your plan.
+
+Need help getting started? Visit our documentation or contact support.
+
+Best,
+The TradeUp Team
+            ''',
+            'category': 'billing',
+        },
+        'billing_subscription_cancelled': {
+            'name': 'Subscription Cancelled',
+            'subject': 'Your TradeUp subscription has been cancelled',
+            'body': '''
+Hi {{merchant_name}},
+
+Your TradeUp subscription has been cancelled.
+
+**Details:**
+- Plan: {{plan_name}}
+- Status: Cancelled
+- Access Until: {{access_until}}
+
+Your data will be preserved if you decide to resubscribe later.
+
+If you have any feedback about your experience, we'd love to hear from you.
+
+Best,
+The TradeUp Team
+            ''',
+            'category': 'billing',
+        },
+        'billing_usage_warning': {
+            'name': 'Usage Limit Warning',
+            'subject': 'TradeUp usage approaching limit',
+            'body': '''
+Hi {{merchant_name}},
+
+Your TradeUp usage is approaching the capped amount for this billing period.
+
+**Current Usage:**
+- Balance Used: {{balance_used}}
+- Capped Amount: {{capped_amount}}
+
+To avoid service interruption, consider upgrading your plan.
+
+Best,
+The TradeUp Team
+            ''',
+            'category': 'billing',
+        },
     }
 
     def __init__(self):

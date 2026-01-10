@@ -11,6 +11,7 @@ import jwt
 from ..extensions import db
 from ..models import Member, MembershipTier, Tenant
 from ..middleware import ratelimit_strict, ratelimit_standard
+from ..services.email_service import email_service
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -329,8 +330,29 @@ def forgot_password():
         member.email_verification_token = secrets.token_urlsafe(32)
         db.session.commit()
 
-        # TODO: Send password reset email
-        # send_password_reset_email(member.email, member.email_verification_token)
+        # Get tenant info for email context
+        tenant = Tenant.query.get(tenant_id)
+        shop_name = tenant.shop_name if tenant else 'TradeUp'
+        program_name = tenant.program_name if tenant and hasattr(tenant, 'program_name') else shop_name
+
+        # Build reset link
+        app_url = os.getenv('APP_URL', 'https://app.cardflowlabs.com')
+        reset_link = f"{app_url}/reset-password?token={member.email_verification_token}"
+
+        # Send password reset email
+        email_service.send_template_email(
+            template_key='password_reset',
+            tenant_id=tenant_id,
+            to_email=member.email,
+            to_name=member.name or member.email,
+            data={
+                'member_name': member.first_name or member.name or 'Member',
+                'program_name': program_name,
+                'shop_name': shop_name,
+                'reset_link': reset_link,
+            },
+            from_name=shop_name,
+        )
 
     # Always return success to prevent email enumeration
     return jsonify({
