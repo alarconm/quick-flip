@@ -171,6 +171,43 @@ curl -H "X-Shopify-Shop-Domain: uy288y-nx.myshopify.com" http://localhost:5000/a
 - SQLite locally (auto-created)
 - Migrations: `flask db upgrade`
 
+## Railway Deployment Best Practices
+
+### Quick Deploy Commands
+```bash
+# Check deployment status FIRST
+railway deployment list
+
+# Deploy (pick ONE method, not both)
+railway up                    # Direct upload
+git push origin main          # GitHub trigger
+
+# Check logs if deployment fails
+railway logs --deployment <id>
+```
+
+### Critical Rules
+1. **Keep startCommand simple** - Just `gunicorn -c gunicorn.conf.py run:app`
+2. **Never add migrations to startCommand** - They can timeout and fail health checks
+3. **Use fix-schema endpoint for quick schema fixes** - `POST /api/admin/fix-schema?key=tradeup-schema-fix-2026`
+4. **Check `railway deployment list` immediately** - Don't wait blindly for deploys
+5. **The `nul` file is in .gitignore** - Windows reserved name that breaks Railway indexer
+
+### If Deployment Fails
+1. Run `railway deployment list` to confirm failure
+2. Check logs: `railway logs --deployment <deployment-id>`
+3. Common issues:
+   - `nul` file in repo → delete it, it's in .gitignore
+   - Health check timeout → simplify startCommand
+   - Migration errors → use fix-schema endpoint instead
+
+### Fix-Schema Endpoint
+For adding missing columns without migrations:
+```bash
+curl -X POST "https://app.cardflowlabs.com/api/admin/fix-schema?key=tradeup-schema-fix-2026"
+```
+Add new columns to `app/api/admin.py` in the `columns_to_add` list.
+
 ## Recent Changes (January 6, 2026)
 
 1. Added onboarding flow with store credit check
