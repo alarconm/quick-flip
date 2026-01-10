@@ -17,8 +17,15 @@ billing_bp = Blueprint('billing', __name__)
 
 
 def get_tenant_from_request():
-    """Get tenant from request (via session or API key)."""
-    # In embedded app, tenant comes from Shopify session
+    """Get tenant from request (via session, shop domain, or API key)."""
+    # First try shop domain (embedded app sends this)
+    shop = request.headers.get('X-Shop-Domain') or request.args.get('shop')
+    if shop:
+        # Normalize shop domain
+        shop = shop.replace('https://', '').replace('http://', '').rstrip('/')
+        return Tenant.query.filter_by(shopify_domain=shop).first()
+
+    # Fallback to tenant_id for backwards compatibility
     tenant_id = request.args.get('tenant_id') or request.headers.get('X-Tenant-ID')
     if tenant_id:
         return Tenant.query.get(int(tenant_id))

@@ -23,6 +23,7 @@ import { EmbeddedSettings } from './pages/EmbeddedSettings';
 import { EmbeddedBilling } from './pages/EmbeddedBilling';
 import { EmbeddedReferrals } from './pages/EmbeddedReferrals';
 import { EmbeddedAnalytics } from './pages/EmbeddedAnalytics';
+import { EmbeddedOnboarding } from './pages/EmbeddedOnboarding';
 
 interface EmbeddedAppProps {
   shop: string | null;
@@ -56,6 +57,7 @@ export function EmbeddedApp({ shop }: EmbeddedAppProps) {
         <Route path="/billing" element={<EmbeddedBilling shop={shop} />} />
         <Route path="/referrals" element={<EmbeddedReferrals shop={shop} />} />
         <Route path="/analytics" element={<EmbeddedAnalytics shop={shop} />} />
+        <Route path="/onboarding" element={<EmbeddedOnboarding shop={shop} />} />
       </Routes>
     </>
   );

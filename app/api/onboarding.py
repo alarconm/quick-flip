@@ -13,9 +13,13 @@ onboarding_bp = Blueprint('onboarding', __name__)
 
 def get_tenant_from_request():
     """Get tenant from request headers."""
-    shop = request.headers.get('X-Shopify-Shop-Domain') or request.args.get('shop')
+    shop = (request.headers.get('X-Shop-Domain') or
+            request.headers.get('X-Shopify-Shop-Domain') or
+            request.args.get('shop'))
     if not shop:
         return None
+    # Normalize shop domain
+    shop = shop.replace('https://', '').replace('http://', '').rstrip('/')
     return Tenant.query.filter_by(shopify_domain=shop).first()
 
 

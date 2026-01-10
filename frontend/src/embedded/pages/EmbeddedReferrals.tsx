@@ -179,10 +179,10 @@ export function EmbeddedReferrals({ shop }: ReferralsProps) {
                 <Text as="h3" variant="headingMd">This Month</Text>
                 <Text as="p" variant="heading2xl">{stats?.monthly_referrals || 0}</Text>
                 <Badge tone="success">
-                  {stats?.monthly_referrals && stats?.total_referrals
+                  {String(stats?.monthly_referrals && stats?.total_referrals
                     ? `${Math.round((stats.monthly_referrals / stats.total_referrals) * 100)}% of total`
                     : '0%'
-                  }
+                  )}
                 </Badge>
               </BlockStack>
             </Card>
@@ -276,7 +276,7 @@ export function EmbeddedReferrals({ shop }: ReferralsProps) {
                         </Text>
                       </BlockStack>
                     </InlineStack>,
-                    <Badge key={`code-${referrer.id}`}>{referrer.referral_code || '-'}</Badge>,
+                    <Badge key={`code-${referrer.id}`}>{String(referrer.referral_code || '-')}</Badge>,
                     referrer.referral_count || 0,
                     formatCurrency(referrer.referral_earnings || 0),
                   ])}
@@ -313,7 +313,7 @@ export function EmbeddedReferrals({ shop }: ReferralsProps) {
                       </Text>
                     </BlockStack>,
                     <Badge key={`by-${referral.id}`} tone="info">
-                      {referral.referred_by || 'Unknown'}
+                      {String(referral.referred_by || 'Unknown')}
                     </Badge>,
                     referral.created_at ? formatDate(referral.created_at) : '-',
                   ])}
