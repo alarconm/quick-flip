@@ -261,8 +261,11 @@ def list_tiers():
 @require_shop_auth
 def create_tier():
     """Create a new membership tier."""
-    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+    tenant_id = g.tenant_id  # Use tenant_id from auth decorator instead of header
     data = request.json
+
+    if not data or not data.get('name'):
+        return jsonify({'error': 'Tier name is required'}), 400
 
     tier = MembershipTier(
         tenant_id=tenant_id,

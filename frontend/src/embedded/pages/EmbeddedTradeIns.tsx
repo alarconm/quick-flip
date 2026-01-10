@@ -3,7 +3,7 @@
  *
  * View and manage trade-in submissions.
  */
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   Page,
   Layout,
@@ -21,6 +21,7 @@ import {
   Modal,
   Box,
   Tabs,
+  Divider,
 } from '@shopify/polaris';
 import { ViewIcon, PlusIcon, CheckIcon, XIcon } from '@shopify/polaris-icons';
 import { useNavigate } from 'react-router-dom';
@@ -102,9 +103,25 @@ async function updateTradeInStatus(
   if (!response.ok) throw new Error(`Failed to ${status} trade-in`);
 }
 
+// Hook to detect mobile viewport
+function useIsMobile(breakpoint: number = 768) {
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== 'undefined' ? window.innerWidth < breakpoint : false
+  );
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < breakpoint);
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, [breakpoint]);
+
+  return isMobile;
+}
+
 export function EmbeddedTradeIns({ shop }: TradeInsProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const isMobile = useIsMobile();
   const [page, setPage] = useState(1);
   const [selectedTab, setSelectedTab] = useState(0);
   const [detailBatch, setDetailBatch] = useState<TradeInBatch | null>(null);
@@ -228,48 +245,96 @@ export function EmbeddedTradeIns({ shop }: TradeInsProps) {
                 </Box>
               ) : data?.batches && data.batches.length > 0 ? (
                 <>
-                  <DataTable
-                    columnContentTypes={[
-                      'text',
-                      'text',
-                      'numeric',
-                      'text',
-                      'text',
-                      'text',
-                    ]}
-                    headings={[
-                      'Customer',
-                      'Reference',
-                      'Trade Value',
-                      'Category',
-                      'Status',
-                      '',
-                    ]}
-                    rows={data.batches.filter(b => b && b.id != null).map((batch) => [
-                      <BlockStack gap="100" key={batch.id}>
-                        <Text as="span" fontWeight="bold">
-                          {batch.member_name || batch.guest_name || 'Unknown'}
-                        </Text>
-                        <Text as="p" variant="bodySm" tone="subdued">
-                          {batch.is_member ? batch.member_tier || 'Member' : 'Guest'} • {formatDate(batch.created_at)}
-                        </Text>
-                      </BlockStack>,
-                      <Text as="span" variant="bodySm" tone="subdued" key={`ref-${batch.id}`}>
-                        {batch.batch_reference}
-                      </Text>,
-                      formatCurrency(batch.total_trade_value),
-                      <Badge key={`cat-${batch.id}`}>{String(batch.category || 'General')}</Badge>,
-                      getStatusBadge(batch.status),
-                      <Button
-                        key={`view-${batch.id}`}
-                        icon={ViewIcon}
-                        variant="plain"
-                        onClick={() => setDetailBatch(batch)}
-                      >
-                        View
-                      </Button>,
-                    ])}
-                  />
+                  {isMobile ? (
+                    /* Mobile card-based layout */
+                    <Box padding="400">
+                      <BlockStack gap="300">
+                        {data.batches.filter(b => b && b.id != null).map((batch, index) => (
+                          <div key={batch.id}>
+                            {index > 0 && <Divider />}
+                            <Box paddingBlockStart={index > 0 ? "300" : "0"} paddingBlockEnd="300">
+                              <BlockStack gap="200">
+                                <InlineStack align="space-between" blockAlign="start">
+                                  <BlockStack gap="100">
+                                    <Text as="span" fontWeight="bold">
+                                      {batch.member_name || batch.guest_name || 'Unknown'}
+                                    </Text>
+                                    <Text as="p" variant="bodySm" tone="subdued">
+                                      {batch.is_member ? batch.member_tier || 'Member' : 'Guest'}
+                                    </Text>
+                                  </BlockStack>
+                                  <Text as="span" fontWeight="bold">
+                                    {formatCurrency(batch.total_trade_value)}
+                                  </Text>
+                                </InlineStack>
+                                <InlineStack gap="200" wrap>
+                                  {getStatusBadge(batch.status)}
+                                  <Badge>{String(batch.category || 'General')}</Badge>
+                                </InlineStack>
+                                <InlineStack align="space-between">
+                                  <Text as="span" variant="bodySm" tone="subdued">
+                                    {batch.batch_reference} • {formatDate(batch.created_at)}
+                                  </Text>
+                                  <Button
+                                    icon={ViewIcon}
+                                    variant="plain"
+                                    size="slim"
+                                    onClick={() => setDetailBatch(batch)}
+                                  >
+                                    View
+                                  </Button>
+                                </InlineStack>
+                              </BlockStack>
+                            </Box>
+                          </div>
+                        ))}
+                      </BlockStack>
+                    </Box>
+                  ) : (
+                    /* Desktop DataTable layout */
+                    <DataTable
+                      columnContentTypes={[
+                        'text',
+                        'text',
+                        'numeric',
+                        'text',
+                        'text',
+                        'text',
+                      ]}
+                      headings={[
+                        'Customer',
+                        'Reference',
+                        'Trade Value',
+                        'Category',
+                        'Status',
+                        '',
+                      ]}
+                      rows={data.batches.filter(b => b && b.id != null).map((batch) => [
+                        <BlockStack gap="100" key={batch.id}>
+                          <Text as="span" fontWeight="bold">
+                            {batch.member_name || batch.guest_name || 'Unknown'}
+                          </Text>
+                          <Text as="p" variant="bodySm" tone="subdued">
+                            {batch.is_member ? batch.member_tier || 'Member' : 'Guest'} • {formatDate(batch.created_at)}
+                          </Text>
+                        </BlockStack>,
+                        <Text as="span" variant="bodySm" tone="subdued" key={`ref-${batch.id}`}>
+                          {batch.batch_reference}
+                        </Text>,
+                        formatCurrency(batch.total_trade_value),
+                        <Badge key={`cat-${batch.id}`}>{String(batch.category || 'General')}</Badge>,
+                        getStatusBadge(batch.status),
+                        <Button
+                          key={`view-${batch.id}`}
+                          icon={ViewIcon}
+                          variant="plain"
+                          onClick={() => setDetailBatch(batch)}
+                        >
+                          View
+                        </Button>,
+                      ])}
+                    />
+                  )}
 
                   <Box padding="400">
                     <InlineStack align="center">
@@ -318,7 +383,7 @@ export function EmbeddedTradeIns({ shop }: TradeInsProps) {
                 </Banner>
               )}
 
-              <InlineStack gap="800">
+              <InlineStack gap={isMobile ? "400" : "800"} wrap>
                 <BlockStack gap="100">
                   <Text as="span" variant="bodySm" tone="subdued">
                     Customer

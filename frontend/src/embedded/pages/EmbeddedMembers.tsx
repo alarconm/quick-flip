@@ -165,6 +165,37 @@ export function EmbeddedMembers({ shop }: MembersProps) {
     setPage(1);
   }, []);
 
+  // Export members to CSV
+  const handleExport = useCallback(() => {
+    if (!data?.members?.length) return;
+
+    const headers = ['Name', 'Email', 'Tier', 'Status', 'Trade-Ins', 'Credits Issued', 'Member Since', 'Last Activity'];
+    const rows = data.members.map(member => [
+      `${member.first_name || ''} ${member.last_name || ''}`.trim(),
+      member.email || '',
+      member.tier?.name || 'None',
+      member.status || '',
+      member.trade_in_count || 0,
+      member.total_credits_issued || 0,
+      member.created_at ? new Date(member.created_at).toLocaleDateString() : '',
+      member.last_trade_in_at ? new Date(member.last_trade_in_at).toLocaleDateString() : 'Never',
+    ]);
+
+    const csvContent = [headers, ...rows].map(row =>
+      row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')
+    ).join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `tradeup-members-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, [data]);
+
   if (!shop) {
     return (
       <Page title="Members">
@@ -249,6 +280,7 @@ export function EmbeddedMembers({ shop }: MembersProps) {
           content: 'Export',
           icon: ExportIcon,
           disabled: !data?.members?.length,
+          onAction: handleExport,
         },
       ]}
     >
@@ -1179,11 +1211,12 @@ interface AddMemberModalProps {
 interface ShopifyCustomer {
   id: string;
   email: string;
-  first_name: string;
-  last_name: string;
+  firstName: string;
+  lastName: string;
+  displayName?: string;
   phone: string | null;
-  orders_count: number;
-  total_spent: string;
+  ordersCount: number;
+  totalSpent: number | string;
 }
 
 function AddMemberModal({ open, onClose, shop }: AddMemberModalProps) {
@@ -1214,7 +1247,7 @@ function AddMemberModal({ open, onClose, shop }: AddMemberModalProps) {
     setSearching(true);
     try {
       const response = await authFetch(
-        `${getApiUrl()}/shopify/customers/search?q=${encodeURIComponent(searchQuery)}`,
+        `${getApiUrl()}/admin/shopify/customers/search?q=${encodeURIComponent(searchQuery)}`,
         shop
       );
       if (response.ok) {
@@ -1238,8 +1271,8 @@ function AddMemberModal({ open, onClose, shop }: AddMemberModalProps) {
         body: JSON.stringify({
           shopify_customer_id: selectedCustomer.id,
           email: selectedCustomer.email,
-          first_name: selectedCustomer.first_name,
-          last_name: selectedCustomer.last_name,
+          first_name: selectedCustomer.firstName,
+          last_name: selectedCustomer.lastName,
           phone: selectedCustomer.phone,
           tier_id: selectedTierId ? parseInt(selectedTierId) : null,
         }),
@@ -1306,7 +1339,7 @@ function AddMemberModal({ open, onClose, shop }: AddMemberModalProps) {
             <BlockStack gap="200">
               <Text as="p" variant="headingMd">Member Enrolled!</Text>
               <Text as="p">
-                {selectedCustomer?.first_name} {selectedCustomer?.last_name} has been enrolled
+                {selectedCustomer?.firstName} {selectedCustomer?.lastName} has been enrolled
                 in your loyalty program.
               </Text>
             </BlockStack>
@@ -1324,17 +1357,17 @@ function AddMemberModal({ open, onClose, shop }: AddMemberModalProps) {
             <Card background="bg-surface-secondary">
               <BlockStack gap="200">
                 <Text as="h3" variant="headingSm">
-                  {selectedCustomer.first_name} {selectedCustomer.last_name}
+                  {selectedCustomer.firstName} {selectedCustomer.lastName}
                 </Text>
                 <Text as="p" tone="subdued">
                   {selectedCustomer.email}
                 </Text>
                 <InlineStack gap="400">
                   <Text as="span" variant="bodySm">
-                    {selectedCustomer.orders_count} orders
+                    {selectedCustomer.ordersCount} orders
                   </Text>
                   <Text as="span" variant="bodySm">
-                    ${selectedCustomer.total_spent} spent
+                    ${selectedCustomer.totalSpent} spent
                   </Text>
                 </InlineStack>
               </BlockStack>
@@ -1396,7 +1429,7 @@ function AddMemberModal({ open, onClose, shop }: AddMemberModalProps) {
                     <InlineStack align="space-between" blockAlign="center">
                       <BlockStack gap="100">
                         <Text as="span" fontWeight="semibold">
-                          {customer.first_name} {customer.last_name}
+                          {customer.firstName} {customer.lastName}
                         </Text>
                         <Text as="span" variant="bodySm" tone="subdued">
                           {customer.email}
@@ -1404,10 +1437,10 @@ function AddMemberModal({ open, onClose, shop }: AddMemberModalProps) {
                       </BlockStack>
                       <BlockStack gap="050" inlineAlign="end">
                         <Text as="span" variant="bodySm">
-                          {customer.orders_count} orders
+                          {customer.ordersCount} orders
                         </Text>
                         <Text as="span" variant="bodySm" tone="subdued">
-                          ${customer.total_spent}
+                          ${customer.totalSpent}
                         </Text>
                       </BlockStack>
                     </InlineStack>

@@ -27,6 +27,7 @@ import {
   Divider,
   ButtonGroup,
   ChoiceList,
+  Modal,
 } from '@shopify/polaris';
 import {
   SearchIcon,
@@ -34,7 +35,9 @@ import {
   DeleteIcon,
   PersonIcon,
   CheckIcon,
+  AlertCircleIcon,
 } from '@shopify/polaris-icons';
+import { useQueryClient } from '@tanstack/react-query';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { getApiUrl, authFetch } from '../../hooks/useShopifyBridge';
 
@@ -65,6 +68,17 @@ interface TradeInItem {
   trade_value: string;
   market_value: string;
   notes: string;
+}
+
+interface ShopifyCustomer {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  displayName?: string;
+  phone: string | null;
+  ordersCount: number;
+  totalSpent: number | string;
 }
 
 // Default categories if none are configured
@@ -121,12 +135,23 @@ async function addTradeInItems(
 
 export function EmbeddedNewTradeIn({ shop }: NewTradeInProps) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   // Member search state
   const [memberSearch, setMemberSearch] = useState('');
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [memberOptions, setMemberOptions] = useState<Array<{ value: string; label: string }>>([]);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [searchPerformed, setSearchPerformed] = useState(false);
+
+  // Inline add member modal state
+  const [addMemberModalOpen, setAddMemberModalOpen] = useState(false);
+  const [customerSearchQuery, setCustomerSearchQuery] = useState('');
+  const [customerSearchResults, setCustomerSearchResults] = useState<ShopifyCustomer[]>([]);
+  const [customerSearching, setCustomerSearching] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<ShopifyCustomer | null>(null);
+  const [enrolling, setEnrolling] = useState(false);
+  const [enrollError, setEnrollError] = useState('');
 
   // Category state
   const [selectedCategory, setSelectedCategory] = useState('other');
@@ -157,6 +182,7 @@ export function EmbeddedNewTradeIn({ shop }: NewTradeInProps) {
   useEffect(() => {
     if (!memberSearch || memberSearch.length < 2 || selectedMember) {
       setMemberOptions([]);
+      if (!memberSearch) setSearchPerformed(false);
       return;
     }
 
@@ -171,9 +197,11 @@ export function EmbeddedNewTradeIn({ shop }: NewTradeInProps) {
             member: m,
           }))
         );
+        setSearchPerformed(true);
       } catch (err) {
         console.error('Search failed:', err);
         setMemberOptions([]);
+        setSearchPerformed(true);
       } finally {
         setSearchLoading(false);
       }
@@ -181,6 +209,85 @@ export function EmbeddedNewTradeIn({ shop }: NewTradeInProps) {
 
     return () => clearTimeout(timeoutId);
   }, [memberSearch, shop, selectedMember]);
+
+  // Search Shopify customers for inline add member
+  const searchShopifyCustomers = useCallback(async () => {
+    if (!customerSearchQuery || customerSearchQuery.length < 2) return;
+
+    setCustomerSearching(true);
+    try {
+      const response = await authFetch(
+        `${getApiUrl()}/admin/shopify/customers/search?q=${encodeURIComponent(customerSearchQuery)}`,
+        shop
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setCustomerSearchResults(data.customers || []);
+      }
+    } catch (err) {
+      console.error('Customer search failed:', err);
+    } finally {
+      setCustomerSearching(false);
+    }
+  }, [customerSearchQuery, shop]);
+
+  // Enroll customer as member
+  const enrollCustomerAsMember = useCallback(async () => {
+    if (!selectedCustomer) return;
+
+    setEnrolling(true);
+    setEnrollError('');
+    try {
+      const response = await authFetch(`${getApiUrl()}/members`, shop, {
+        method: 'POST',
+        body: JSON.stringify({
+          shopify_customer_id: selectedCustomer.id,
+          email: selectedCustomer.email,
+          first_name: selectedCustomer.firstName,
+          last_name: selectedCustomer.lastName,
+          phone: selectedCustomer.phone,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to enroll member');
+      }
+
+      const newMember = await response.json();
+
+      // Set the new member as selected
+      setSelectedMember({
+        id: newMember.id,
+        member_number: newMember.member_number || '',
+        name: `${selectedCustomer.firstName} ${selectedCustomer.lastName}`.trim() || null,
+        email: selectedCustomer.email,
+        tier: newMember.tier || null,
+      });
+
+      // Invalidate members query for future searches
+      queryClient.invalidateQueries({ queryKey: ['members'] });
+
+      // Close modal and reset state
+      setAddMemberModalOpen(false);
+      setCustomerSearchQuery('');
+      setCustomerSearchResults([]);
+      setSelectedCustomer(null);
+    } catch (err) {
+      setEnrollError(err instanceof Error ? err.message : 'Failed to enroll member');
+    } finally {
+      setEnrolling(false);
+    }
+  }, [selectedCustomer, shop, queryClient]);
+
+  // Close add member modal and reset
+  const closeAddMemberModal = useCallback(() => {
+    setAddMemberModalOpen(false);
+    setCustomerSearchQuery('');
+    setCustomerSearchResults([]);
+    setSelectedCustomer(null);
+    setEnrollError('');
+  }, []);
 
   // Create trade-in mutation
   const createMutation = useMutation({
@@ -318,6 +425,15 @@ export function EmbeddedNewTradeIn({ shop }: NewTradeInProps) {
           </Layout.Section>
         )}
 
+        {/* Warning when no member selected but items added */}
+        {!selectedMember && totalTradeValue > 0 && (
+          <Layout.Section>
+            <Banner tone="warning" icon={AlertCircleIcon}>
+              <p>Please select a member before creating the trade-in. Use the search above or add a new member from your Shopify customers.</p>
+            </Banner>
+          </Layout.Section>
+        )}
+
         {/* Step 1: Select Member */}
         <Layout.Section>
           <Card>
@@ -359,32 +475,56 @@ export function EmbeddedNewTradeIn({ shop }: NewTradeInProps) {
                   </InlineStack>
                 </Box>
               ) : (
-                <Autocomplete
-                  options={memberOptions}
-                  selected={[]}
-                  onSelect={handleMemberSelect}
-                  loading={searchLoading}
-                  textField={
-                    <Autocomplete.TextField
-                      label="Search members"
-                      labelHidden
-                      onChange={setMemberSearch}
-                      value={memberSearch}
-                      prefix={<Icon source={SearchIcon} />}
-                      placeholder="Search by member number, name, or email..."
-                      autoComplete="off"
-                    />
-                  }
-                  emptyState={
-                    memberSearch.length >= 2 ? (
-                      <Box padding="400">
-                        <Text as="p" tone="subdued" alignment="center">
-                          No members found
-                        </Text>
-                      </Box>
-                    ) : undefined
-                  }
-                />
+                <BlockStack gap="300">
+                  <Autocomplete
+                    options={memberOptions}
+                    selected={[]}
+                    onSelect={handleMemberSelect}
+                    loading={searchLoading}
+                    textField={
+                      <Autocomplete.TextField
+                        label="Search members"
+                        labelHidden
+                        onChange={setMemberSearch}
+                        value={memberSearch}
+                        prefix={<Icon source={SearchIcon} />}
+                        placeholder="Search by member number, name, or email..."
+                        autoComplete="off"
+                      />
+                    }
+                    emptyState={
+                      memberSearch.length >= 2 ? (
+                        <Box padding="400">
+                          <BlockStack gap="200" inlineAlign="center">
+                            <Text as="p" tone="subdued" alignment="center">
+                              No members found matching "{memberSearch}"
+                            </Text>
+                            <Button
+                              size="slim"
+                              onClick={() => setAddMemberModalOpen(true)}
+                            >
+                              Add New Member
+                            </Button>
+                          </BlockStack>
+                        </Box>
+                      ) : undefined
+                    }
+                  />
+                  {!selectedMember && !memberSearch && (
+                    <InlineStack gap="200" blockAlign="center">
+                      <Text as="span" variant="bodySm" tone="subdued">
+                        Don't see the customer?
+                      </Text>
+                      <Button
+                        variant="plain"
+                        size="slim"
+                        onClick={() => setAddMemberModalOpen(true)}
+                      >
+                        Add new member from Shopify
+                      </Button>
+                    </InlineStack>
+                  )}
+                </BlockStack>
               )}
             </BlockStack>
           </Card>
@@ -538,6 +678,129 @@ export function EmbeddedNewTradeIn({ shop }: NewTradeInProps) {
           </InlineStack>
         </Layout.Section>
       </Layout>
+
+      {/* Inline Add Member Modal */}
+      <Modal
+        open={addMemberModalOpen}
+        onClose={closeAddMemberModal}
+        title="Add New Member"
+        primaryAction={
+          selectedCustomer
+            ? {
+                content: 'Enroll as Member',
+                onAction: enrollCustomerAsMember,
+                loading: enrolling,
+              }
+            : undefined
+        }
+        secondaryActions={
+          selectedCustomer
+            ? [{ content: 'Back', onAction: () => setSelectedCustomer(null) }]
+            : [{ content: 'Cancel', onAction: closeAddMemberModal }]
+        }
+      >
+        <Modal.Section>
+          {enrollError && (
+            <Box paddingBlockEnd="400">
+              <Banner tone="critical">
+                <p>{enrollError}</p>
+              </Banner>
+            </Box>
+          )}
+
+          {selectedCustomer ? (
+            <BlockStack gap="400">
+              <Text as="p">Enroll this Shopify customer as a TradeUp member:</Text>
+              <Card background="bg-surface-secondary">
+                <BlockStack gap="200">
+                  <Text as="h3" variant="headingSm">
+                    {selectedCustomer.firstName} {selectedCustomer.lastName}
+                  </Text>
+                  <Text as="p" tone="subdued">
+                    {selectedCustomer.email}
+                  </Text>
+                  <InlineStack gap="400">
+                    <Text as="span" variant="bodySm">
+                      {selectedCustomer.ordersCount} orders
+                    </Text>
+                    <Text as="span" variant="bodySm">
+                      ${selectedCustomer.totalSpent} spent
+                    </Text>
+                  </InlineStack>
+                </BlockStack>
+              </Card>
+            </BlockStack>
+          ) : (
+            <BlockStack gap="400">
+              <Text as="p">Search your Shopify customers to add them as members:</Text>
+
+              <TextField
+                label="Search customers"
+                labelHidden
+                value={customerSearchQuery}
+                onChange={(value) => {
+                  setCustomerSearchQuery(value);
+                }}
+                placeholder="Search by name, email, or phone..."
+                autoComplete="off"
+                prefix={<Icon source={SearchIcon} />}
+                connectedRight={
+                  <Button onClick={searchShopifyCustomers} loading={customerSearching}>
+                    Search
+                  </Button>
+                }
+              />
+
+              {customerSearchResults.length > 0 ? (
+                <BlockStack gap="200">
+                  <Text as="h3" variant="headingSm">
+                    Results ({customerSearchResults.length})
+                  </Text>
+                  {customerSearchResults.map((customer) => (
+                    <div
+                      key={customer.id}
+                      onClick={() => setSelectedCustomer(customer)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => e.key === 'Enter' && setSelectedCustomer(customer)}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <Box
+                        padding="300"
+                        background="bg-surface-secondary"
+                        borderRadius="200"
+                      >
+                        <InlineStack align="space-between" blockAlign="center">
+                          <BlockStack gap="100">
+                            <Text as="span" fontWeight="semibold">
+                              {customer.firstName} {customer.lastName}
+                            </Text>
+                            <Text as="span" variant="bodySm" tone="subdued">
+                              {customer.email}
+                            </Text>
+                          </BlockStack>
+                          <BlockStack gap="050" inlineAlign="end">
+                            <Text as="span" variant="bodySm">
+                              {customer.ordersCount} orders
+                            </Text>
+                            <Text as="span" variant="bodySm" tone="subdued">
+                              ${customer.totalSpent}
+                            </Text>
+                          </BlockStack>
+                        </InlineStack>
+                      </Box>
+                    </div>
+                  ))}
+                </BlockStack>
+              ) : customerSearchQuery.length >= 2 && !customerSearching ? (
+                <Text as="p" tone="subdued" alignment="center">
+                  No customers found. Try a different search.
+                </Text>
+              ) : null}
+            </BlockStack>
+          )}
+        </Modal.Section>
+      </Modal>
     </Page>
   );
 }

@@ -18,7 +18,9 @@ import {
   EmptyState,
   Spinner,
   Banner,
+  InlineGrid,
 } from '@shopify/polaris';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getApiUrl, authFetch } from '../../hooks/useShopifyBridge';
 
@@ -71,7 +73,24 @@ async function fetchRecentActivity(shop: string | null): Promise<RecentActivity[
   return response.json();
 }
 
+// Hook to detect mobile viewport
+function useIsMobile(breakpoint: number = 768) {
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== 'undefined' ? window.innerWidth < breakpoint : false
+  );
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < breakpoint);
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, [breakpoint]);
+
+  return isMobile;
+}
+
 export function EmbeddedDashboard({ shop }: DashboardProps) {
+  const isMobile = useIsMobile();
+
   // Both queries run in parallel with caching for faster subsequent loads
   const { data: stats, isLoading: statsLoading, error: statsError } = useQuery({
     queryKey: ['dashboard', shop],
@@ -107,7 +126,7 @@ export function EmbeddedDashboard({ shop }: DashboardProps) {
       >
         <Layout>
           <Layout.Section>
-            <InlineStack gap="400" wrap={false}>
+            <InlineGrid columns={isMobile ? 2 : 4} gap="400">
               {[1, 2, 3, 4].map((i) => (
                 <Card key={i}>
                   <BlockStack gap="200">
@@ -117,7 +136,7 @@ export function EmbeddedDashboard({ shop }: DashboardProps) {
                   </BlockStack>
                 </Card>
               ))}
-            </InlineStack>
+            </InlineGrid>
           </Layout.Section>
           <Layout.Section variant="oneThird">
             <Card>
@@ -173,27 +192,27 @@ export function EmbeddedDashboard({ shop }: DashboardProps) {
 
         {/* Key Metrics */}
         <Layout.Section>
-          <InlineStack gap="400" wrap={false}>
+          <InlineGrid columns={isMobile ? 2 : 4} gap="400">
             <Card>
               <BlockStack gap="200">
-                <Text as="h3" variant="headingMd">Total Members</Text>
-                <Text as="p" variant="heading2xl">{stats?.total_members || 0}</Text>
+                <Text as="h3" variant={isMobile ? "headingSm" : "headingMd"}>Total Members</Text>
+                <Text as="p" variant={isMobile ? "headingLg" : "heading2xl"}>{stats?.total_members || 0}</Text>
                 <Badge tone="success">{String(`${stats?.active_members ?? 0} active`)}</Badge>
               </BlockStack>
             </Card>
 
             <Card>
               <BlockStack gap="200">
-                <Text as="h3" variant="headingMd">Trade-Ins</Text>
-                <Text as="p" variant="heading2xl">{stats?.completed_trade_ins || 0}</Text>
+                <Text as="h3" variant={isMobile ? "headingSm" : "headingMd"}>Trade-Ins</Text>
+                <Text as="p" variant={isMobile ? "headingLg" : "heading2xl"}>{stats?.completed_trade_ins || 0}</Text>
                 <Badge tone="attention">{String(`${stats?.pending_trade_ins ?? 0} pending`)}</Badge>
               </BlockStack>
             </Card>
 
             <Card>
               <BlockStack gap="200">
-                <Text as="h3" variant="headingMd">Total Value</Text>
-                <Text as="p" variant="heading2xl">
+                <Text as="h3" variant={isMobile ? "headingSm" : "headingMd"}>Total Value</Text>
+                <Text as="p" variant={isMobile ? "headingLg" : "heading2xl"}>
                   {formatCurrency(stats?.total_trade_in_value || 0)}
                 </Text>
                 <Text as="p" variant="bodySm" tone="subdued">
@@ -204,8 +223,8 @@ export function EmbeddedDashboard({ shop }: DashboardProps) {
 
             <Card>
               <BlockStack gap="200">
-                <Text as="h3" variant="headingMd">Credits Issued</Text>
-                <Text as="p" variant="heading2xl">
+                <Text as="h3" variant={isMobile ? "headingSm" : "headingMd"}>Credits Issued</Text>
+                <Text as="p" variant={isMobile ? "headingLg" : "heading2xl"}>
                   {formatCurrency(stats?.total_credits_issued || 0)}
                 </Text>
                 <Text as="p" variant="bodySm" tone="subdued">
@@ -213,7 +232,7 @@ export function EmbeddedDashboard({ shop }: DashboardProps) {
                 </Text>
               </BlockStack>
             </Card>
-          </InlineStack>
+          </InlineGrid>
         </Layout.Section>
 
         {/* Usage & Plan */}
@@ -310,7 +329,7 @@ export function EmbeddedDashboard({ shop }: DashboardProps) {
         <Layout.Section>
           <Box paddingBlockStart="400">
             <Text as="p" variant="bodySm" tone="subdued" alignment="center">
-              Build: 2026-01-09-v5
+              Build: 2026-01-09-v6
             </Text>
           </Box>
         </Layout.Section>
