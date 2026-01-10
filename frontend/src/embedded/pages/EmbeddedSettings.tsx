@@ -240,6 +240,11 @@ interface MembershipTier {
     free_shipping_threshold?: number;
     priority_support?: boolean;
     exclusive_access?: boolean;
+    // New benefit fields
+    free_shipping?: boolean;
+    early_access?: boolean;
+    exclusive_events?: boolean;
+    signup_bonus?: number;
   };
   is_active: boolean;
   shopify_selling_plan_id?: string;
@@ -489,6 +494,12 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
     purchase_cashback_pct: '0',
     monthly_credit: '0',
     credit_expiration_days: '',
+    // Additional benefits (stored in benefits JSON)
+    free_shipping: false,
+    priority_support: false,
+    early_access: false,
+    exclusive_events: false,
+    signup_bonus: '0',
   });
   const [tierError, setTierError] = useState('');
 
@@ -505,6 +516,12 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
         purchase_cashback_pct: String(tier.purchase_cashback_pct || 0),
         monthly_credit: String(tier.monthly_credit_amount || 0),
         credit_expiration_days: tier.credit_expiration_days ? String(tier.credit_expiration_days) : '',
+        // Additional benefits
+        free_shipping: tier.benefits?.free_shipping || false,
+        priority_support: tier.benefits?.priority_support || false,
+        early_access: tier.benefits?.early_access || false,
+        exclusive_events: tier.benefits?.exclusive_events || false,
+        signup_bonus: String(tier.benefits?.signup_bonus || 0),
       });
     } else {
       setEditingTier(null);
@@ -517,6 +534,12 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
         purchase_cashback_pct: '0',
         monthly_credit: '0',
         credit_expiration_days: '',
+        // Additional benefits defaults
+        free_shipping: false,
+        priority_support: false,
+        early_access: false,
+        exclusive_events: false,
+        signup_bonus: '0',
       });
     }
     setTierError('');
@@ -683,6 +706,12 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
       credit_expiration_days: tierForm.credit_expiration_days ? parseInt(tierForm.credit_expiration_days) : null,
       benefits: {
         discount_percent: parseFloat(tierForm.discount_percent) || 0,
+        // Additional benefits
+        free_shipping: tierForm.free_shipping,
+        priority_support: tierForm.priority_support,
+        early_access: tierForm.early_access,
+        exclusive_events: tierForm.exclusive_events,
+        signup_bonus: parseFloat(tierForm.signup_bonus) || 0,
       },
     };
 
@@ -1174,6 +1203,12 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
                                 ${tier.monthly_credit_amount}/mo credit
                               </Text>
                             ) : null}
+                            {tier.benefits?.free_shipping && (
+                              <Badge tone="success">Free Shipping</Badge>
+                            )}
+                            {tier.benefits?.early_access && (
+                              <Badge>Early Access</Badge>
+                            )}
                           </InlineStack>
                         </BlockStack>
                       </InlineStack>
@@ -2126,6 +2161,50 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
               suffix="%"
               autoComplete="off"
               helpText="Discount applied to all purchases (optional)"
+            />
+
+            <TextField
+              label="Signup Bonus"
+              type="number"
+              value={tierForm.signup_bonus}
+              onChange={(value) => setTierForm({ ...tierForm, signup_bonus: value })}
+              prefix="$"
+              autoComplete="off"
+              helpText="One-time store credit bonus when member joins this tier"
+            />
+
+            <Divider />
+
+            <Text as="h3" variant="headingSm">
+              Feature Benefits
+            </Text>
+
+            <Checkbox
+              label="Free Shipping"
+              checked={tierForm.free_shipping}
+              onChange={(value) => setTierForm({ ...tierForm, free_shipping: value })}
+              helpText="Members get free shipping on all orders"
+            />
+
+            <Checkbox
+              label="Early Access"
+              checked={tierForm.early_access}
+              onChange={(value) => setTierForm({ ...tierForm, early_access: value })}
+              helpText="Early access to new product releases"
+            />
+
+            <Checkbox
+              label="Exclusive Events"
+              checked={tierForm.exclusive_events}
+              onChange={(value) => setTierForm({ ...tierForm, exclusive_events: value })}
+              helpText="Access to member-only events and sales"
+            />
+
+            <Checkbox
+              label="Priority Support"
+              checked={tierForm.priority_support}
+              onChange={(value) => setTierForm({ ...tierForm, priority_support: value })}
+              helpText="Priority customer support queue"
             />
           </FormLayout>
         </Modal.Section>

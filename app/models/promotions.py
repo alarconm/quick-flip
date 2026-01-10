@@ -542,10 +542,21 @@ class TierConfiguration(db.Model):
     monthly_price = db.Column(db.Numeric(6, 2), nullable=False)
     yearly_price = db.Column(db.Numeric(6, 2), nullable=True)  # If null, yearly not offered
 
-    # Benefits
+    # Benefits - Percentage-based
     trade_in_bonus_pct = db.Column(db.Numeric(5, 2), default=0)     # Extra % on trade-ins
     purchase_cashback_pct = db.Column(db.Numeric(5, 2), default=0)  # % back on purchases
     store_discount_pct = db.Column(db.Numeric(5, 2), default=0)     # % off purchases
+
+    # Benefits - Fixed amounts
+    store_credit_bonus = db.Column(db.Numeric(8, 2), default=0)     # Flat $ store credit bonus
+    signup_bonus = db.Column(db.Numeric(8, 2), default=0)           # One-time signup credit
+
+    # Benefits - Feature flags
+    free_shipping = db.Column(db.Boolean, default=False)            # Free shipping on orders
+    priority_support = db.Column(db.Boolean, default=False)         # Priority customer support
+    early_access = db.Column(db.Boolean, default=False)             # Early access to releases
+    exclusive_events = db.Column(db.Boolean, default=False)         # Access to exclusive events
+    double_points = db.Column(db.Boolean, default=False)            # Double points on purchases
 
     # Display
     display_order = db.Column(db.Integer, default=0)
@@ -589,9 +600,20 @@ class TierConfiguration(db.Model):
             'yearly_price': float(self.yearly_price) if self.yearly_price else None,
             'yearly_savings': float(self.yearly_savings) if self.yearly_savings else None,
             'yearly_discount_pct': self.yearly_discount_pct,
+            # Percentage-based benefits
             'trade_in_bonus_pct': float(self.trade_in_bonus_pct or 0),
             'purchase_cashback_pct': float(self.purchase_cashback_pct or 0),
             'store_discount_pct': float(self.store_discount_pct or 0),
+            # Fixed amount benefits
+            'store_credit_bonus': float(self.store_credit_bonus or 0),
+            'signup_bonus': float(self.signup_bonus or 0),
+            # Feature flags
+            'free_shipping': bool(self.free_shipping),
+            'priority_support': bool(self.priority_support),
+            'early_access': bool(self.early_access),
+            'exclusive_events': bool(self.exclusive_events),
+            'double_points': bool(self.double_points),
+            # Display
             'display_order': self.display_order,
             'color': self.color,
             'icon': self.icon,
