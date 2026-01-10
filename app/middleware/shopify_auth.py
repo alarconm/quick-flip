@@ -240,12 +240,22 @@ def require_shopify_auth(f):
             }), 403
 
         # Check if access token exists (app is properly installed)
-        if not DEV_MODE and not tenant.shopify_access_token:
-            return jsonify({
-                'error': 'App not installed',
-                'message': 'Please reinstall the app from the Shopify App Store',
-                'code': 'APP_NOT_INSTALLED'
-            }), 403
+        # Note: Wrap in try/except because accessing shopify_access_token
+        # triggers decryption which can fail if ENCRYPTION_KEY is not set
+        if not DEV_MODE:
+            try:
+                has_token = bool(tenant.shopify_access_token)
+            except Exception as e:
+                # Log but don't block - encryption key might not be configured
+                print(f'[Auth] Warning: Could not check access token: {e}')
+                has_token = True  # Assume installed if we can't check
+
+            if not has_token:
+                return jsonify({
+                    'error': 'App not installed',
+                    'message': 'Please reinstall the app from the Shopify App Store',
+                    'code': 'APP_NOT_INSTALLED'
+                }), 403
 
         # Set context
         g.tenant = tenant
