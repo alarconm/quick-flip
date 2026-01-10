@@ -22,6 +22,7 @@ import {
 } from '@shopify/polaris';
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { getApiUrl, authFetch } from '../../hooks/useShopifyBridge';
 
 interface DashboardProps {
@@ -90,6 +91,7 @@ function useIsMobile(breakpoint: number = 768) {
 
 export function EmbeddedDashboard({ shop }: DashboardProps) {
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
 
   // Both queries run in parallel with caching for faster subsequent loads
   const { data: stats, isLoading: statsLoading, error: statsError } = useQuery({
@@ -190,48 +192,80 @@ export function EmbeddedDashboard({ shop }: DashboardProps) {
           </Layout.Section>
         )}
 
-        {/* Key Metrics */}
+        {/* Key Metrics - Clickable Cards */}
         <Layout.Section>
           <InlineGrid columns={isMobile ? 2 : 4} gap="400">
-            <Card>
-              <BlockStack gap="200">
-                <Text as="h3" variant={isMobile ? "headingSm" : "headingMd"}>Total Members</Text>
-                <Text as="p" variant={isMobile ? "headingLg" : "heading2xl"}>{stats?.total_members || 0}</Text>
-                <Badge tone="success">{String(`${stats?.active_members ?? 0} active`)}</Badge>
-              </BlockStack>
-            </Card>
+            <div
+              onClick={() => navigate('/app/members')}
+              style={{ cursor: 'pointer' }}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => e.key === 'Enter' && navigate('/app/members')}
+            >
+              <Card>
+                <BlockStack gap="200">
+                  <Text as="h3" variant={isMobile ? "headingSm" : "headingMd"}>Total Members</Text>
+                  <Text as="p" variant={isMobile ? "headingLg" : "heading2xl"}>{stats?.total_members || 0}</Text>
+                  <Badge tone="success">{String(`${stats?.active_members ?? 0} active`)}</Badge>
+                </BlockStack>
+              </Card>
+            </div>
 
-            <Card>
-              <BlockStack gap="200">
-                <Text as="h3" variant={isMobile ? "headingSm" : "headingMd"}>Trade-Ins</Text>
-                <Text as="p" variant={isMobile ? "headingLg" : "heading2xl"}>{stats?.completed_trade_ins || 0}</Text>
-                <Badge tone="attention">{String(`${stats?.pending_trade_ins ?? 0} pending`)}</Badge>
-              </BlockStack>
-            </Card>
+            <div
+              onClick={() => navigate('/app/trade-ins')}
+              style={{ cursor: 'pointer' }}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => e.key === 'Enter' && navigate('/app/trade-ins')}
+            >
+              <Card>
+                <BlockStack gap="200">
+                  <Text as="h3" variant={isMobile ? "headingSm" : "headingMd"}>Trade-Ins</Text>
+                  <Text as="p" variant={isMobile ? "headingLg" : "heading2xl"}>{stats?.completed_trade_ins || 0}</Text>
+                  <Badge tone="attention">{String(`${stats?.pending_trade_ins ?? 0} pending`)}</Badge>
+                </BlockStack>
+              </Card>
+            </div>
 
-            <Card>
-              <BlockStack gap="200">
-                <Text as="h3" variant={isMobile ? "headingSm" : "headingMd"}>Total Value</Text>
-                <Text as="p" variant={isMobile ? "headingLg" : "heading2xl"}>
-                  {formatCurrency(stats?.total_trade_in_value || 0)}
-                </Text>
-                <Text as="p" variant="bodySm" tone="subdued">
-                  Trade-in value processed
-                </Text>
-              </BlockStack>
-            </Card>
+            <div
+              onClick={() => navigate('/app/trade-ins')}
+              style={{ cursor: 'pointer' }}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => e.key === 'Enter' && navigate('/app/trade-ins')}
+            >
+              <Card>
+                <BlockStack gap="200">
+                  <Text as="h3" variant={isMobile ? "headingSm" : "headingMd"}>Total Value</Text>
+                  <Text as="p" variant={isMobile ? "headingLg" : "heading2xl"}>
+                    {formatCurrency(stats?.total_trade_in_value || 0)}
+                  </Text>
+                  <Text as="p" variant="bodySm" tone="subdued">
+                    Trade-in value processed
+                  </Text>
+                </BlockStack>
+              </Card>
+            </div>
 
-            <Card>
-              <BlockStack gap="200">
-                <Text as="h3" variant={isMobile ? "headingSm" : "headingMd"}>Credits Issued</Text>
-                <Text as="p" variant={isMobile ? "headingLg" : "heading2xl"}>
-                  {formatCurrency(stats?.total_credits_issued || 0)}
-                </Text>
-                <Text as="p" variant="bodySm" tone="subdued">
-                  Store credit distributed
-                </Text>
-              </BlockStack>
-            </Card>
+            <div
+              onClick={() => navigate('/app/members')}
+              style={{ cursor: 'pointer' }}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => e.key === 'Enter' && navigate('/app/members')}
+            >
+              <Card>
+                <BlockStack gap="200">
+                  <Text as="h3" variant={isMobile ? "headingSm" : "headingMd"}>Credits Issued</Text>
+                  <Text as="p" variant={isMobile ? "headingLg" : "heading2xl"}>
+                    {formatCurrency(stats?.total_credits_issued || 0)}
+                  </Text>
+                  <Text as="p" variant="bodySm" tone="subdued">
+                    Store credit distributed
+                  </Text>
+                </BlockStack>
+              </Card>
+            </div>
           </InlineGrid>
         </Layout.Section>
 
@@ -244,44 +278,60 @@ export function EmbeddedDashboard({ shop }: DashboardProps) {
                 <Badge tone="info">{String(stats?.subscription?.plan || 'Free')}</Badge>
               </InlineStack>
 
-              <BlockStack gap="200">
-                <InlineStack align="space-between">
-                  <Text as="span" variant="bodySm">Members</Text>
-                  <Text as="span" variant="bodySm">
-                    {stats?.subscription?.usage?.members?.current || 0} /{' '}
-                    {stats?.subscription?.usage?.members?.limit === null
-                      ? '∞'
-                      : stats?.subscription?.usage?.members?.limit}
-                  </Text>
-                </InlineStack>
-                <ProgressBar
-                  progress={stats?.subscription?.usage?.members?.percentage || 0}
-                  size="small"
-                  tone={
-                    (stats?.subscription?.usage?.members?.percentage || 0) > 90
-                      ? 'critical'
-                      : (stats?.subscription?.usage?.members?.percentage || 0) > 75
-                      ? 'highlight'
-                      : 'success'
-                  }
-                />
-              </BlockStack>
+              <div
+                onClick={() => navigate('/app/members')}
+                style={{ cursor: 'pointer' }}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => e.key === 'Enter' && navigate('/app/members')}
+              >
+                <BlockStack gap="200">
+                  <InlineStack align="space-between">
+                    <Text as="span" variant="bodySm">Members</Text>
+                    <Text as="span" variant="bodySm">
+                      {stats?.subscription?.usage?.members?.current || 0} /{' '}
+                      {stats?.subscription?.usage?.members?.limit === null
+                        ? '∞'
+                        : stats?.subscription?.usage?.members?.limit}
+                    </Text>
+                  </InlineStack>
+                  <ProgressBar
+                    progress={stats?.subscription?.usage?.members?.percentage || 0}
+                    size="small"
+                    tone={
+                      (stats?.subscription?.usage?.members?.percentage || 0) > 90
+                        ? 'critical'
+                        : (stats?.subscription?.usage?.members?.percentage || 0) > 75
+                        ? 'highlight'
+                        : 'success'
+                    }
+                  />
+                </BlockStack>
+              </div>
 
-              <BlockStack gap="200">
-                <InlineStack align="space-between">
-                  <Text as="span" variant="bodySm">Tiers</Text>
-                  <Text as="span" variant="bodySm">
-                    {stats?.subscription?.usage?.tiers?.current || 0} /{' '}
-                    {stats?.subscription?.usage?.tiers?.limit === null
-                      ? '∞'
-                      : stats?.subscription?.usage?.tiers?.limit}
-                  </Text>
-                </InlineStack>
-                <ProgressBar
-                  progress={stats?.subscription?.usage?.tiers?.percentage || 0}
-                  size="small"
-                />
-              </BlockStack>
+              <div
+                onClick={() => navigate('/app/tiers')}
+                style={{ cursor: 'pointer' }}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => e.key === 'Enter' && navigate('/app/tiers')}
+              >
+                <BlockStack gap="200">
+                  <InlineStack align="space-between">
+                    <Text as="span" variant="bodySm">Tiers</Text>
+                    <Text as="span" variant="bodySm">
+                      {stats?.subscription?.usage?.tiers?.current || 0} /{' '}
+                      {stats?.subscription?.usage?.tiers?.limit === null
+                        ? '∞'
+                        : stats?.subscription?.usage?.tiers?.limit}
+                    </Text>
+                  </InlineStack>
+                  <ProgressBar
+                    progress={stats?.subscription?.usage?.tiers?.percentage || 0}
+                    size="small"
+                  />
+                </BlockStack>
+              </div>
             </BlockStack>
           </Card>
         </Layout.Section>
@@ -329,7 +379,7 @@ export function EmbeddedDashboard({ shop }: DashboardProps) {
         <Layout.Section>
           <Box paddingBlockStart="400">
             <Text as="p" variant="bodySm" tone="subdued" alignment="center">
-              Build: 2026-01-09-v6
+              Build: 2026-01-10-v1
             </Text>
           </Box>
         </Layout.Section>
