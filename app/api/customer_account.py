@@ -4,7 +4,7 @@ Customer Account API endpoints.
 Public endpoints for customer-facing features like:
 - Viewing tier status and benefits
 - Trade-in history
-- Store credit balance
+- Store credit balance (from Shopify - source of truth)
 - Rewards activity
 
 These endpoints are authenticated via Shopify customer token,
@@ -16,6 +16,7 @@ from decimal import Decimal
 from ..extensions import db
 from ..models import Member, TradeInBatch, MembershipTier, StoreCreditLedger
 from ..models.referral import Referral, ReferralProgram
+from ..services.shopify_client import ShopifyClient
 
 customer_account_bp = Blueprint('customer_account', __name__)
 
@@ -74,12 +75,17 @@ def get_customer_status():
             'benefits': tier.benefits or {}
         }
 
-    # Calculate store credit balance from ledger
-    store_credit_balance = db.session.query(
-        db.func.sum(StoreCreditLedger.amount)
-    ).filter(
-        StoreCreditLedger.member_id == member.id
-    ).scalar() or Decimal('0')
+    # Get store credit balance from Shopify (source of truth)
+    store_credit_balance = Decimal('0')
+    currency = 'USD'
+    if member.shopify_customer_id:
+        try:
+            shopify_client = ShopifyClient(member.tenant_id)
+            balance_info = shopify_client.get_store_credit_balance(member.shopify_customer_id)
+            store_credit_balance = Decimal(str(balance_info.get('balance', 0)))
+            currency = balance_info.get('currency', 'USD')
+        except Exception as e:
+            current_app.logger.warning(f"Could not fetch Shopify balance for member {member.id}: {e}")
 
     return jsonify({
         'member': {
@@ -97,7 +103,7 @@ def get_customer_status():
         },
         'store_credit': {
             'balance': float(store_credit_balance),
-            'currency': 'USD'
+            'currency': currency
         }
     })
 
@@ -342,12 +348,15 @@ def get_extension_data():
         TradeInBatch.created_at.desc()
     ).limit(5).all()
 
-    # Calculate store credit balance from ledger
-    store_credit_balance = db.session.query(
-        db.func.sum(StoreCreditLedger.amount)
-    ).filter(
-        StoreCreditLedger.member_id == member.id
-    ).scalar() or Decimal('0')
+    # Get store credit balance from Shopify (source of truth)
+    store_credit_balance = Decimal('0')
+    if member.shopify_customer_id:
+        try:
+            shopify_client = ShopifyClient(member.tenant_id)
+            balance_info = shopify_client.get_store_credit_balance(member.shopify_customer_id)
+            store_credit_balance = Decimal(str(balance_info.get('balance', 0)))
+        except Exception as e:
+            current_app.logger.warning(f"Could not fetch Shopify balance for member {member.id}: {e}")
 
     # Get referral data
     referral_data = None

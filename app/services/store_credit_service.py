@@ -1,10 +1,17 @@
 """
 Store Credit Service for TradeUp.
 
-Handles all store credit operations:
+ARCHITECTURE: Shopify is the SINGLE SOURCE OF TRUTH for store credit balances.
+
+This service:
+- Issues credit to Shopify FIRST (fails if Shopify fails)
+- Maintains a ledger (StoreCreditLedger) as an audit trail of what TradeUp issued
+- Tracks stats (total_earned, trade_in_earned, etc.) for analytics
+- Does NOT maintain local balance - always fetches from Shopify
+
+Handles:
 - Credit issuance (trade-ins, cashback, promotions)
-- Shopify native store credit sync
-- Balance tracking
+- Debit operations (manual deductions)
 - Promotion application
 - Bulk operations
 """
@@ -31,18 +38,52 @@ from .shopify_client import ShopifyClient
 class StoreCreditService:
     """
     Centralized store credit management.
+
+    Shopify native store credit is the source of truth for balances.
+    TradeUp maintains a ledger for audit trail and stats for analytics.
     """
+
+    def get_member_stats(self, member_id: int) -> MemberCreditBalance:
+        """
+        Get or create member's credit stats record (for tracking what TradeUp issued).
+
+        NOTE: This does NOT contain the real balance. Use get_shopify_balance() for that.
+        """
+        stats = MemberCreditBalance.query.filter_by(member_id=member_id).first()
+        if not stats:
+            stats = MemberCreditBalance(member_id=member_id)
+            db.session.add(stats)
+            db.session.commit()
+        return stats
+
+    def get_shopify_balance(self, member: Member) -> Dict[str, Any]:
+        """
+        Get the real store credit balance from Shopify (source of truth).
+
+        Args:
+            member: Member with shopify_customer_id
+
+        Returns:
+            Dict with balance, currency, account_id
+        """
+        if not member.shopify_customer_id:
+            return {'balance': 0, 'currency': 'USD', 'account_id': None}
+
+        try:
+            shopify_client = ShopifyClient(member.tenant_id)
+            return shopify_client.get_store_credit_balance(member.shopify_customer_id)
+        except Exception as e:
+            current_app.logger.error(f"Error fetching Shopify balance for member {member.id}: {e}")
+            return {'balance': 0, 'currency': 'USD', 'account_id': None, 'error': str(e)}
 
     def get_member_balance(self, member_id: int) -> MemberCreditBalance:
         """
-        Get or create member's credit balance record.
+        Get member's credit stats (legacy method for compatibility).
+
+        NOTE: The total_balance/available_balance fields are deprecated.
+        Use get_shopify_balance() for the real balance from Shopify.
         """
-        balance = MemberCreditBalance.query.filter_by(member_id=member_id).first()
-        if not balance:
-            balance = MemberCreditBalance(member_id=member_id)
-            db.session.add(balance)
-            db.session.commit()
-        return balance
+        return self.get_member_stats(member_id)
 
     def add_credit(
         self,
@@ -60,18 +101,14 @@ class StoreCreditService:
         expires_at: Optional[datetime] = None,
     ) -> StoreCreditLedger:
         """
-        Add credit to member's balance.
+        Add credit to member's store credit account.
 
-        Creates ledger entry, updates balance, and syncs to Shopify.
+        SHOPIFY-FIRST: Writes to Shopify first. If Shopify fails, operation fails.
+        Only creates ledger entry after Shopify succeeds.
         """
         member = Member.query.get(member_id)
         if not member:
             raise ValueError(f"Member {member_id} not found")
-
-        balance = self.get_member_balance(member_id)
-
-        # Calculate new balance
-        new_balance = Decimal(str(balance.total_balance or 0)) + amount
 
         # Get promotion name if applicable
         promotion_name = None
@@ -80,7 +117,38 @@ class StoreCreditService:
             if promotion:
                 promotion_name = promotion.name
 
-        # Create ledger entry
+        shopify_result = None
+        new_balance = Decimal('0')
+
+        # STEP 1: Write to Shopify FIRST (source of truth)
+        if sync_to_shopify and member.shopify_customer_id:
+            try:
+                shopify_client = ShopifyClient(member.tenant_id)
+                shopify_result = shopify_client.add_store_credit(
+                    customer_id=member.shopify_customer_id,
+                    amount=float(amount),
+                    note=description
+                )
+
+                if not shopify_result.get('success'):
+                    raise ValueError("Shopify store credit operation failed")
+
+                new_balance = Decimal(str(shopify_result.get('new_balance', 0)))
+                current_app.logger.info(
+                    f"Added ${amount} to Shopify for member {member.id}. "
+                    f"New balance: ${new_balance:.2f}"
+                )
+
+            except Exception as e:
+                current_app.logger.error(f"Shopify credit failed for member {member.id}: {e}")
+                raise ValueError(f"Failed to add store credit: {e}")
+        else:
+            # No Shopify customer - log warning but allow for testing
+            current_app.logger.warning(
+                f"Member {member_id} has no Shopify customer ID - credit not synced"
+            )
+
+        # STEP 2: Create ledger entry (audit trail) AFTER Shopify succeeds
         entry = StoreCreditLedger(
             member_id=member_id,
             event_type=event_type,
@@ -95,34 +163,30 @@ class StoreCreditService:
             channel=channel,
             created_by=created_by,
             expires_at=expires_at,
+            synced_to_shopify=shopify_result is not None,
+            shopify_credit_id=shopify_result.get('transaction_id') if shopify_result else None,
         )
         db.session.add(entry)
 
-        # Update balance
-        balance.total_balance = new_balance
-        balance.available_balance = new_balance
-        balance.total_earned = Decimal(str(balance.total_earned or 0)) + amount
-        balance.last_credit_at = datetime.utcnow()
+        # STEP 3: Update stats (what TradeUp has issued - for analytics)
+        stats = self.get_member_stats(member_id)
+        stats.total_earned = Decimal(str(stats.total_earned or 0)) + amount
+        stats.last_credit_at = datetime.utcnow()
 
         # Update category-specific stats
         if event_type == CreditEventType.TRADE_IN.value:
-            balance.trade_in_earned = Decimal(str(balance.trade_in_earned or 0)) + amount
+            stats.trade_in_earned = Decimal(str(stats.trade_in_earned or 0)) + amount
         elif event_type == CreditEventType.PURCHASE_CASHBACK.value:
-            balance.cashback_earned = Decimal(str(balance.cashback_earned or 0)) + amount
+            stats.cashback_earned = Decimal(str(stats.cashback_earned or 0)) + amount
         elif event_type == CreditEventType.PROMOTION_BONUS.value:
-            balance.promo_bonus_earned = Decimal(str(balance.promo_bonus_earned or 0)) + amount
+            stats.promo_bonus_earned = Decimal(str(stats.promo_bonus_earned or 0)) + amount
 
         db.session.commit()
 
-        # Sync to Shopify
-        if sync_to_shopify and member.shopify_customer_id:
-            self._sync_credit_to_shopify(entry, member)
-
-        # Trigger Shopify Flow event for credit issued
+        # STEP 4: Trigger Shopify Flow event for credit issued
         if member.shopify_customer_id:
             try:
                 from .flow_service import FlowService
-                from .shopify_client import ShopifyClient
                 shopify_client = ShopifyClient(member.tenant_id)
                 flow_svc = FlowService(member.tenant_id, shopify_client)
                 flow_svc.trigger_credit_issued(
@@ -137,7 +201,7 @@ class StoreCreditService:
                 )
             except Exception as flow_err:
                 # Flow triggers are non-critical
-                print(f"Flow trigger error (non-blocking): {flow_err}")
+                current_app.logger.warning(f"Flow trigger error (non-blocking): {flow_err}")
 
         return entry
 
@@ -152,21 +216,48 @@ class StoreCreditService:
         sync_to_shopify: bool = True,
     ) -> StoreCreditLedger:
         """
-        Deduct credit from member's balance (redemption).
+        Deduct credit from member's store credit account (redemption).
 
-        Creates ledger entry, updates balance, and syncs to Shopify.
+        SHOPIFY-FIRST: Checks Shopify balance and debits Shopify first.
+        Only creates ledger entry after Shopify succeeds.
         """
         member = Member.query.get(member_id)
         if not member:
             raise ValueError(f"Member {member_id} not found")
 
-        balance = self.get_member_balance(member_id)
+        shopify_result = None
+        new_balance = Decimal('0')
 
-        if Decimal(str(balance.available_balance or 0)) < amount:
-            raise ValueError("Insufficient credit balance")
+        # STEP 1: Debit from Shopify FIRST (source of truth)
+        if sync_to_shopify and member.shopify_customer_id:
+            try:
+                shopify_client = ShopifyClient(member.tenant_id)
 
-        new_balance = Decimal(str(balance.total_balance or 0)) - amount
+                # Shopify's debit method already checks balance
+                shopify_result = shopify_client.debit_store_credit(
+                    customer_id=member.shopify_customer_id,
+                    amount=float(amount),
+                    note=description,
+                )
 
+                if not shopify_result.get('success'):
+                    raise ValueError("Shopify store credit debit failed")
+
+                new_balance = Decimal(str(shopify_result.get('new_balance', 0)))
+                current_app.logger.info(
+                    f"Debited ${amount} from Shopify for member {member.id}. "
+                    f"New balance: ${new_balance:.2f}"
+                )
+
+            except Exception as e:
+                current_app.logger.error(f"Shopify debit failed for member {member.id}: {e}")
+                raise ValueError(f"Failed to deduct store credit: {e}")
+        else:
+            current_app.logger.warning(
+                f"Member {member_id} has no Shopify customer ID - debit not synced"
+            )
+
+        # STEP 2: Create ledger entry (audit trail) AFTER Shopify succeeds
         entry = StoreCreditLedger(
             member_id=member_id,
             event_type=CreditEventType.REDEMPTION.value,
@@ -176,105 +267,19 @@ class StoreCreditService:
             source_type=source_type,
             source_id=source_id,
             created_by=created_by,
+            synced_to_shopify=shopify_result is not None,
+            shopify_credit_id=shopify_result.get('transaction_id') if shopify_result else None,
         )
         db.session.add(entry)
 
-        balance.total_balance = new_balance
-        balance.available_balance = new_balance
-        balance.total_spent = Decimal(str(balance.total_spent or 0)) + amount
-        balance.last_redemption_at = datetime.utcnow()
+        # STEP 3: Update stats
+        stats = self.get_member_stats(member_id)
+        stats.total_spent = Decimal(str(stats.total_spent or 0)) + amount
+        stats.last_redemption_at = datetime.utcnow()
 
         db.session.commit()
 
-        # Sync to Shopify
-        if sync_to_shopify and member.shopify_customer_id:
-            self._sync_debit_to_shopify(entry, member)
-
         return entry
-
-    def _sync_credit_to_shopify(
-        self,
-        entry: StoreCreditLedger,
-        member: Member
-    ) -> bool:
-        """
-        Sync credit entry to Shopify native store credit.
-
-        Uses Shopify's native Store Credit API (storeCreditAccountCredit mutation).
-
-        Note: Shopify's current API doesn't support transaction notes or email notifications.
-        TradeUp handles notifications via its own NotificationService.
-
-        Args:
-            entry: The ledger entry to sync
-            member: The member receiving credit
-        """
-        try:
-            # Create client for member's tenant
-            shopify_client = ShopifyClient(member.tenant_id)
-
-            # Use native store credit API
-            # Note: Shopify API doesn't support notes or notifications
-            result = shopify_client.add_store_credit(
-                customer_id=member.shopify_customer_id,
-                amount=float(entry.amount),
-                note=entry.description  # For internal logging only
-            )
-
-            if result.get('success'):
-                entry.synced_to_shopify = True
-                entry.shopify_credit_id = result.get('transaction_id')
-                db.session.commit()
-                current_app.logger.info(
-                    f"Synced ${entry.amount} credit to Shopify for member {member.id}. "
-                    f"New balance: ${result.get('new_balance', 0):.2f}"
-                )
-                return True
-            else:
-                current_app.logger.warning(f"Shopify store credit add returned no success")
-                return False
-
-        except Exception as e:
-            current_app.logger.error(f"Shopify sync error for credit: {e}")
-            entry.sync_error = str(e)[:500]
-            db.session.commit()
-            return False
-
-    def _sync_debit_to_shopify(self, entry: StoreCreditLedger, member: Member) -> bool:
-        """
-        Sync debit (redemption) entry to Shopify native store credit.
-
-        Uses Shopify's native Store Credit API (storeCreditAccountDebit mutation).
-        """
-        try:
-            # Create client for member's tenant
-            shopify_client = ShopifyClient(member.tenant_id)
-
-            # Use native store credit debit API (amount is negative in entry, pass positive)
-            result = shopify_client.debit_store_credit(
-                customer_id=member.shopify_customer_id,
-                amount=float(abs(entry.amount)),
-                note=entry.description,
-            )
-
-            if result.get('success'):
-                entry.synced_to_shopify = True
-                entry.shopify_credit_id = result.get('transaction_id')
-                db.session.commit()
-                current_app.logger.info(
-                    f"Synced ${abs(entry.amount)} debit to Shopify for member {member.id}. "
-                    f"New balance: ${result.get('new_balance', 0):.2f}"
-                )
-                return True
-            else:
-                current_app.logger.warning(f"Shopify store credit debit returned no success")
-                return False
-
-        except Exception as e:
-            current_app.logger.error(f"Shopify sync error for debit: {e}")
-            entry.sync_error = str(e)[:500]
-            db.session.commit()
-            return False
 
     def process_purchase_cashback(
         self,
@@ -554,7 +559,16 @@ class StoreCreditService:
     ) -> Dict[str, Any]:
         """
         Get member's credit transaction history.
+
+        Returns:
+            - balance: Current balance from Shopify (source of truth)
+            - stats: What TradeUp has issued (total_earned, trade_in_earned, etc.)
+            - transactions: Ledger entries (audit trail)
         """
+        member = Member.query.get(member_id)
+        if not member:
+            raise ValueError(f"Member {member_id} not found")
+
         query = StoreCreditLedger.query.filter_by(member_id=member_id)
 
         total = query.count()
@@ -562,10 +576,26 @@ class StoreCreditService:
             StoreCreditLedger.created_at.desc()
         ).limit(limit).offset(offset).all()
 
-        balance = self.get_member_balance(member_id)
+        # Get stats (what TradeUp issued)
+        stats = self.get_member_stats(member_id)
+
+        # Get real balance from Shopify (source of truth)
+        shopify_balance = self.get_shopify_balance(member)
 
         return {
-            'balance': balance.to_dict(),
+            'balance': {
+                'current_balance': shopify_balance.get('balance', 0),
+                'currency': shopify_balance.get('currency', 'USD'),
+                'account_id': shopify_balance.get('account_id'),
+                # Stats from what TradeUp issued
+                'total_earned': float(stats.total_earned or 0),
+                'total_spent': float(stats.total_spent or 0),
+                'trade_in_earned': float(stats.trade_in_earned or 0),
+                'cashback_earned': float(stats.cashback_earned or 0),
+                'promo_bonus_earned': float(stats.promo_bonus_earned or 0),
+                'last_credit_at': stats.last_credit_at.isoformat() if stats.last_credit_at else None,
+                'last_redemption_at': stats.last_redemption_at.isoformat() if stats.last_redemption_at else None,
+            },
             'transactions': [e.to_dict() for e in entries],
             'total': total,
             'limit': limit,
