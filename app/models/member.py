@@ -3,7 +3,7 @@ Member and MembershipTier models.
 """
 from datetime import datetime
 from decimal import Decimal
-from sqlalchemy import desc
+from sqlalchemy import text
 from ..extensions import db
 
 
@@ -160,7 +160,7 @@ class Member(db.Model):
         last_trade_in = None
         if self.trade_in_batches:
             latest_batch = self.trade_in_batches.order_by(
-                desc('created_at')
+                text('created_at DESC')
             ).first()
             if latest_batch:
                 last_trade_in = latest_batch.created_at
