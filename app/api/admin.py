@@ -564,6 +564,36 @@ def create_points_tables():
         }), 500
 
 
+@admin_bp.route('/create-trade-ledger-table', methods=['POST'])
+def create_trade_ledger_table():
+    """
+    Create the trade_in_ledger table for simplified trade-in tracking.
+
+    Call with: POST /api/admin/create-trade-ledger-table?key=tradeup-schema-fix-2026
+    """
+    key = request.args.get('key')
+    if key != 'tradeup-schema-fix-2026':
+        return jsonify({'error': 'Invalid key'}), 403
+
+    try:
+        # Import the trade ledger model to register with SQLAlchemy
+        from ..models.trade_ledger import TradeInLedger
+
+        # Create all tables that don't exist yet
+        db.create_all()
+
+        return jsonify({
+            'success': True,
+            'message': 'Trade ledger table created successfully',
+            'tables': ['trade_in_ledger']
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
 @admin_bp.route('/members/<int:member_id>/sync-metafields', methods=['POST'])
 @require_tenant
 def sync_member_metafields(member_id):
