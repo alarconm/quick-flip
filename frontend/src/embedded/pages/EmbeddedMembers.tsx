@@ -215,7 +215,12 @@ export function EmbeddedMembers({ shop }: MembersProps) {
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return 'Never';
-    return new Date(dateStr).toLocaleDateString();
+    return new Date(dateStr).toLocaleDateString('en-US', {
+      timeZone: 'America/Los_Angeles',
+      month: 'numeric',
+      day: 'numeric',
+      year: 'numeric',
+    });
   };
 
   // Build tier filter choices from backend data
@@ -615,12 +620,18 @@ function MemberDetailModal({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['members'] });
       queryClient.invalidateQueries({ queryKey: ['credit-history', shop, member?.id] });
-      setIssueCreditOpen(false);
-      setCreditAmount('');
-      setCreditDescription('');
-      setCreditExpiration('');
+      // Keep modal open to show success message - user closes with Done button
     },
   });
+
+  // Close issue credit modal and reset form
+  const closeIssueCreditModal = useCallback(() => {
+    setIssueCreditOpen(false);
+    setCreditAmount('');
+    setCreditDescription('');
+    setCreditExpiration('');
+    issueCreditMutation.reset();
+  }, [issueCreditMutation]);
 
   // Cancel membership mutation
   const cancelMembershipMutation = useMutation({
@@ -882,17 +893,26 @@ function MemberDetailModal({
       {/* Issue Credit Modal */}
       <Modal
         open={issueCreditOpen}
-        onClose={() => setIssueCreditOpen(false)}
+        onClose={closeIssueCreditModal}
         title="Issue Store Credit"
-        primaryAction={{
-          content: 'Issue Credit',
-          onAction: () => issueCreditMutation.mutate(),
-          loading: issueCreditMutation.isPending,
-          disabled: !creditAmount || parseFloat(creditAmount) <= 0,
-        }}
-        secondaryActions={[
-          { content: 'Cancel', onAction: () => setIssueCreditOpen(false) },
-        ]}
+        primaryAction={
+          issueCreditMutation.isSuccess
+            ? {
+                content: 'Done',
+                onAction: closeIssueCreditModal,
+              }
+            : {
+                content: 'Issue Credit',
+                onAction: () => issueCreditMutation.mutate(),
+                loading: issueCreditMutation.isPending,
+                disabled: !creditAmount || parseFloat(creditAmount) <= 0,
+              }
+        }
+        secondaryActions={
+          issueCreditMutation.isSuccess
+            ? []
+            : [{ content: 'Cancel', onAction: closeIssueCreditModal }]
+        }
       >
         <Modal.Section>
           {issueCreditMutation.isError && (
@@ -902,41 +922,45 @@ function MemberDetailModal({
               </Banner>
             </Box>
           )}
-          {issueCreditMutation.isSuccess && (
-            <Box paddingBlockEnd="400">
-              <Banner tone="success">
-                <p>Credit issued successfully!</p>
-              </Banner>
-            </Box>
+          {issueCreditMutation.isSuccess ? (
+            <Banner tone="success">
+              <BlockStack gap="200">
+                <Text as="p" variant="headingMd">Credit Issued Successfully!</Text>
+                <Text as="p">
+                  {formatCurrency(parseFloat(creditAmount))} has been added to {member.first_name}'s Shopify store credit balance.
+                </Text>
+              </BlockStack>
+            </Banner>
+          ) : (
+            <FormLayout>
+              <TextField
+                label="Credit Amount"
+                type="number"
+                value={creditAmount}
+                onChange={setCreditAmount}
+                prefix="$"
+                min={0.01}
+                step={0.01}
+                autoComplete="off"
+                helpText="Amount to add to member's store credit balance"
+              />
+              <TextField
+                label="Description (optional)"
+                value={creditDescription}
+                onChange={setCreditDescription}
+                placeholder="e.g., Loyalty bonus, Price adjustment"
+                autoComplete="off"
+                helpText="Reason for the credit (visible in history)"
+              />
+              <Select
+                label="Credit Expiration"
+                options={CREDIT_EXPIRATION_OPTIONS}
+                value={creditExpiration}
+                onChange={setCreditExpiration}
+                helpText="When this credit should expire"
+              />
+            </FormLayout>
           )}
-          <FormLayout>
-            <TextField
-              label="Credit Amount"
-              type="number"
-              value={creditAmount}
-              onChange={setCreditAmount}
-              prefix="$"
-              min={0.01}
-              step={0.01}
-              autoComplete="off"
-              helpText="Amount to add to member's store credit balance"
-            />
-            <TextField
-              label="Description (optional)"
-              value={creditDescription}
-              onChange={setCreditDescription}
-              placeholder="e.g., Loyalty bonus, Price adjustment"
-              autoComplete="off"
-              helpText="Reason for the credit (visible in history)"
-            />
-            <Select
-              label="Credit Expiration"
-              options={CREDIT_EXPIRATION_OPTIONS}
-              value={creditExpiration}
-              onChange={setCreditExpiration}
-              helpText="When this credit should expire"
-            />
-          </FormLayout>
         </Modal.Section>
       </Modal>
 
