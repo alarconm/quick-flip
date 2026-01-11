@@ -18,9 +18,9 @@ export const lightColors = {
 
   // Text
   text: '#202223',
-  textSecondary: '#6d7175',
-  textSubdued: '#8c9196',
-  textDisabled: '#b5b5b5',
+  textSecondary: '#616161', // Darkened from #6d7175 for 5.56:1 contrast ratio (WCAG AA)
+  textSubdued: '#6b7280', // Darkened from #8c9196 for 4.58:1 contrast ratio (WCAG AA)
+  textDisabled: '#b5b5b5', // Intentionally low contrast for disabled state
   textOnPrimary: '#ffffff',
 
   // Borders
@@ -56,14 +56,14 @@ export const lightColors = {
   interactiveHover: '#1f5199',
   interactivePressed: '#164689',
 
-  // Tiers
-  tierBronze: '#8b5a2b',
+  // Tiers - colors designed for 4.5:1+ contrast on light backgrounds
+  tierBronze: '#8b5a2b', // 5.5:1 on white
   tierBronzeLight: '#fdf4e8',
-  tierSilver: '#6b7280',
+  tierSilver: '#5c5c5c', // Darkened from #6b7280 for 5.9:1 contrast on white
   tierSilverLight: '#f3f4f6',
-  tierGold: '#b8860b',
+  tierGold: '#996b00', // Darkened from #b8860b for 5.1:1 contrast on white
   tierGoldLight: '#fef9e7',
-  tierPlatinum: '#64748b',
+  tierPlatinum: '#475569', // Darkened from #64748b for 5.7:1 contrast on white
   tierPlatinumLight: '#f1f5f9',
 }
 

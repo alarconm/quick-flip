@@ -5,6 +5,7 @@
  * Uses Shopify Polaris for consistent UX.
  */
 import { useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Page,
   Layout,
@@ -97,6 +98,7 @@ async function deleteCategory(shop: string | null, id: string): Promise<void> {
 }
 
 export function EmbeddedCategories({ shop }: CategoriesProps) {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [showModal, setShowModal] = useState(false);
   const [editingCategory, setEditingCategory] = useState<TradeInCategory | null>(null);
@@ -205,7 +207,7 @@ export function EmbeddedCategories({ shop }: CategoriesProps) {
     <Page
       title="Trade-In Categories"
       subtitle="Organize trade-ins by product type"
-      backAction={{ content: 'Trade-Ins', url: '/app/trade-ins' }}
+      backAction={{ content: 'Trade-Ins', onAction: () => navigate('/app/trade-ins') }}
       primaryAction={{
         content: 'Add Category',
         icon: PlusIcon,

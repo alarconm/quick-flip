@@ -8,10 +8,14 @@ import enTranslations from '@shopify/polaris/locales/en.json';
 import { ErrorBoundary } from './components';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { initSentry } from './utils/sentry';
+import { initWebVitals } from './utils/webVitals';
 import App from './App';
 
 // Initialize Sentry error tracking (must be first)
 initSentry();
+
+// Initialize Web Vitals monitoring for Built for Shopify compliance
+initWebVitals();
 
 // React Query client with default error handling
 const queryClient = new QueryClient({

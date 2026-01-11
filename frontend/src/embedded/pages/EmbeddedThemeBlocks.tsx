@@ -5,6 +5,7 @@
  * Shows previews, recommended placements, and tracks installation status.
  */
 
+import { useNavigate } from 'react-router-dom';
 import {
   Page,
   Layout,
@@ -147,6 +148,7 @@ const BLOCK_DETAILS: Record<string, {
 };
 
 export function EmbeddedThemeBlocks({ shop }: ThemeBlocksProps) {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [expandedBlock, setExpandedBlock] = useState<string | null>(null);
 
@@ -172,7 +174,7 @@ export function EmbeddedThemeBlocks({ shop }: ThemeBlocksProps) {
 
   if (isLoading) {
     return (
-      <Page title="Theme Blocks" backAction={{ content: 'Dashboard', url: '/app' }}>
+      <Page title="Theme Blocks" backAction={{ content: 'Dashboard', onAction: () => navigate('/app') }}>
         <Layout>
           <Layout.Section>
             <Card>
@@ -190,7 +192,7 @@ export function EmbeddedThemeBlocks({ shop }: ThemeBlocksProps) {
     <Page
       title="Theme Blocks"
       subtitle="Add TradeUp blocks to your storefront to maximize engagement"
-      backAction={{ content: 'Dashboard', url: '/app' }}
+      backAction={{ content: 'Dashboard', onAction: () => navigate('/app') }}
       primaryAction={{
         content: 'Open Theme Editor',
         icon: ExternalIcon,

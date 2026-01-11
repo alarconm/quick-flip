@@ -34,6 +34,7 @@ import {
   RangeSlider,
 } from '@shopify/polaris';
 import { PlusIcon, ChevronDownIcon, ChevronUpIcon } from '@shopify/polaris-icons';
+import { TitleBar } from '@shopify/app-bridge-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getApiUrl, authFetch } from '../../hooks/useShopifyBridge';
 
@@ -284,15 +285,21 @@ export function EmbeddedTiers({ shop }: TiersProps) {
   }
 
   return (
-    <Page
-      title="Membership Tiers"
-      subtitle="Configure tier benefits, pricing, and trade-in bonuses"
-      primaryAction={{
-        content: 'Add Tier',
-        icon: PlusIcon,
-        onAction: () => openModal(),
-      }}
-    >
+    <>
+      <TitleBar title="Membership Tiers">
+        <button variant="primary" onClick={() => openModal()}>
+          Add tier
+        </button>
+      </TitleBar>
+      <Page
+        title="Membership Tiers"
+        subtitle="Configure tier benefits, pricing, and trade-in bonuses"
+        primaryAction={{
+          content: 'Add Tier',
+          icon: PlusIcon,
+          onAction: () => openModal(),
+        }}
+      >
       <Layout>
         {error && (
           <Layout.Section>
@@ -594,5 +601,6 @@ export function EmbeddedTiers({ shop }: TiersProps) {
         </Modal.Section>
       </Modal>
     </Page>
+    </>
   );
 }

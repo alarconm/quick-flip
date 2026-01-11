@@ -4,7 +4,7 @@
  * Configure program settings with Polaris components.
  * Uses the nested settings API structure.
  */
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Page,
@@ -30,6 +30,7 @@ import {
   Icon,
 } from '@shopify/polaris';
 import { RefreshIcon, PlusIcon, EditIcon, DeleteIcon, EmailIcon, ViewIcon, ClockIcon, CalendarIcon } from '@shopify/polaris-icons';
+import { SaveBar, useAppBridge } from '@shopify/app-bridge-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getApiUrl, authFetch } from '../../hooks/useShopifyBridge';
 
@@ -433,6 +434,9 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
   const [pendingChanges, setPendingChanges] = useState<Record<string, Record<string, unknown>>>({});
   const [saveSuccess, setSaveSuccess] = useState(false);
 
+  // Shopify App Bridge for SaveBar control
+  const shopify = useAppBridge();
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['settings', shop],
     queryFn: () => fetchSettings(shop),
@@ -487,6 +491,7 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
 
   const [tierModalOpen, setTierModalOpen] = useState(false);
   const [editingTier, setEditingTier] = useState<MembershipTier | null>(null);
+  const [tierToDelete, setTierToDelete] = useState<MembershipTier | null>(null);
   const [tierForm, setTierForm] = useState({
     name: '',
     monthly_price: '9.99',
@@ -765,6 +770,15 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
     setHasChanges(false);
   }, []);
 
+  // Show/hide Shopify App Bridge Save Bar based on changes
+  useEffect(() => {
+    if (hasChanges) {
+      shopify.saveBar.show('settings-save-bar');
+    } else {
+      shopify.saveBar.hide('settings-save-bar');
+    }
+  }, [hasChanges, shopify.saveBar]);
+
   // Helper to get current value (pending change or stored value)
   const getValue = useCallback(
     <T,>(section: keyof SettingsResponse['settings'], field: string, fallback: T): T => {
@@ -804,23 +818,6 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
         <Box paddingBlockEnd="400">
           <Banner tone="success" onDismiss={() => setSaveSuccess(false)}>
             <p>Settings saved successfully.</p>
-          </Banner>
-        </Box>
-      )}
-
-      {hasChanges && (
-        <Box paddingBlockEnd="400">
-          <Banner
-            title="Unsaved changes"
-            action={{
-              content: 'Save',
-              onAction: handleSave,
-              loading: updateMutation.isPending,
-            }}
-            secondaryAction={{ content: 'Discard', onAction: handleDiscard }}
-            tone="warning"
-          >
-            <p>You have unsaved changes.</p>
           </Banner>
         </Box>
       )}
@@ -1167,11 +1164,7 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
                         },
                         {
                           content: 'Delete',
-                          onAction: () => {
-                            if (confirm(`Delete the "${tier.name || 'this'}" tier?`)) {
-                              deleteTierMutation.mutate(tier.id);
-                            }
-                          },
+                          onAction: () => setTierToDelete(tier),
                         },
                       ]}
                     >
@@ -2329,6 +2322,41 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
           </BlockStack>
         </Modal.Section>
       </Modal>
+
+      {/* Delete Tier Confirmation Modal */}
+      <Modal
+        open={tierToDelete !== null}
+        onClose={() => setTierToDelete(null)}
+        title="Delete tier?"
+        primaryAction={{
+          content: 'Delete',
+          destructive: true,
+          onAction: () => {
+            if (tierToDelete) {
+              deleteTierMutation.mutate(tierToDelete.id);
+              setTierToDelete(null);
+            }
+          },
+          loading: deleteTierMutation.isPending,
+        }}
+        secondaryActions={[
+          { content: 'Cancel', onAction: () => setTierToDelete(null) },
+        ]}
+      >
+        <Modal.Section>
+          <Text as="p">
+            Are you sure you want to delete the "{tierToDelete?.name}" tier? This action cannot be undone.
+          </Text>
+        </Modal.Section>
+      </Modal>
+
+      {/* Shopify App Bridge Save Bar */}
+      <SaveBar id="settings-save-bar">
+        <button variant="primary" onClick={handleSave} disabled={updateMutation.isPending}>
+          {updateMutation.isPending ? 'Saving...' : 'Save'}
+        </button>
+        <button onClick={handleDiscard}>Discard</button>
+      </SaveBar>
     </Page>
   );
 }

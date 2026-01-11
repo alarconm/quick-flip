@@ -32,6 +32,7 @@ import {
   LegacyStack,
 } from '@shopify/polaris';
 import { PlusIcon, DeleteIcon, EditIcon, SearchIcon, PlayIcon, RefreshIcon } from '@shopify/polaris-icons';
+import { TitleBar } from '@shopify/app-bridge-react';
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getApiUrl, authFetch } from '../../hooks/useShopifyBridge';
@@ -771,15 +772,21 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
   const tiers = tiersData?.tiers || [];
 
   return (
-    <Page
-      title="Promotions & Bonuses"
-      subtitle="Create special offers and manage tier benefits"
-      primaryAction={{
-        content: 'New Promotion',
-        icon: PlusIcon,
-        onAction: openCreateModal,
-      }}
-    >
+    <>
+      <TitleBar title="Promotions">
+        <button variant="primary" onClick={openCreateModal}>
+          New promotion
+        </button>
+      </TitleBar>
+      <Page
+        title="Promotions & Bonuses"
+        subtitle="Create special offers and manage tier benefits"
+        primaryAction={{
+          content: 'New Promotion',
+          icon: PlusIcon,
+          onAction: openCreateModal,
+        }}
+      >
       <Layout>
         {/* Stats Cards */}
         <Layout.Section>
@@ -1751,5 +1758,6 @@ export function EmbeddedPromotions({ shop }: PromotionsProps) {
         </Modal.Section>
       </Modal>
     </Page>
+    </>
   );
 }

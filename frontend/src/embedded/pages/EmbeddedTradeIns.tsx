@@ -24,6 +24,7 @@ import {
   Divider,
 } from '@shopify/polaris';
 import { ViewIcon, PlusIcon, CheckIcon, XIcon } from '@shopify/polaris-icons';
+import { TitleBar } from '@shopify/app-bridge-react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getApiUrl, authFetch } from '../../hooks/useShopifyBridge';
@@ -210,21 +211,27 @@ export function EmbeddedTradeIns({ shop }: TradeInsProps) {
   ];
 
   return (
-    <Page
-      title="Trade-Ins"
-      subtitle={`${data?.total || 0} total trade-ins`}
-      primaryAction={{
-        content: 'New Trade-In',
-        icon: PlusIcon,
-        onAction: () => navigate('/app/trade-ins/new'),
-      }}
-      secondaryActions={[
-        {
-          content: 'Manage Categories',
-          onAction: () => navigate('/app/trade-ins/categories'),
-        },
-      ]}
-    >
+    <>
+      <TitleBar title="Trade-Ins">
+        <button variant="primary" onClick={() => navigate('/app/trade-ins/new')}>
+          New trade-in
+        </button>
+      </TitleBar>
+      <Page
+        title="Trade-Ins"
+        subtitle={`${data?.total || 0} total trade-ins`}
+        primaryAction={{
+          content: 'New Trade-In',
+          icon: PlusIcon,
+          onAction: () => navigate('/app/trade-ins/new'),
+        }}
+        secondaryActions={[
+          {
+            content: 'Manage Categories',
+            onAction: () => navigate('/app/trade-ins/categories'),
+          },
+        ]}
+      >
       <Layout>
         {error && (
           <Layout.Section>
@@ -527,5 +534,6 @@ export function EmbeddedTradeIns({ shop }: TradeInsProps) {
         )}
       </Modal>
     </Page>
+    </>
   );
 }

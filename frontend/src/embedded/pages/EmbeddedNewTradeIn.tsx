@@ -440,7 +440,7 @@ export function EmbeddedNewTradeIn({ shop }: NewTradeInProps) {
     <Page
       title="New Trade-In"
       subtitle="Create a new trade-in batch for a member"
-      backAction={{ content: 'Trade-Ins', url: '/app/trade-ins' }}
+      backAction={{ content: 'Trade-Ins', onAction: () => navigate('/app/trade-ins') }}
       primaryAction={{
         content: `Complete Trade-In & Issue ${formatCurrency(totalTradeValue)}`,
         onAction: handleSubmit,

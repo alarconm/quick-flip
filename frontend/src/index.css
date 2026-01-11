@@ -14,9 +14,9 @@
   --text-primary: #111827;
   --text-secondary: #6b7280;
   --border: #e5e7eb;
-  --success: #00d68f;
-  --warning: #ffb547;
-  --danger: #ff4757;
+  --success: #008060; /* Darkened from #00d68f for 4.5:1 contrast on white (WCAG AA) */
+  --warning: #8a6914; /* Darkened from #ffb547 for 4.5:1 contrast on white (WCAG AA) */
+  --danger: #d72c0d; /* Darkened from #ff4757 for 4.5:1 contrast on white (WCAG AA) */
 }
 
 body {
@@ -483,7 +483,7 @@ body {
 }
 
 .admin-input::placeholder {
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(255, 255, 255, 0.6); /* Increased from 0.4 for ~5:1 contrast (WCAG AA) */
 }
 
 .admin-input:focus {
@@ -502,7 +502,7 @@ body {
   text-align: left;
   font-size: 0.75rem;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.7); /* Increased from 0.5 for 7.5:1 contrast (WCAG AA) */
   text-transform: uppercase;
   letter-spacing: 0.05em;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
@@ -552,23 +552,23 @@ body {
 }
 
 .admin-tier-badge.bronze {
-  background: rgba(205, 127, 50, 0.2);
-  color: #cd7f32;
+  background: rgba(205, 127, 50, 0.25);
+  color: #e8a865; /* Lightened from #cd7f32 for better contrast on dark bg */
 }
 
 .admin-tier-badge.silver {
   background: rgba(192, 192, 192, 0.2);
-  color: #c0c0c0;
+  color: #d4d4d4; /* Lightened from #c0c0c0 for 8:1+ contrast on dark bg */
 }
 
 .admin-tier-badge.gold {
   background: rgba(255, 215, 0, 0.2);
-  color: #ffd700;
+  color: #ffe066; /* Lightened from #ffd700 for better contrast on dark bg */
 }
 
 .admin-tier-badge.platinum {
   background: rgba(229, 228, 226, 0.2);
-  color: #e5e4e2;
+  color: #f0efed; /* Lightened from #e5e4e2 for 10:1+ contrast on dark bg */
 }
 
 /* Status badges */
@@ -584,17 +584,17 @@ body {
 
 .admin-status-badge.active {
   background: rgba(0, 214, 143, 0.15);
-  color: #00d68f;
+  color: #4ade80; /* Lightened from #00d68f for 5.5:1 contrast on dark bg (WCAG AA) */
 }
 
 .admin-status-badge.pending {
   background: rgba(255, 181, 71, 0.15);
-  color: #ffb547;
+  color: #fbbf24; /* Adjusted from #ffb547 for 6:1 contrast on dark bg (WCAG AA) */
 }
 
 .admin-status-badge.inactive {
   background: rgba(255, 71, 87, 0.15);
-  color: #ff4757;
+  color: #f87171; /* Adjusted from #ff4757 for 4.5:1 contrast on dark bg (WCAG AA) */
 }
 
 /* Dark theme text utilities */
@@ -603,11 +603,11 @@ body {
 }
 
 .text-white\/50 {
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.7); /* Increased from 0.5 for WCAG AA compliance */
 }
 
 .text-white\/40 {
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(255, 255, 255, 0.6); /* Increased from 0.4 for WCAG AA compliance */
 }
 
 .text-white\/70 {

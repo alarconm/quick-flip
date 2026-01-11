@@ -31,6 +31,7 @@ import {
   Divider,
 } from '@shopify/polaris';
 import { ExportIcon, EmailIcon, PlusIcon, SearchIcon, ImportIcon } from '@shopify/polaris-icons';
+import { TitleBar } from '@shopify/app-bridge-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getApiUrl, authFetch } from '../../hooks/useShopifyBridge';
 
@@ -288,33 +289,39 @@ export function EmbeddedMembers({ shop }: MembersProps) {
     : [];
 
   return (
-    <Page
-      title="Members"
-      subtitle={`${data?.total || 0} total members`}
-      primaryAction={{
-        content: 'Add Member',
-        icon: PlusIcon,
-        onAction: () => setAddMemberModalOpen(true),
-      }}
-      secondaryActions={[
-        {
-          content: 'Import CSV',
-          icon: ImportIcon,
-          onAction: () => setImportModalOpen(true),
-        },
-        {
-          content: 'Email Members',
-          icon: EmailIcon,
-          onAction: () => setEmailModalOpen(true),
-        },
-        {
-          content: 'Export',
-          icon: ExportIcon,
-          disabled: !data?.members?.length,
-          onAction: handleExport,
-        },
-      ]}
-    >
+    <>
+      <TitleBar title="Members">
+        <button variant="primary" onClick={() => setAddMemberModalOpen(true)}>
+          Add member
+        </button>
+      </TitleBar>
+      <Page
+        title="Members"
+        subtitle={`${data?.total || 0} total members`}
+        primaryAction={{
+          content: 'Add Member',
+          icon: PlusIcon,
+          onAction: () => setAddMemberModalOpen(true),
+        }}
+        secondaryActions={[
+          {
+            content: 'Import CSV',
+            icon: ImportIcon,
+            onAction: () => setImportModalOpen(true),
+          },
+          {
+            content: 'Email Members',
+            icon: EmailIcon,
+            onAction: () => setEmailModalOpen(true),
+          },
+          {
+            content: 'Export',
+            icon: ExportIcon,
+            disabled: !data?.members?.length,
+            onAction: handleExport,
+          },
+        ]}
+      >
       <Layout>
         {error && (
           <Layout.Section>
@@ -501,6 +508,7 @@ export function EmbeddedMembers({ shop }: MembersProps) {
         shop={shop}
       />
     </Page>
+    </>
   );
 }
 

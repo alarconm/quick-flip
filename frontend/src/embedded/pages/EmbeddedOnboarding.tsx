@@ -204,6 +204,7 @@ export function EmbeddedOnboarding({ shop }: OnboardingProps) {
     <Page
       title="Welcome to TradeUp!"
       subtitle="Let's get your loyalty program set up in just a few steps"
+      backAction={{ content: 'Dashboard', onAction: () => navigate('/app/dashboard') }}
     >
       <Layout>
         {/* Progress indicator */}

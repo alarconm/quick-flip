@@ -63,9 +63,34 @@ api_version = "2025-01"
   topics = [ "app_purchases_one_time/update" ]
   uri = "/webhook/shopify-billing/purchases"
 
+  # Subscription Contract webhooks for Built for Shopify compliance
+  [[webhooks.subscriptions]]
+  topics = [ "subscription_contracts/create" ]
+  uri = "/webhook/subscription_contracts/create"
+
+  [[webhooks.subscriptions]]
+  topics = [ "subscription_contracts/update" ]
+  uri = "/webhook/subscription_contracts/update"
+
+  [[webhooks.subscriptions]]
+  topics = [ "subscription_billing_attempts/success" ]
+  uri = "/webhook/subscription_billing_attempts/success"
+
+  [[webhooks.subscriptions]]
+  topics = [ "subscription_billing_attempts/failure" ]
+  uri = "/webhook/subscription_billing_attempts/failure"
+
+  [[webhooks.subscriptions]]
+  topics = [ "customer_payment_methods/create" ]
+  uri = "/webhook/customer_payment_methods/create"
+
+  [[webhooks.subscriptions]]
+  topics = [ "customer_payment_methods/update" ]
+  uri = "/webhook/customer_payment_methods/update"
+
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "read_customers,read_fulfillments,read_inventory,read_orders,read_products,write_customers,write_products,read_store_credit_accounts,write_store_credit_account_transactions"
+scopes = "read_customers,read_fulfillments,read_inventory,read_orders,read_products,write_customers,write_products,read_store_credit_accounts,write_store_credit_account_transactions,read_customer_payment_methods,read_own_subscription_contracts,write_own_subscription_contracts"
 
 [auth]
 redirect_urls = [
