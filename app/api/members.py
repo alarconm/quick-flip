@@ -441,34 +441,72 @@ def delete_member(member_id):
     Use with caution - typically for cleaning up test data or
     members that were created incorrectly (e.g., not linked to Shopify).
     """
+    from sqlalchemy import text
     tenant_id = g.tenant_id
 
-    member = Member.query.filter_by(id=member_id, tenant_id=tenant_id).first()
-    if not member:
+    # Use raw SQL to get member data to avoid triggering relationship loading
+    result = db.session.execute(
+        text("SELECT id, member_number, name, email FROM members WHERE id = :mid AND tenant_id = :tid"),
+        {'mid': member_id, 'tid': tenant_id}
+    ).fetchone()
+
+    if not result:
         return jsonify({'error': 'Member not found'}), 404
 
-    member_number = member.member_number
-    member_name = member.name or member.email
+    member_number = result.member_number
+    member_name = result.name or result.email
 
     try:
         # Delete related records first (to avoid foreign key issues)
-        from ..models.promotions import StoreCreditLedger, MemberCreditBalance
-        from ..models.tier_history import TierChangeLog, MemberPromoUsage
-        from ..models.trade_in import TradeInBatch
+        # Use raw SQL to avoid loading relationships on models
 
         # Delete store credit records
-        StoreCreditLedger.query.filter_by(member_id=member_id).delete()
-        MemberCreditBalance.query.filter_by(member_id=member_id).delete()
+        db.session.execute(
+            text("DELETE FROM store_credit_ledger WHERE member_id = :mid"),
+            {'mid': member_id}
+        )
+        db.session.execute(
+            text("DELETE FROM member_credit_balances WHERE member_id = :mid"),
+            {'mid': member_id}
+        )
 
         # Delete tier history records
-        TierChangeLog.query.filter_by(member_id=member_id).delete()
-        MemberPromoUsage.query.filter_by(member_id=member_id).delete()
+        db.session.execute(
+            text("DELETE FROM tier_change_logs WHERE member_id = :mid"),
+            {'mid': member_id}
+        )
+        db.session.execute(
+            text("DELETE FROM member_promo_usages WHERE member_id = :mid"),
+            {'mid': member_id}
+        )
+
+        # Delete referral records (if table exists)
+        try:
+            db.session.execute(
+                text("DELETE FROM referrals WHERE referrer_id = :mid OR referee_id = :mid"),
+                {'mid': member_id}
+            )
+        except Exception:
+            pass  # Table may not exist
 
         # Unlink trade-in batches (set member_id to NULL instead of deleting)
-        TradeInBatch.query.filter_by(member_id=member_id).update({'member_id': None})
+        db.session.execute(
+            text("UPDATE trade_in_batches SET member_id = NULL WHERE member_id = :mid"),
+            {'mid': member_id}
+        )
+
+        # Clear referred_by references from other members
+        db.session.execute(
+            text("UPDATE members SET referred_by_id = NULL WHERE referred_by_id = :mid"),
+            {'mid': member_id}
+        )
 
         # Delete the member
-        db.session.delete(member)
+        db.session.execute(
+            text("DELETE FROM members WHERE id = :mid"),
+            {'mid': member_id}
+        )
+
         db.session.commit()
 
         return jsonify({
