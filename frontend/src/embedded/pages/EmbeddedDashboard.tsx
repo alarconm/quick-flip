@@ -24,6 +24,7 @@ import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { getApiUrl, authFetch } from '../../hooks/useShopifyBridge';
+import { SetupChecklist } from '../components/SetupChecklist';
 
 interface DashboardProps {
   shop: string | null;
@@ -232,6 +233,11 @@ export function EmbeddedDashboard({ shop }: DashboardProps) {
             </Banner>
           </Layout.Section>
         )}
+
+        {/* Setup Checklist - Shows until all setup is complete */}
+        <Layout.Section>
+          <SetupChecklist shop={shop} compact />
+        </Layout.Section>
 
         {/* Key Metrics - Clickable Cards */}
         <Layout.Section>

@@ -274,6 +274,9 @@ def register_blueprints(app: Flask) -> None:
     # Onboarding
     from .api.onboarding import onboarding_bp
 
+    # Setup Checklist (progress tracking, milestones)
+    from .api.setup_checklist import setup_checklist_bp
+
     # Shopify Data (collections, vendors, product types)
     from .api.shopify_data import shopify_data_bp
 
@@ -344,6 +347,9 @@ def register_blueprints(app: Flask) -> None:
 
     # Onboarding routes
     app.register_blueprint(onboarding_bp, url_prefix='/api/onboarding')
+
+    # Setup Checklist routes (progress tracking, milestones)
+    app.register_blueprint(setup_checklist_bp, url_prefix='/api/setup')
 
     # Shopify Data routes (collections, vendors, etc.)
     app.register_blueprint(shopify_data_bp, url_prefix='/api/shopify-data')
