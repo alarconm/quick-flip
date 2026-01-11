@@ -348,39 +348,37 @@ export function EmbeddedTiers({ shop }: TiersProps) {
                       },
                     ]}
                   >
-                    <InlineStack align="space-between" blockAlign="center" wrap={false}>
-                      <BlockStack gap="100">
-                        <InlineStack gap="200" blockAlign="center">
-                          <Text as="h3" variant="bodyMd" fontWeight="bold">
-                            {tier.name}
+                    <BlockStack gap="200">
+                      <InlineStack gap="200" blockAlign="center" wrap>
+                        <Text as="h3" variant="bodyMd" fontWeight="bold">
+                          {tier.name}
+                        </Text>
+                        {!tier.is_active && (
+                          <Badge tone="warning">Inactive</Badge>
+                        )}
+                        <Badge tone="success">
+                          {`${((tier.bonus_rate || 0) * 100).toFixed(0)}% trade-in bonus`}
+                        </Badge>
+                      </InlineStack>
+                      <InlineStack gap="300" wrap>
+                        <Text as="span" variant="bodySm" tone="subdued">
+                          ${(tier.monthly_price || 0).toFixed(2)}/mo
+                        </Text>
+                        <Text as="span" variant="bodySm" tone="subdued">
+                          Bonus: {((tier.bonus_rate || 0) * 100).toFixed(0)}%
+                        </Text>
+                        {(tier.purchase_cashback_pct || 0) > 0 && (
+                          <Text as="span" variant="bodySm" tone="success">
+                            Cashback: {tier.purchase_cashback_pct}%
                           </Text>
-                          {!tier.is_active && (
-                            <Badge tone="warning">Inactive</Badge>
-                          )}
-                        </InlineStack>
-                        <InlineStack gap="300" wrap>
+                        )}
+                        {(tier.monthly_credit_amount || 0) > 0 && (
                           <Text as="span" variant="bodySm" tone="subdued">
-                            ${(tier.monthly_price || 0).toFixed(2)}/mo
+                            Monthly: ${tier.monthly_credit_amount}
                           </Text>
-                          <Text as="span" variant="bodySm" tone="subdued">
-                            Bonus: {((tier.bonus_rate || 0) * 100).toFixed(0)}%
-                          </Text>
-                          {(tier.purchase_cashback_pct || 0) > 0 && (
-                            <Text as="span" variant="bodySm" tone="success">
-                              Cashback: {tier.purchase_cashback_pct}%
-                            </Text>
-                          )}
-                          {(tier.monthly_credit_amount || 0) > 0 && (
-                            <Text as="span" variant="bodySm" tone="subdued">
-                              Monthly: ${tier.monthly_credit_amount}
-                            </Text>
-                          )}
-                        </InlineStack>
-                      </BlockStack>
-                      <Badge tone="success">
-                        {`${((tier.bonus_rate || 0) * 100).toFixed(0)}% trade-in bonus`}
-                      </Badge>
-                    </InlineStack>
+                        )}
+                      </InlineStack>
+                    </BlockStack>
                   </ResourceItem>
                 )}
               />
@@ -449,31 +447,27 @@ export function EmbeddedTiers({ shop }: TiersProps) {
               helpText="Choose a memorable name for this tier"
             />
 
-            <InlineStack gap="400" wrap={false}>
-              <Box minWidth="45%">
-                <TextField
-                  label="Monthly Price"
-                  type="number"
-                  value={formData.monthly_price}
-                  onChange={(value) => setFormData({ ...formData, monthly_price: value })}
-                  prefix="$"
-                  helpText="Set to $0 for free tiers"
-                  autoComplete="off"
-                />
-              </Box>
-              <Box minWidth="45%">
-                <TextField
-                  label="Yearly Price (optional)"
-                  type="number"
-                  value={formData.yearly_price}
-                  onChange={(value) => setFormData({ ...formData, yearly_price: value })}
-                  prefix="$"
-                  placeholder="Optional"
-                  helpText="Discounted annual option"
-                  autoComplete="off"
-                />
-              </Box>
-            </InlineStack>
+            <FormLayout.Group>
+              <TextField
+                label="Monthly Price"
+                type="number"
+                value={formData.monthly_price}
+                onChange={(value) => setFormData({ ...formData, monthly_price: value })}
+                prefix="$"
+                helpText="Set to $0 for free tiers"
+                autoComplete="off"
+              />
+              <TextField
+                label="Yearly Price (optional)"
+                type="number"
+                value={formData.yearly_price}
+                onChange={(value) => setFormData({ ...formData, yearly_price: value })}
+                prefix="$"
+                placeholder="Optional"
+                helpText="Discounted annual option"
+                autoComplete="off"
+              />
+            </FormLayout.Group>
 
             <BlockStack gap="200">
               <Text as="p" variant="bodyMd" fontWeight="semibold">

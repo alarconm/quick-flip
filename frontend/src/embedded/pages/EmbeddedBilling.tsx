@@ -3,7 +3,7 @@
  *
  * Manage subscription via Shopify Billing API.
  */
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   Page,
   Layout,
@@ -19,7 +19,23 @@ import {
   ProgressBar,
   Icon,
   Modal,
+  InlineGrid,
 } from '@shopify/polaris';
+
+// Hook to detect mobile viewport
+function useIsMobile(breakpoint: number = 768) {
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== 'undefined' ? window.innerWidth < breakpoint : false
+  );
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < breakpoint);
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, [breakpoint]);
+
+  return isMobile;
+}
 import { CheckIcon } from '@shopify/polaris-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getApiUrl, authFetch } from '../../hooks/useShopifyBridge';
@@ -91,6 +107,7 @@ async function cancelSubscription(shop: string | null): Promise<void> {
 }
 
 export function EmbeddedBilling({ shop }: BillingProps) {
+  const isMobile = useIsMobile();
   const queryClient = useQueryClient();
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
@@ -204,7 +221,7 @@ export function EmbeddedBilling({ shop }: BillingProps) {
                   )}
                 </InlineStack>
 
-                <InlineStack gap="800">
+                <InlineGrid columns={isMobile ? 1 : 2} gap="400">
                   <BlockStack gap="200">
                     <Text as="span" variant="bodySm" tone="subdued">
                       Members
@@ -237,7 +254,7 @@ export function EmbeddedBilling({ shop }: BillingProps) {
                       size="small"
                     />
                   </BlockStack>
-                </InlineStack>
+                </InlineGrid>
               </BlockStack>
             </Card>
           </Layout.Section>
@@ -251,7 +268,7 @@ export function EmbeddedBilling({ shop }: BillingProps) {
         </Layout.Section>
 
         <Layout.Section>
-          <InlineStack gap="400" wrap={false}>
+          <InlineGrid columns={isMobile ? 1 : { xs: 1, sm: 2, md: 2, lg: 4 }} gap="400">
             {plansData?.plans.filter(plan => plan && plan.key).map((plan) => (
               <Card key={plan.key}>
                 <BlockStack gap="400">
@@ -309,7 +326,7 @@ export function EmbeddedBilling({ shop }: BillingProps) {
                 </BlockStack>
               </Card>
             ))}
-          </InlineStack>
+          </InlineGrid>
         </Layout.Section>
       </Layout>
 

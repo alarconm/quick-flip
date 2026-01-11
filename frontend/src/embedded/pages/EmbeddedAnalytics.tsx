@@ -8,7 +8,7 @@
  * - Tier distribution
  * - Revenue insights
  */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Page,
   Layout,
@@ -24,7 +24,23 @@ import {
   ProgressBar,
   Divider,
   DataTable,
+  InlineGrid,
 } from '@shopify/polaris';
+
+// Hook to detect mobile viewport
+function useIsMobile(breakpoint: number = 768) {
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== 'undefined' ? window.innerWidth < breakpoint : false
+  );
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < breakpoint);
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, [breakpoint]);
+
+  return isMobile;
+}
 import { useQuery } from '@tanstack/react-query';
 import { getApiUrl, authFetch } from '../../hooks/useShopifyBridge';
 
@@ -85,6 +101,7 @@ async function fetchAnalytics(shop: string | null, period: string): Promise<Anal
 }
 
 export function EmbeddedAnalytics({ shop }: AnalyticsProps) {
+  const isMobile = useIsMobile();
   const [period, setPeriod] = useState('30');
 
   const { data: analytics, isLoading, error } = useQuery({
@@ -210,7 +227,7 @@ export function EmbeddedAnalytics({ shop }: AnalyticsProps) {
 
         {/* Key Metrics Grid */}
         <Layout.Section>
-          <InlineStack gap="400" wrap={false}>
+          <InlineGrid columns={isMobile ? 1 : { xs: 1, sm: 2, md: 2, lg: 4 }} gap="400">
             {/* Members Card */}
             <Card>
               <BlockStack gap="300">
@@ -318,7 +335,7 @@ export function EmbeddedAnalytics({ shop }: AnalyticsProps) {
                 </InlineStack>
               </BlockStack>
             </Card>
-          </InlineStack>
+          </InlineGrid>
         </Layout.Section>
 
         {/* Tier Distribution */}

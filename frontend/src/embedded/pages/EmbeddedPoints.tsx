@@ -373,29 +373,27 @@ export function EmbeddedPoints({ shop }: PointsProps) {
                             },
                           ]}
                         >
-                          <InlineStack align="space-between" blockAlign="center" wrap={false}>
-                            <BlockStack gap="100">
-                              <InlineStack gap="200" blockAlign="center">
-                                <Text as="h3" variant="bodyMd" fontWeight="bold">
-                                  {rule.name}
-                                </Text>
-                                {rule.is_base_rule && (
-                                  <Badge tone="info">Base Rule</Badge>
-                                )}
-                                {!rule.is_active && (
-                                  <Badge tone="warning">Inactive</Badge>
-                                )}
-                              </InlineStack>
-                              <Text as="span" variant="bodySm" tone="subdued">
-                                {rule.description || `${rule.points_per_dollar || 0} points per $1 spent`}
+                          <BlockStack gap="200">
+                            <InlineStack gap="200" blockAlign="center" wrap>
+                              <Text as="h3" variant="bodyMd" fontWeight="bold">
+                                {rule.name}
                               </Text>
-                            </BlockStack>
-                            <Badge tone="success">
-                              {rule.rule_type === 'base_rate' ? `${rule.points_per_dollar} pts/$1` :
-                               rule.rule_type === 'multiplier' ? `${rule.multiplier}x multiplier` :
-                               `${rule.bonus_points} bonus pts`}
-                            </Badge>
-                          </InlineStack>
+                              {rule.is_base_rule && (
+                                <Badge tone="info">Base Rule</Badge>
+                              )}
+                              {!rule.is_active && (
+                                <Badge tone="warning">Inactive</Badge>
+                              )}
+                              <Badge tone="success">
+                                {rule.rule_type === 'base_rate' ? `${rule.points_per_dollar} pts/$1` :
+                                 rule.rule_type === 'multiplier' ? `${rule.multiplier}x multiplier` :
+                                 `${rule.bonus_points} bonus pts`}
+                              </Badge>
+                            </InlineStack>
+                            <Text as="span" variant="bodySm" tone="subdued">
+                              {rule.description || `${rule.points_per_dollar || 0} points per $1 spent`}
+                            </Text>
+                          </BlockStack>
                         </ResourceItem>
                       )}
                     />
@@ -439,32 +437,26 @@ export function EmbeddedPoints({ shop }: PointsProps) {
                             },
                           ]}
                         >
-                          <InlineStack align="space-between" blockAlign="center" wrap={false}>
-                            <BlockStack gap="100">
-                              <InlineStack gap="200" blockAlign="center">
-                                <Text as="h3" variant="bodyMd" fontWeight="bold">
-                                  {reward.name}
-                                </Text>
-                                {reward.is_featured && (
-                                  <Badge tone="success">Featured</Badge>
-                                )}
-                                {!reward.is_active && (
-                                  <Badge tone="warning">Inactive</Badge>
-                                )}
-                              </InlineStack>
-                              <Text as="span" variant="bodySm" tone="subdued">
-                                {reward.description || `${reward.reward_type} reward`}
+                          <BlockStack gap="200">
+                            <InlineStack gap="200" blockAlign="center" wrap>
+                              <Text as="h3" variant="bodyMd" fontWeight="bold">
+                                {reward.name}
                               </Text>
-                            </BlockStack>
-                            <BlockStack gap="100" inlineAlign="end">
+                              {reward.is_featured && (
+                                <Badge tone="success">Featured</Badge>
+                              )}
+                              {!reward.is_active && (
+                                <Badge tone="warning">Inactive</Badge>
+                              )}
                               <Badge>{`${reward.points_cost.toLocaleString()} points`}</Badge>
                               {reward.credit_value && (
-                                <Text as="span" variant="bodySm" tone="success">
-                                  ${reward.credit_value} value
-                                </Text>
+                                <Badge tone="info">{`$${reward.credit_value} value`}</Badge>
                               )}
-                            </BlockStack>
-                          </InlineStack>
+                            </InlineStack>
+                            <Text as="span" variant="bodySm" tone="subdued">
+                              {reward.description || `${reward.reward_type} reward`}
+                            </Text>
+                          </BlockStack>
                         </ResourceItem>
                       )}
                     />

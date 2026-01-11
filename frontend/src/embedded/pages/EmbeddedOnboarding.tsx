@@ -21,6 +21,7 @@ import {
   Spinner,
   Box,
   ProgressBar,
+  InlineGrid,
 } from '@shopify/polaris';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getApiUrl, authFetch } from '../../hooks/useShopifyBridge';
@@ -374,7 +375,7 @@ export function EmbeddedOnboarding({ shop }: OnboardingProps) {
                   Customers will automatically be enrolled when they make a purchase.
                 </Text>
 
-                <InlineStack gap="400">
+                <InlineGrid columns={{ xs: 1, sm: 3 }} gap="400">
                   <Card>
                     <BlockStack gap="100" inlineAlign="center">
                       <Text as="span" variant="bodySm" tone="subdued">Tiers Created</Text>
@@ -393,7 +394,7 @@ export function EmbeddedOnboarding({ shop }: OnboardingProps) {
                       <Text as="span" variant="headingLg">On</Text>
                     </BlockStack>
                   </Card>
-                </InlineStack>
+                </InlineGrid>
 
                 <Button
                   variant="primary"

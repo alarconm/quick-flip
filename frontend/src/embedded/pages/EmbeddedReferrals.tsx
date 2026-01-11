@@ -7,7 +7,7 @@
  * - Recent referral activity
  * - Configure referral rewards
  */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Page,
   Layout,
@@ -25,7 +25,23 @@ import {
   Modal,
   TextField,
   Select,
+  InlineGrid,
 } from '@shopify/polaris';
+
+// Hook to detect mobile viewport
+function useIsMobile(breakpoint: number = 768) {
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== 'undefined' ? window.innerWidth < breakpoint : false
+  );
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < breakpoint);
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, [breakpoint]);
+
+  return isMobile;
+}
 import { useQuery } from '@tanstack/react-query';
 import { getApiUrl, authFetch } from '../../hooks/useShopifyBridge';
 
@@ -90,6 +106,7 @@ async function fetchReferralConfig(shop: string | null): Promise<ReferralConfig>
 }
 
 export function EmbeddedReferrals({ shop }: ReferralsProps) {
+  const isMobile = useIsMobile();
   const [configModalOpen, setConfigModalOpen] = useState(false);
 
   const { data: stats, isLoading: statsLoading, error: statsError } = useQuery({
@@ -163,7 +180,7 @@ export function EmbeddedReferrals({ shop }: ReferralsProps) {
       <Layout>
         {/* Key Metrics */}
         <Layout.Section>
-          <InlineStack gap="400" wrap={false}>
+          <InlineGrid columns={isMobile ? 1 : { xs: 1, sm: 2, md: 2, lg: 4 }} gap="400">
             <Card>
               <BlockStack gap="200">
                 <Text as="h3" variant="headingMd">Total Referrals</Text>
@@ -207,7 +224,7 @@ export function EmbeddedReferrals({ shop }: ReferralsProps) {
                 <Text as="p" variant="bodySm" tone="subdued">Referrals per active referrer</Text>
               </BlockStack>
             </Card>
-          </InlineStack>
+          </InlineGrid>
         </Layout.Section>
 
         {/* Program Info */}

@@ -1081,7 +1081,7 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
         >
           <Card>
             <BlockStack gap="400">
-              <InlineStack gap="400">
+              <BlockStack gap="200">
                 <Checkbox
                   label="Enable monthly subscriptions"
                   checked={getValue('subscriptions', 'monthly_enabled', true)}
@@ -1092,7 +1092,7 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
                   checked={getValue('subscriptions', 'yearly_enabled', true)}
                   onChange={(value) => handleChange('subscriptions', 'yearly_enabled', value)}
                 />
-              </InlineStack>
+              </BlockStack>
 
               <TextField
                 label="Free Trial Days"
@@ -2102,32 +2102,28 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
               requiredIndicator
             />
 
-            <InlineStack gap="400" wrap={false}>
-              <Box minWidth="45%">
-                <TextField
-                  label="Monthly Price"
-                  type="number"
-                  value={tierForm.monthly_price}
-                  onChange={(value) => setTierForm({ ...tierForm, monthly_price: value })}
-                  prefix="$"
-                  suffix="/mo"
-                  autoComplete="off"
-                  helpText="Set to 0 for free tier"
-                />
-              </Box>
-              <Box minWidth="45%">
-                <TextField
-                  label="Yearly Price"
-                  type="number"
-                  value={tierForm.yearly_price}
-                  onChange={(value) => setTierForm({ ...tierForm, yearly_price: value })}
-                  prefix="$"
-                  suffix="/yr"
-                  autoComplete="off"
-                  helpText="Optional discount for annual"
-                />
-              </Box>
-            </InlineStack>
+            <FormLayout.Group>
+              <TextField
+                label="Monthly Price"
+                type="number"
+                value={tierForm.monthly_price}
+                onChange={(value) => setTierForm({ ...tierForm, monthly_price: value })}
+                prefix="$"
+                suffix="/mo"
+                autoComplete="off"
+                helpText="Set to 0 for free tier"
+              />
+              <TextField
+                label="Yearly Price"
+                type="number"
+                value={tierForm.yearly_price}
+                onChange={(value) => setTierForm({ ...tierForm, yearly_price: value })}
+                prefix="$"
+                suffix="/yr"
+                autoComplete="off"
+                helpText="Optional discount for annual"
+              />
+            </FormLayout.Group>
 
             <Divider />
 
