@@ -505,7 +505,7 @@ def get_shopify_segments():
         segments: List of all segments
         tradeup_segments: List of TradeUp-specific segments
     """
-    tenant = g.tenant
+    tenant_id = g.tenant_id
 
     try:
         from ..services.shopify_client import ShopifyClient
@@ -523,6 +523,8 @@ def get_shopify_segments():
             'total_count': len(segments)
         })
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
             'error': str(e)
@@ -546,12 +548,12 @@ def sync_tradeup_segments():
         segments: List of created/updated segments
         errors: Any errors that occurred
     """
-    tenant = g.tenant
+    tenant_id = g.tenant_id
 
     try:
         # Get all tiers for this tenant
-        from ..models.tier import Tier
-        tiers = Tier.query.filter_by(tenant_id=tenant_id, is_active=True).all()
+        from ..models.member import MembershipTier
+        tiers = MembershipTier.query.filter_by(tenant_id=tenant_id, is_active=True).all()
 
         if not tiers:
             return jsonify({
@@ -560,7 +562,11 @@ def sync_tradeup_segments():
             }), 400
 
         # Build tier data for segment creation
-        tier_data = [{'name': t.name, 'slug': t.slug} for t in tiers]
+        # slug is generated from name (lowercase, hyphenated)
+        tier_data = [{
+            'name': t.name,
+            'slug': t.name.lower().replace(' ', '-')
+        } for t in tiers]
 
         # Create segments in Shopify
         from ..services.shopify_client import ShopifyClient
@@ -569,6 +575,8 @@ def sync_tradeup_segments():
 
         return jsonify(result)
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
             'error': str(e)
@@ -587,7 +595,7 @@ def delete_shopify_segment(segment_id: str):
     Returns:
         success: bool
     """
-    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+    tenant_id = g.tenant_id
 
     try:
         from ..services.shopify_client import ShopifyClient
@@ -596,6 +604,8 @@ def delete_shopify_segment(segment_id: str):
 
         return jsonify(result)
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
             'error': str(e)
@@ -615,7 +625,7 @@ def get_membership_products():
     Returns:
         products: List of membership products with their variants
     """
-    tenant_id = int(request.headers.get('X-Tenant-ID', 1))
+    tenant_id = g.tenant_id
 
     try:
         from ..services.shopify_client import ShopifyClient
@@ -628,6 +638,8 @@ def get_membership_products():
             'count': len(products)
         })
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
             'error': str(e)
@@ -649,11 +661,12 @@ def sync_membership_products():
         errors: Any errors that occurred
     """
     tenant = g.tenant
+    tenant_id = g.tenant_id
 
     try:
         # Get all tiers for this tenant
-        from ..models.tier import Tier
-        tiers = Tier.query.filter_by(tenant_id=tenant_id, is_active=True).all()
+        from ..models.member import MembershipTier
+        tiers = MembershipTier.query.filter_by(tenant_id=tenant_id, is_active=True).all()
 
         if not tiers:
             return jsonify({
@@ -662,14 +675,15 @@ def sync_membership_products():
             }), 400
 
         # Build tier data for product creation
+        # Map MembershipTier attributes to what ShopifyClient expects
         tier_data = [{
             'name': t.name,
-            'slug': t.slug,
-            'price': float(t.price) if t.price else 0,
+            'slug': t.name.lower().replace(' ', '-'),
+            'price': float(t.monthly_price) if t.monthly_price else 0,
             'yearly_price': float(t.yearly_price) if t.yearly_price else None,
-            'description': t.description,
-            'trade_in_bonus_percent': t.trade_in_bonus_percent,
-            'cashback_percent': t.cashback_percent
+            'description': f'{t.name} Membership',
+            'trade_in_bonus_percent': float(t.bonus_rate * 100) if t.bonus_rate else 0,
+            'cashback_percent': float(t.purchase_cashback_pct) if t.purchase_cashback_pct else 0
         } for t in tiers]
 
         # Create products in Shopify
@@ -682,6 +696,8 @@ def sync_membership_products():
 
         return jsonify(result)
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
             'error': str(e)
