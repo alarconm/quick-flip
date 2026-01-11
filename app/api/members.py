@@ -450,20 +450,36 @@ def delete_member(member_id):
     member_number = member.member_number
     member_name = member.name or member.email
 
-    # Delete related records first (to avoid foreign key issues)
-    from ..models.promotions import StoreCreditLedger, MemberCreditBalance
+    try:
+        # Delete related records first (to avoid foreign key issues)
+        from ..models.promotions import StoreCreditLedger, MemberCreditBalance
+        from ..models.tier_history import TierChangeLog, MemberPromoUsage
+        from ..models.trade_in import TradeInBatch
 
-    StoreCreditLedger.query.filter_by(member_id=member_id).delete()
-    MemberCreditBalance.query.filter_by(member_id=member_id).delete()
+        # Delete store credit records
+        StoreCreditLedger.query.filter_by(member_id=member_id).delete()
+        MemberCreditBalance.query.filter_by(member_id=member_id).delete()
 
-    # Delete the member
-    db.session.delete(member)
-    db.session.commit()
+        # Delete tier history records
+        TierChangeLog.query.filter_by(member_id=member_id).delete()
+        MemberPromoUsage.query.filter_by(member_id=member_id).delete()
 
-    return jsonify({
-        'success': True,
-        'message': f'Member {member_number} ({member_name}) has been deleted'
-    })
+        # Unlink trade-in batches (set member_id to NULL instead of deleting)
+        TradeInBatch.query.filter_by(member_id=member_id).update({'member_id': None})
+
+        # Delete the member
+        db.session.delete(member)
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': f'Member {member_number} ({member_name}) has been deleted'
+        })
+    except Exception as e:
+        db.session.rollback()
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': f'Failed to delete member: {str(e)}'}), 500
 
 
 @members_bp.route('/tiers', methods=['GET'])
