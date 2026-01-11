@@ -187,6 +187,9 @@ class StoreCreditService:
         elif event_type == CreditEventType.PROMOTION_BONUS.value:
             stats.promo_bonus_earned = Decimal(str(stats.promo_bonus_earned or 0)) + amount
 
+        # Update member's running total for display in members list
+        member.total_bonus_earned = Decimal(str(member.total_bonus_earned or 0)) + amount
+
         db.session.commit()
 
         # STEP 4: Trigger Shopify Flow event for credit issued

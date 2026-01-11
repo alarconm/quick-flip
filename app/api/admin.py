@@ -457,6 +457,65 @@ def fix_schema():
 
 # ================== Shopify Metafields Sync ==================
 
+@admin_bp.route('/fix-credits', methods=['POST'])
+def fix_credits():
+    """
+    Fix member credits_issued totals by recalculating from ledger entries.
+
+    This fixes the bug where member.total_bonus_earned wasn't being updated
+    when credits were issued.
+
+    Call with: POST /api/admin/fix-credits?key=tradeup-schema-fix-2026
+    """
+    from sqlalchemy import func, text
+    from decimal import Decimal
+    from ..models.store_credit import StoreCreditLedger
+
+    # Simple security key check
+    key = request.args.get('key')
+    if key != 'tradeup-schema-fix-2026':
+        return jsonify({'error': 'Invalid key'}), 403
+
+    try:
+        # Get all members with their actual credit totals from ledger
+        credit_totals = db.session.query(
+            StoreCreditLedger.member_id,
+            func.sum(StoreCreditLedger.amount).label('total_credits')
+        ).filter(
+            StoreCreditLedger.amount > 0  # Only positive amounts (credits issued)
+        ).group_by(StoreCreditLedger.member_id).all()
+
+        updated = []
+        for member_id, total_credits in credit_totals:
+            member = Member.query.get(member_id)
+            if member:
+                old_value = float(member.total_bonus_earned or 0)
+                new_value = float(total_credits or 0)
+
+                if old_value != new_value:
+                    member.total_bonus_earned = Decimal(str(total_credits or 0))
+                    updated.append({
+                        'member_id': member_id,
+                        'member_number': member.member_number,
+                        'old_value': old_value,
+                        'new_value': new_value
+                    })
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': f'Fixed {len(updated)} members',
+            'updated': updated
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
 @admin_bp.route('/members/<int:member_id>/sync-metafields', methods=['POST'])
 @require_tenant
 def sync_member_metafields(member_id):
