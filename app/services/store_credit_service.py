@@ -121,7 +121,13 @@ class StoreCreditService:
         new_balance = Decimal('0')
 
         # STEP 1: Write to Shopify FIRST (source of truth)
-        if sync_to_shopify and member.shopify_customer_id:
+        if sync_to_shopify:
+            if not member.shopify_customer_id:
+                raise ValueError(
+                    f"Member {member_id} has no Shopify customer ID - cannot issue store credit. "
+                    f"The member must be linked to a Shopify customer account first."
+                )
+
             try:
                 shopify_client = ShopifyClient(member.tenant_id)
                 shopify_result = shopify_client.add_store_credit(
@@ -143,9 +149,9 @@ class StoreCreditService:
                 current_app.logger.error(f"Shopify credit failed for member {member.id}: {e}")
                 raise ValueError(f"Failed to add store credit: {e}")
         else:
-            # No Shopify customer - log warning but allow for testing
+            # sync_to_shopify=False is only for internal testing/migration
             current_app.logger.warning(
-                f"Member {member_id} has no Shopify customer ID - credit not synced"
+                f"Member {member_id} credit NOT synced to Shopify (sync_to_shopify=False)"
             )
 
         # STEP 2: Create ledger entry (audit trail) AFTER Shopify succeeds
@@ -229,7 +235,13 @@ class StoreCreditService:
         new_balance = Decimal('0')
 
         # STEP 1: Debit from Shopify FIRST (source of truth)
-        if sync_to_shopify and member.shopify_customer_id:
+        if sync_to_shopify:
+            if not member.shopify_customer_id:
+                raise ValueError(
+                    f"Member {member_id} has no Shopify customer ID - cannot deduct store credit. "
+                    f"The member must be linked to a Shopify customer account first."
+                )
+
             try:
                 shopify_client = ShopifyClient(member.tenant_id)
 
@@ -253,8 +265,9 @@ class StoreCreditService:
                 current_app.logger.error(f"Shopify debit failed for member {member.id}: {e}")
                 raise ValueError(f"Failed to deduct store credit: {e}")
         else:
+            # sync_to_shopify=False is only for internal testing/migration
             current_app.logger.warning(
-                f"Member {member_id} has no Shopify customer ID - debit not synced"
+                f"Member {member_id} debit NOT synced to Shopify (sync_to_shopify=False)"
             )
 
         # STEP 2: Create ledger entry (audit trail) AFTER Shopify succeeds
