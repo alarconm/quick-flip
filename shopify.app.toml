@@ -88,6 +88,14 @@ api_version = "2025-01"
   topics = [ "customer_payment_methods/update" ]
   uri = "/webhook/customer_payment_methods/update"
 
+# GDPR Mandatory Compliance Webhooks
+# These are required by Shopify for App Store approval
+# https://shopify.dev/docs/apps/build/privacy-law-compliance
+[webhooks.privacy_compliance]
+customer_deletion_url = "/webhook/customers/redact"
+customer_data_request_url = "/webhook/customers/data_request"
+shop_deletion_url = "/webhook/shop/redact"
+
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
 scopes = "read_customers,read_fulfillments,read_inventory,read_orders,read_products,write_customers,write_products,read_store_credit_accounts,write_store_credit_account_transactions,read_customer_payment_methods,read_own_subscription_contracts,write_own_subscription_contracts"

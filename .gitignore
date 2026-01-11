@@ -74,4 +74,8 @@ yarn-error.log
 # Frontend dist - INCLUDE for deployment (exception to dist/ rule)
 !frontend/dist/
 !frontend/dist/**
+
+# Extension build artifacts (Shopify builds these separately)
+extensions/*/dist/
+
 nul
