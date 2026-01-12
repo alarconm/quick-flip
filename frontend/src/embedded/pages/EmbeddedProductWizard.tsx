@@ -525,7 +525,7 @@ export function EmbeddedProductWizard({ shop }: EmbeddedProductWizardProps) {
                         <div
                           style={{
                             width: '100%',
-                            aspectRatio: '4 / 3',
+                            aspectRatio: '16 / 9',
                             borderRadius: '8px',
                             overflow: 'hidden',
                             backgroundColor: '#f6f6f7',

@@ -30,9 +30,9 @@ TradeUp is a **Shopify embedded app** for loyalty programs, trade-in management,
 
 ### Remaining Items
 
-1. **Fix admin auth** - Commented out in `frontend/src/App.tsx`
+1. **Set SHOPIFY_BILLING_TEST=false** - For production charges
 2. **End-to-end testing** - Customer flows need verification
-3. **Set SHOPIFY_BILLING_TEST=false** - For production charges
+3. **Complete setup checklist in test store** - Verify store credit, create membership products
 
 ## Quick Commands
 
@@ -153,7 +153,7 @@ SENTRY_DSN=<sentry-dsn>      # Error tracking
 |------|---------|
 | `app/__init__.py` | Flask app factory, blueprint registration |
 | `app/config.py` | Environment configuration |
-| `frontend/src/App.tsx` | React router (AdminRoute auth here) |
+| `frontend/src/App.tsx` | React router (routes to EmbeddedApp) |
 | `frontend/src/admin/api.ts` | API client with shop domain interceptor |
 | `shopify.app.toml` | Shopify app configuration |
 

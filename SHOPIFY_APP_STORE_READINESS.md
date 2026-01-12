@@ -182,8 +182,8 @@ All complete and ready for testing:
 
 | Item | Priority | Notes |
 |------|----------|-------|
-| Admin route auth | HIGH | Currently commented out in App.tsx |
 | Set SHOPIFY_BILLING_TEST=false | HIGH | For production charges |
+| Complete test store setup | MEDIUM | Verify store credit, products, theme blocks |
 
 ### Should Test End-to-End
 

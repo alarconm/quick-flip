@@ -1,0 +1,136 @@
+Okay, let's see here, going through feedback for trade-up, which is going to become Vault
+Rewards, or perhaps another name.
+So on iPhone, first thing when I load up the dashboard, it's not responsive, doesn't
+look great, the dashboard, total members, trade-ins, both the header and the content and
+the background, it all is just smushed together and does not look great.
+And even the stuff that's not necessarily smushed is like not padded on the edges at all.
+So I would say that the mobile styling across the entire embedded app needs a full complete
+makeover, front end design, pass, to just really modernize it and make it to be best
+in class, number one app on the Shopify store.
+Then on the members page in the embedded app, if you try to add a member and you go to
+the search Shopify customers, it's not actually searching, it says no customers found.
+It looks like it's just not hooked up to our Shopify store data, it's not saying the
+customer is at all.
+It looks like the export button on members also doesn't do anything.
+And then on trade-ins, styling could be better, just the way that the actual content displays
+is, you have to scroll a lot side to side, let me try to do a new trade-in, it's the
+same thing, you have to select a member, oh I see, so select a member, you have to have
+a actual member ship.
+But for a new trade-in, if they're not a member yet, we don't want to have to back out of this.
+So if they're not a member yet, you don't want there to be friction to doing a trade-in.
+So they should be able to just one click from select member, there should be one for
+ad-new member, and it should just have a new Shopify customer model, this elegantly displayed
+that works great on mobile and looks and feels like a world-class app that you would see
+on the app store, then let's see here, you're putting in an item, trade value 70, market
+value 100, the printing notes, blah, blah, blah.
+Oh, there needs to be a notification, it needs to make it very obvious that you have to
+have a customer selected to be able to create the trade-in.
+Right now it's just great out, and if you scroll down you don't know that you are even
+missing anything, and it could be easy for the customer to not realize that they have
+to have, or for the user to not realize that they have to have a customer selected.
+So we want to make that super obvious, so it's not a pain point.
+I see that the status is pending on the trade-in once it's done, how does the status actually
+move forward? No, I don't see how that happens.
+Okay, you can view it, and then you mark it listed. I don't think we want to have all that.
+I think we just want them to be able to trade in and have it just automatically add that
+store credit to their account and their native store credit on their account in Shopify.
+That's why they have to be logged into a Shopify account, or we have to create one for
+them through the Shopify store, but that all has to be not a separate account, but straight
+through Shopify, which is why that's an important thing to have hooked up.
+Mia, we shouldn't even have, we're not like that turning around and listing the item and
+tracking it like it's a consignment. All it should be is a ledger of what somebody is
+traded in and how much the store credit was given. We don't want to overcomplicate it if anything
+we want to simplify it and streamline it, so that for a busy vendor that's not tech savvy,
+all they have to do is find the customer and enter in whatever it is they're buying,
+whatever the amount is, they just key it in, and whatever amount the store credit is,
+or cash, if it's store credit, it goes straight to their account. That's what our app does.
+If it's cash, then it just gives them the information and keeps in the ledger that they have
+that much cash that they had to pay out for the trade-in, and all the app does is track the ledger.
+Nothing after that. So that'll actually be good to simplify that a little that I believe.
+Okay. Is there more to this as categories? I think that's fine.
+Well, actually for categories, we wanted to be pulling the actual categories and collections
+from the Shopify store, so we should have the ability to make, we should have the ability to
+make custom ones manually if the user wants to do that, but then we should also have
+a bunch of templates of the common things like Pokemon, Magic, all the TCGs, all the sports, etc.
+But then have custom so that any store in Shopify can use it. That would be super hopeful,
+and we again want it to be in an elegant and world-class UI.
+We're going for the best app on the Shopify store.
+Okay. Promotions and bonuses. This is probably at the first glance the best-looking page
+so far on iPhone, but still needs some padding on the margins around the edges. It just feels like buttons
+and stuff are kind of crammed up against the edge.
+All of the
+number visuals in the Promotions and bonuses section need to get aligned. They look goofy
+right now. For example, the badges for the trade-in bonus purchase cash back in
+store discount are right aligned. I don't remember, I guess that's okay. I don't know.
+It just feels awkward. Maybe it's just the margins. It seems okay.
+Okay, let's see here. A template. Yeah, January 10th. We're going to say we're doing that 10%.
+What was found in the last day range? Well, it's tomorrow. Why would it say there's no orders found in this day range
+when we're looking at something in the future?
+So it looks like create store credit event is only to run something that has happened in the past.
+So that's confusing. And I'm not sure that that's how we want it to be. But yeah, that's how it's set up right now.
+Yeah, it also just doesn't work at all. It says no orders found in this day range. Try just the dates.
+So it looks like the data from our Shopify store isn't correctly flowing to it or something. But yeah, super confusing, create store credit event.
+It looks like it's just looking for a date in the past for you to run an event, which is not necessarily the worst thing to have available as something to do.
+But I don't know if create store credit event is the way we want to present that.
+Especially since that actually that was using a trade night template. So yeah, this is we would want to be scheduling this ahead.
+And then want to make it super obvious and make the customer, the store customer like super comfortable that when they do their event, it will run.
+The store credit will run when it's supposed to. But we can also put their mind at ease by basically triggering them to manually review it.
+When the event has completed, it just triggers a dry run. So the customer reviews it and then they approve it and they can adjust it if they need to at all.
+And then it and then the store credit gets applied. So this is really critical for the customer to have this, this much ability to adjust and see and have as much transparency into the store credit process as possible.
+So that way they can trust that the app is not overpaying or underpaying the store credit during an event and is properly getting it to the collection or product or dates or whatever or a sales channel or whatever it may be.
+They need to be able to see all that. It also will help them avoid their own user error mistakes. Maybe they have products categorized incorrectly or misunderstand how the app works.
+So this will avoid something paying out that they didn't want to pay out and allows them to have full control over the process. And then if everything is good, there should be an option for them to just let it auto apply in the future.
+But I think that that should be like an advanced kind of hidden one because I think that having the manual controls and and almost forcing them to see the audit is a very good thing for this feature, which will be an amazing feature.
+We just want to make sure that because it's dealing with money and could be a lot of money that it is accurate, audited and transparent where the user has full control.
+We just want to make sure that the app is not overpaying or underpaying.
+When trying to create a new promotion through the plus button, the collections, vendors, brands, product types, product tags, channels, all of that's not actually pulling the real data from our store that it's installed in.
+So that all needs to be set up and actually like hooked up and exposed to our Shopify store because right now none of the information is real and I'm not able to like test it because it's just like made up sales channels and doesn't actually search through the collections or anything.
+Membership tiers.
+I don't think we want to do trade in rate percent. I think we want to change that. So instead of it being like, oh, this tier has a set rate. Actually, I know for sure we don't want to do that.
+We want to have this be an optional thing for tiers.
+And there should be way more options for the tier. So I don't know if you have to just edit it after you create the tier.
+But I'm not sure that we're going to have a trade in bonus or anything of that sort.
+We want to have it to where maybe there's just a hey, if you're a golden member, you get plus 5% store credit bonus.
+Anything that you purchase and then same thing for gold 10% for that.
+We also want to have some tiers with free shipping and just have as many options as possible.
+When you click create, after putting in the info for adding a tier on the membership tiers tab, nothing happens. It just spins for a minute and then nothing happens.
+If you change the style and the drop down menu and settings, nothing happens. It's all the same.
+The margins on this menu are also bad and needs a whole once over with styling.
+The checkboxes for features enables self sign up, enable referral program, enable point system.
+I don't think they do anything or work. Can you check that and let me know and then enable auto enrollment.
+I love that but does it work? How do we test it? Cashback and rewards can figure out how rewards are delivered.
+Walk me through how each of those works and I want to make sure that everything is wired up.
+I should be able to issue a trade-in in store credit and earn an extra bonus for buying something because I have my store credit or because I have my gold membership where I get 3% store credit bonus for everything I buy.
+As extra store credit back, that should be hooked up so that I could test that with my customer account and our store that we have it installed.
+So we need to get that set up now so that it's all hooked up so we can test it for real.
+The ads here button from the settings menu is different than the ads here button. It's just like part of its own drop down.
+Something to look at and figure out what we should do to get rid of the redundancy.
+I think we need to redo a lot of ways to make it as user friendly as possible to help with onboarding.
+I'm really going to need to have a great tutorial onboarding.
+If you want to get rid of that, you can get rid of that.
+If you want to get rid of that, you can get rid of that.
+If you want to get rid of that, you can get rid of that.
+Oh shit, okay.
+So it looks like the membership tier got created correctly in the settings.
+That's definitely the one we want to go with.
+We just need to test it out and make sure it actually works.
+That actually looks really good.
+Again, you just need to get the margins fixed. You really get the front end dialed in and up to world class, Shopify store standards for mobile.
+Yeah, I think if we get through all those things and really focus on iterating through some testing,
+I think we can get this thing launched really quickly.
+We just really need to test thoroughly over and over again and get every possible thing dialed in and all of the
+different financials thoroughly tested.
+But I think that especially with really focused plan, we can get that hammered out over the next week with our team using it every day and iterating and specifically drilling through user stories.
+So we're going to be able to do this quickly and so we need to make sure that any feature that's not currently fully wired up and connected to the live Shopify store needs to get that done ASAP.
+We also need to really figure out the best way with the monthly credits and automation.
+We have an elegant way to have the user see that and have control over it.
+Just like how we have the audit and the dry run and the manual approval for
+the store credit bonus events, we really need that for the monthly credit distribution.
+We just need to make everything as transparent as possible, as visual as possible and communicate, communicate, communicate.
+We want the customer to feel incredibly confident when they're using the app that when they schedule an event in the future, it's going to work exactly how they expected it to and you're going to get the exact amount of
+credit issued to only the eligible members as you should and the store is going to have control over the final
+distribution and the credit expiration and going to see all of that and receive notifications and reminders, email, text if they opt into it.
+We need to set that all up, everything you would expect from our world class app so that they don't miss approving an event but also so that way they can feel supremely confident that when they schedule these things,
+the charge become very real money that they can be confident that it will work exactly as they expected and it all happens within Shopify tied to their customer's Shopify accounts.
+It all just flows right through there so it's not even something they have to trust us with.
+It's just all Shopify native and so everything that we do, we want to show the utmost professionalism so that we can become merchants number one choice for managing store credit if you're a Shopify store.
