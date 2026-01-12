@@ -398,6 +398,10 @@ def fix_schema():
         ("trade_in_batches", "guest_phone", "VARCHAR(50)"),
         # Trade-in batches - tenant isolation (CRITICAL SECURITY)
         ("trade_in_batches", "tenant_id", "INTEGER REFERENCES tenants(id)"),
+        # Promotions - tenant isolation (CRITICAL SECURITY)
+        ("promotions", "tenant_id", "INTEGER REFERENCES tenants(id)"),
+        # Bulk credit operations - tenant isolation (CRITICAL SECURITY)
+        ("bulk_credit_operations", "tenant_id", "INTEGER REFERENCES tenants(id)"),
         # Tier configurations - promotion system columns
         ("tier_configurations", "yearly_price", "NUMERIC(6,2)"),
         ("tier_configurations", "trade_in_bonus_pct", "NUMERIC(5,2) DEFAULT 0"),

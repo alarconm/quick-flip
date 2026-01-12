@@ -10,7 +10,7 @@ Endpoints for:
 """
 
 from datetime import datetime, timedelta
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from flask import Blueprint, request, jsonify, current_app, g
 import sqlalchemy as sa
 from sqlalchemy import func, and_, or_
@@ -111,7 +111,8 @@ def list_promotions():
         current: Only promotions active right now
     """
     try:
-        query = Promotion.query
+        tenant_id = g.tenant_id
+        query = Promotion.query.filter_by(tenant_id=tenant_id)
 
         if request.args.get('active_only', '').lower() == 'true':
             query = query.filter(Promotion.active == True)
@@ -230,7 +231,9 @@ def create_promotion():
     # Member restrictions
     tier_restriction = to_json_or_none(data.get('tier_restriction'))
 
+    tenant_id = g.tenant_id
     promotion = Promotion(
+        tenant_id=tenant_id,
         name=data['name'],
         description=data.get('description'),
         code=data.get('code'),
@@ -272,7 +275,8 @@ def create_promotion():
 @require_shopify_auth
 def get_promotion(promo_id: int):
     """Get a single promotion."""
-    promotion = Promotion.query.get_or_404(promo_id)
+    tenant_id = g.tenant_id
+    promotion = Promotion.query.filter_by(id=promo_id, tenant_id=tenant_id).first_or_404()
     return jsonify(promotion.to_dict()), 200
 
 
@@ -280,7 +284,8 @@ def get_promotion(promo_id: int):
 @require_shopify_auth
 def update_promotion(promo_id: int):
     """Update a promotion."""
-    promotion = Promotion.query.get_or_404(promo_id)
+    tenant_id = g.tenant_id
+    promotion = Promotion.query.filter_by(id=promo_id, tenant_id=tenant_id).first_or_404()
     data = request.get_json()
 
     # Update fields
@@ -371,7 +376,8 @@ def update_promotion(promo_id: int):
 @require_shopify_auth
 def delete_promotion(promo_id: int):
     """Delete a promotion."""
-    promotion = Promotion.query.get_or_404(promo_id)
+    tenant_id = g.tenant_id
+    promotion = Promotion.query.filter_by(id=promo_id, tenant_id=tenant_id).first_or_404()
 
     # Check if it has been used
     if promotion.current_uses > 0:
@@ -492,10 +498,21 @@ def add_credit():
     if not data.get('description'):
         return jsonify({'error': 'description is required'}), 400
 
+    # Validate amount
+    try:
+        amount = Decimal(str(data['amount']))
+    except (ValueError, InvalidOperation):
+        return jsonify({'error': 'Invalid amount format'}), 400
+
+    if amount <= 0:
+        return jsonify({'error': 'Amount must be greater than 0'}), 400
+    if amount > Decimal('10000'):
+        return jsonify({'error': 'Amount cannot exceed $10,000 per transaction'}), 400
+
     try:
         entry = store_credit_service.add_credit(
             member_id=data['member_id'],
-            amount=Decimal(str(data['amount'])),
+            amount=amount,
             event_type=data.get('event_type', CreditEventType.MANUAL_ADJUSTMENT.value),
             description=data['description'],
             source_type='manual',
@@ -533,10 +550,21 @@ def deduct_credit():
     if not data.get('description'):
         return jsonify({'error': 'description is required'}), 400
 
+    # Validate amount
+    try:
+        amount = Decimal(str(data['amount']))
+    except (ValueError, InvalidOperation):
+        return jsonify({'error': 'Invalid amount format'}), 400
+
+    if amount <= 0:
+        return jsonify({'error': 'Amount must be greater than 0'}), 400
+    if amount > Decimal('10000'):
+        return jsonify({'error': 'Amount cannot exceed $10,000 per transaction'}), 400
+
     try:
         entry = store_credit_service.deduct_credit(
             member_id=data['member_id'],
-            amount=Decimal(str(data['amount'])),
+            amount=amount,
             description=data['description'],
             created_by=data.get('created_by', 'admin'),
         )
@@ -576,10 +604,24 @@ def create_bulk_operation():
     if not data.get('created_by'):
         return jsonify({'error': 'created_by is required'}), 400
 
+    # Validate amount_per_member
+    try:
+        amount_per_member = Decimal(str(data['amount_per_member']))
+    except (ValueError, InvalidOperation):
+        return jsonify({'error': 'Invalid amount_per_member format'}), 400
+
+    if amount_per_member <= 0:
+        return jsonify({'error': 'Amount per member must be greater than 0'}), 400
+    if amount_per_member > Decimal('1000'):
+        return jsonify({'error': 'Amount per member cannot exceed $1,000'}), 400
+
+    tenant_id = g.tenant_id
+
     operation = BulkCreditOperation(
+        tenant_id=tenant_id,
         name=data['name'],
         description=data.get('description'),
-        amount_per_member=data['amount_per_member'],
+        amount_per_member=amount_per_member,
         tier_filter=data.get('tier_filter'),
         status_filter=data.get('status_filter', 'active'),
         created_by=data['created_by'],
@@ -595,6 +637,11 @@ def create_bulk_operation():
 @require_shopify_auth
 def preview_bulk_operation(op_id: int):
     """Preview a bulk operation before execution."""
+    tenant_id = g.tenant_id
+
+    # Validate tenant ownership
+    operation = BulkCreditOperation.query.filter_by(id=op_id, tenant_id=tenant_id).first_or_404()
+
     try:
         result = store_credit_service.execute_bulk_credit(op_id, dry_run=True)
         return jsonify(result), 200
@@ -606,6 +653,11 @@ def preview_bulk_operation(op_id: int):
 @require_shopify_auth
 def execute_bulk_operation(op_id: int):
     """Execute a bulk credit operation."""
+    tenant_id = g.tenant_id
+
+    # Validate tenant ownership
+    operation = BulkCreditOperation.query.filter_by(id=op_id, tenant_id=tenant_id).first_or_404()
+
     try:
         result = store_credit_service.execute_bulk_credit(op_id, dry_run=False)
         return jsonify(result), 200
@@ -620,7 +672,9 @@ def execute_bulk_operation(op_id: int):
 @require_shopify_auth
 def list_bulk_operations():
     """List bulk credit operations."""
-    operations = BulkCreditOperation.query.order_by(
+    tenant_id = g.tenant_id
+
+    operations = BulkCreditOperation.query.filter_by(tenant_id=tenant_id).order_by(
         BulkCreditOperation.created_at.desc()
     ).limit(50).all()
 

@@ -73,6 +73,7 @@ class Promotion(db.Model):
     __tablename__ = 'promotions'
 
     id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey('tenants.id'), nullable=False, index=True)  # Required for tenant isolation
 
     # Basic info
     name = db.Column(db.String(100), nullable=False)
@@ -474,6 +475,7 @@ class BulkCreditOperation(db.Model):
     __tablename__ = 'bulk_credit_operations'
 
     id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey('tenants.id'), nullable=False, index=True)  # Required for tenant isolation
 
     # Operation details
     name = db.Column(db.String(100), nullable=False)
