@@ -27,19 +27,32 @@ import {
   InlineGrid,
 } from '@shopify/polaris';
 
-// Hook to detect mobile viewport
-function useIsMobile(breakpoint: number = 768) {
-  const [isMobile, setIsMobile] = useState(
-    typeof window !== 'undefined' ? window.innerWidth < breakpoint : false
-  );
+// Hook to detect mobile viewport with multiple breakpoints
+function useResponsive() {
+  const [screenSize, setScreenSize] = useState(() => {
+    if (typeof window === 'undefined') return { isSmallMobile: false, isMobile: false, isTablet: false };
+    const width = window.innerWidth;
+    return {
+      isSmallMobile: width < 480,  // iPhone SE, small phones
+      isMobile: width < 768,        // Most phones
+      isTablet: width < 1024,       // Tablets
+    };
+  });
 
   useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < breakpoint);
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, [breakpoint]);
+    const checkSize = () => {
+      const width = window.innerWidth;
+      setScreenSize({
+        isSmallMobile: width < 480,
+        isMobile: width < 768,
+        isTablet: width < 1024,
+      });
+    };
+    window.addEventListener('resize', checkSize);
+    return () => window.removeEventListener('resize', checkSize);
+  }, []);
 
-  return isMobile;
+  return screenSize;
 }
 import { useQuery } from '@tanstack/react-query';
 import { getApiUrl, authFetch } from '../../hooks/useShopifyBridge';
@@ -101,7 +114,7 @@ async function fetchAnalytics(shop: string | null, period: string): Promise<Anal
 }
 
 export function EmbeddedAnalytics({ shop }: AnalyticsProps) {
-  const isMobile = useIsMobile();
+  const { isSmallMobile, isMobile } = useResponsive();
   const [period, setPeriod] = useState('30');
 
   const { data: analytics, isLoading, error } = useQuery({
@@ -227,7 +240,7 @@ export function EmbeddedAnalytics({ shop }: AnalyticsProps) {
 
         {/* Key Metrics Grid */}
         <Layout.Section>
-          <InlineGrid columns={isMobile ? 1 : { xs: 1, sm: 2, md: 2, lg: 4 }} gap="400">
+          <InlineGrid columns={isSmallMobile ? 1 : isMobile ? 2 : 4} gap={isMobile ? "300" : "400"}>
             {/* Members Card */}
             <Card>
               <BlockStack gap="300">

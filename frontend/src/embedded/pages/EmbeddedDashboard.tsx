@@ -79,23 +79,36 @@ async function fetchRecentActivity(shop: string | null): Promise<RecentActivity[
   return response.json();
 }
 
-// Hook to detect mobile viewport
-function useIsMobile(breakpoint: number = 768) {
-  const [isMobile, setIsMobile] = useState(
-    typeof window !== 'undefined' ? window.innerWidth < breakpoint : false
-  );
+// Hook to detect mobile viewport with multiple breakpoints
+function useResponsive() {
+  const [screenSize, setScreenSize] = useState(() => {
+    if (typeof window === 'undefined') return { isSmallMobile: false, isMobile: false, isTablet: false };
+    const width = window.innerWidth;
+    return {
+      isSmallMobile: width < 480,  // iPhone SE, small phones
+      isMobile: width < 768,        // Most phones
+      isTablet: width < 1024,       // Tablets
+    };
+  });
 
   useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < breakpoint);
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, [breakpoint]);
+    const checkSize = () => {
+      const width = window.innerWidth;
+      setScreenSize({
+        isSmallMobile: width < 480,
+        isMobile: width < 768,
+        isTablet: width < 1024,
+      });
+    };
+    window.addEventListener('resize', checkSize);
+    return () => window.removeEventListener('resize', checkSize);
+  }, []);
 
-  return isMobile;
+  return screenSize;
 }
 
 export function EmbeddedDashboard({ shop }: DashboardProps) {
-  const isMobile = useIsMobile();
+  const { isSmallMobile, isMobile } = useResponsive();
   const navigate = useNavigate();
 
   // Both queries run in parallel with caching for faster subsequent loads
@@ -133,7 +146,7 @@ export function EmbeddedDashboard({ shop }: DashboardProps) {
       >
         <Layout>
           <Layout.Section>
-            <InlineGrid columns={isMobile ? 2 : 4} gap="400">
+            <InlineGrid columns={isSmallMobile ? 1 : isMobile ? 2 : 4} gap={isMobile ? "300" : "400"}>
               {[1, 2, 3, 4].map((i) => (
                 <Card key={i}>
                   <BlockStack gap="200">
@@ -241,7 +254,7 @@ export function EmbeddedDashboard({ shop }: DashboardProps) {
 
         {/* Key Metrics - Clickable Cards */}
         <Layout.Section>
-          <InlineGrid columns={isMobile ? 2 : 4} gap="400">
+          <InlineGrid columns={isSmallMobile ? 1 : isMobile ? 2 : 4} gap={isMobile ? "300" : "400"}>
             <div
               onClick={() => navigate('/app/members')}
               style={{ cursor: 'pointer' }}
