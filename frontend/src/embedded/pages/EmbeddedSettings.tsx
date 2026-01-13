@@ -29,10 +29,11 @@ import {
   ResourceItem,
   Icon,
 } from '@shopify/polaris';
-import { RefreshIcon, PlusIcon, EmailIcon, ClockIcon, CalendarIcon, ViewIcon } from '@shopify/polaris-icons';
+import { RefreshIcon, PlusIcon, EmailIcon, ClockIcon, CalendarIcon, ViewIcon, ChatIcon } from '@shopify/polaris-icons';
 import { SaveBar, useAppBridge } from '@shopify/app-bridge-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getApiUrl, authFetch } from '../../hooks/useShopifyBridge';
+import { BugReportModal } from '../../components';
 
 interface SettingsProps {
   shop: string | null;
@@ -657,6 +658,7 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
   const [testName, setTestName] = useState('');
   const [emailSuccess, setEmailSuccess] = useState('');
   const [emailError, setEmailError] = useState('');
+  const [bugReportOpen, setBugReportOpen] = useState(false);
 
   const previewMutation = useMutation({
     mutationFn: (templateId: string) => previewEmailTemplate(shop, templateId),
@@ -2076,6 +2078,51 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
           </BlockStack>
         </Layout.AnnotatedSection>
 
+        {/* Support & Feedback */}
+        <Layout.AnnotatedSection
+          id="support"
+          title="Support & Feedback"
+          description="Get help or submit feedback about TradeUp"
+        >
+          <Card>
+            <BlockStack gap="400">
+              <InlineStack align="space-between" blockAlign="center">
+                <BlockStack gap="100">
+                  <InlineStack gap="200" blockAlign="center">
+                    <Icon source={ChatIcon} tone="base" />
+                    <Text as="h3" variant="headingSm">
+                      Report an Issue or Request a Feature
+                    </Text>
+                  </InlineStack>
+                  <Text as="p" variant="bodySm" tone="subdued">
+                    Let us know if you encounter any issues or have ideas for improvements.
+                  </Text>
+                </BlockStack>
+                <Button onClick={() => setBugReportOpen(true)}>
+                  Submit Feedback
+                </Button>
+              </InlineStack>
+
+              <Divider />
+
+              <BlockStack gap="200">
+                <Text as="h3" variant="headingSm">Contact Support</Text>
+                <Text as="p" variant="bodySm" tone="subdued">
+                  Need help? Reach out to our support team.
+                </Text>
+                <InlineStack gap="200">
+                  <Button variant="plain" url="mailto:support@cardflowlabs.com" external>
+                    Email Support
+                  </Button>
+                  <Button variant="plain" url="https://docs.tradeup.io" external>
+                    Documentation
+                  </Button>
+                </InlineStack>
+              </BlockStack>
+            </BlockStack>
+          </Card>
+        </Layout.AnnotatedSection>
+
         {/* Danger Zone */}
         <Layout.AnnotatedSection
           id="danger"
@@ -2385,6 +2432,12 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
         </button>
         <button onClick={handleDiscard}>Discard</button>
       </SaveBar>
+
+      {/* Bug Report Modal */}
+      <BugReportModal
+        open={bugReportOpen}
+        onClose={() => setBugReportOpen(false)}
+      />
     </Page>
   );
 }

@@ -84,14 +84,20 @@ function useIsMobile(breakpoint: number = 768) {
   return isMobile;
 }
 
-async function fetchEntries(shop: string | null, page: number): Promise<{
+async function fetchEntries(shop: string | null, page: number, search: string = ''): Promise<{
   entries: TradeLedgerEntry[];
   total: number;
   page: number;
   pages: number;
 }> {
+  const params = new URLSearchParams({
+    page: String(page),
+    per_page: '20',
+  });
+  if (search) params.append('search', search);
+
   const response = await authFetch(
-    `${getApiUrl()}/trade-ledger/?page=${page}&per_page=20`,
+    `${getApiUrl()}/trade-ledger/?${params.toString()}`,
     shop
   );
   if (!response.ok) throw new Error('Failed to fetch entries');
@@ -144,9 +150,20 @@ export function EmbeddedTradeLedger({ shop }: TradeLedgerProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [entryToDelete, setEntryToDelete] = useState<TradeLedgerEntry | null>(null);
+
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setPage(1); // Reset to first page when search changes
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   // Form state
   const [customerType, setCustomerType] = useState<'member' | 'guest'>('guest');
@@ -165,8 +182,8 @@ export function EmbeddedTradeLedger({ shop }: TradeLedgerProps) {
 
   // Fetch data
   const { data: entriesData, isLoading } = useQuery({
-    queryKey: ['trade-ledger', shop, page],
-    queryFn: () => fetchEntries(shop, page),
+    queryKey: ['trade-ledger', shop, page, debouncedSearch],
+    queryFn: () => fetchEntries(shop, page, debouncedSearch),
     enabled: !!shop,
   });
 
@@ -363,9 +380,22 @@ export function EmbeddedTradeLedger({ shop }: TradeLedgerProps) {
             </InlineGrid>
           </Layout.Section>
 
-          {/* Entries List */}
+          {/* Search and Entries List */}
           <Layout.Section>
             <Card>
+              <Box paddingBlockEnd="400">
+                <TextField
+                  label=""
+                  labelHidden
+                  value={searchQuery}
+                  onChange={setSearchQuery}
+                  placeholder="Search by reference, customer name, or email..."
+                  autoComplete="off"
+                  clearButton
+                  onClearButtonClick={() => setSearchQuery('')}
+                />
+              </Box>
+
               {isLoading ? (
                 <Box padding="800">
                   <InlineStack align="center">
@@ -373,16 +403,25 @@ export function EmbeddedTradeLedger({ shop }: TradeLedgerProps) {
                   </InlineStack>
                 </Box>
               ) : entries.length === 0 ? (
-                <EmptyState
-                  heading="No trade-ins recorded yet"
-                  action={{
-                    content: 'Record First Trade-In',
-                    onAction: () => setModalOpen(true),
-                  }}
-                  image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
-                >
-                  <p>Start recording trade-in transactions to track your store's activity.</p>
-                </EmptyState>
+                debouncedSearch ? (
+                  <EmptyState
+                    heading="No trade-ins found"
+                    image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
+                  >
+                    <p>No trade-ins match your search for "{debouncedSearch}". Try a different search term.</p>
+                  </EmptyState>
+                ) : (
+                  <EmptyState
+                    heading="No trade-ins recorded yet"
+                    action={{
+                      content: 'Record First Trade-In',
+                      onAction: () => setModalOpen(true),
+                    }}
+                    image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
+                  >
+                    <p>Start recording trade-in transactions to track your store's activity.</p>
+                  </EmptyState>
+                )
               ) : isMobile ? (
                 // Mobile card view
                 <BlockStack gap="300">

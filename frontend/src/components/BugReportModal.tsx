@@ -12,7 +12,7 @@ import {
   Banner,
   TextContainer,
 } from '@shopify/polaris';
-import api from '../admin/api';
+import { api } from '../admin/api';
 import { useToast } from '../contexts/ToastContext';
 
 interface BugReportModalProps {
@@ -163,7 +163,7 @@ export function BugReportModal({ open, onClose }: BugReportModalProps) {
 
   const renderSuccess = () => (
     <TextContainer>
-      <Banner status="success">
+      <Banner tone="success">
         <p>Thank you for your feedback!</p>
       </Banner>
       <p style={{ marginTop: '16px' }}>
