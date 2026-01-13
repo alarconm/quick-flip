@@ -1151,7 +1151,8 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
           </Card>
         </Layout.AnnotatedSection>
 
-        {/* Membership Tiers Configuration */}
+        {/* Membership Tiers Configuration - Only show when advanced features ON */}
+        {getValue('features', 'advanced_features_enabled', false) && (
         <Layout.AnnotatedSection
           id="tiers"
           title="Membership Tiers"
@@ -1273,6 +1274,7 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
             </BlockStack>
           </Card>
         </Layout.AnnotatedSection>
+        )}
 
         {/* Notifications */}
         <Layout.AnnotatedSection
