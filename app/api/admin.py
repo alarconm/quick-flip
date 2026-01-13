@@ -368,6 +368,9 @@ def fix_schema():
     from sqlalchemy import text
 
     columns_to_add = [
+        # Tenants - Billing columns (added Session 2)
+        ("tenants", "scheduled_plan_change", "VARCHAR(20)"),
+        ("tenants", "scheduled_plan_change_date", "TIMESTAMP"),
         # Members - Shopify subscription columns
         ("members", "shopify_subscription_contract_id", "VARCHAR(100)"),
         ("members", "subscription_status", "VARCHAR(20) DEFAULT 'none'"),
