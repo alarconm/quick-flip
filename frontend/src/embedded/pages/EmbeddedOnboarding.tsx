@@ -228,6 +228,31 @@ export function EmbeddedOnboarding({ shop }: OnboardingProps) {
           </Card>
         </Layout.Section>
 
+        {/* Step 1: Welcome - App Installed */}
+        {currentStep === 1 && (
+          <Layout.Section>
+            <Card>
+              <BlockStack gap="400" inlineAlign="center">
+                <div style={{ fontSize: '48px' }}>🎉</div>
+                <Text as="h2" variant="headingLg">TradeUp is Installed!</Text>
+                <Text as="p" tone="subdued" alignment="center">
+                  Great! TradeUp is connected to your store. Let's get your loyalty
+                  program set up in just a few quick steps.
+                </Text>
+                <Button
+                  variant="primary"
+                  onClick={() => {
+                    // Force refetch to get updated step (Step 1 should auto-complete)
+                    queryClient.invalidateQueries({ queryKey: ['onboarding-status'] });
+                  }}
+                >
+                  Let's Get Started
+                </Button>
+              </BlockStack>
+            </Card>
+          </Layout.Section>
+        )}
+
         {/* Step 2: Store Credit Check */}
         {currentStep === 2 && (
           <Layout.Section>
