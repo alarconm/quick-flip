@@ -2,7 +2,7 @@
 Database models for TradeUp platform.
 Store credit, rewards, and membership management for Shopify.
 """
-from .tenant import Tenant, APIKey
+from .tenant import Tenant, APIKey, BillingHistory
 from .member import MembershipTier, Member
 from .trade_in import TradeInBatch, TradeInItem
 from .trade_ledger import TradeInLedger
@@ -50,6 +50,7 @@ from .loyalty_points import (
 __all__ = [
     'Tenant',
     'APIKey',
+    'BillingHistory',
     'MembershipTier',
     'Member',
     'TradeInBatch',

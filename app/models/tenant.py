@@ -60,6 +60,10 @@ class Tenant(db.Model):
     max_members = db.Column(db.Integer, default=100)
     max_tiers = db.Column(db.Integer, default=3)
 
+    # Scheduled plan change (for downgrades at end of billing cycle)
+    scheduled_plan_change = db.Column(db.String(50))  # Plan key to switch to
+    scheduled_plan_change_date = db.Column(db.DateTime)  # When the change takes effect
+
     # Settings (JSON for flexibility)
     settings = db.Column(db.JSON, default=dict)
 
@@ -119,4 +123,50 @@ class APIKey(db.Model):
             'permissions': self.permissions,
             'last_used_at': self.last_used_at.isoformat() if self.last_used_at else None,
             'is_active': self.is_active
+        }
+
+
+class BillingHistory(db.Model):
+    """
+    Billing history for tracking subscription changes, payments, and events.
+    """
+    __tablename__ = 'billing_history'
+
+    id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey('tenants.id'), nullable=False)
+
+    event_type = db.Column(db.String(50), nullable=False)  # subscription_created, plan_changed, payment, cancelled
+    event_description = db.Column(db.String(500))
+
+    # Plan info
+    plan_from = db.Column(db.String(50))
+    plan_to = db.Column(db.String(50))
+    amount = db.Column(db.Numeric(10, 2))
+    currency = db.Column(db.String(3), default='USD')
+
+    # Shopify reference
+    shopify_charge_id = db.Column(db.String(255))
+    shopify_subscription_id = db.Column(db.String(255))
+
+    # Extra data
+    extra_data = db.Column(db.JSON, default=dict)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Relationship
+    tenant = db.relationship('Tenant', backref=db.backref('billing_history', lazy='dynamic'))
+
+    def __repr__(self):
+        return f'<BillingHistory {self.event_type} for tenant {self.tenant_id}>'
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'event_type': self.event_type,
+            'event_description': self.event_description,
+            'plan_from': self.plan_from,
+            'plan_to': self.plan_to,
+            'amount': float(self.amount) if self.amount else None,
+            'currency': self.currency,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'extra_data': self.extra_data
         }

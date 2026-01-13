@@ -1,819 +1,398 @@
-# TradeUp User Stories for Testing
+# TradeUp Merchant User Stories
 
-This document contains comprehensive user stories for testing all TradeUp functionality. Use these for manual QA testing and automated browser testing.
-
----
-
-## 1. ONBOARDING & SETUP
-
-### 1.1 Complete Onboarding Flow
-**As a new store owner**, I want to complete the onboarding flow in under 5 minutes, so that I can quickly go live with TradeUp
-
-**Acceptance Criteria:**
-- [ ] Onboarding shows 4 steps (app installed, store credit enabled, tiers configured, ready to go)
-- [ ] Each step shows status (pending/complete) with clear actions
-- [ ] Can skip onboarding and configure manually
-- [ ] Can apply pre-built templates (3+ options available)
-
-### 1.2 View Tier Templates
-**As a new store owner**, I want to see available tier templates, so that I can quickly set up membership tiers without manual configuration
-
-**Acceptance Criteria:**
-- [ ] Can preview tier structure before applying
-- [ ] Can see what tiers, prices, and benefits each template includes
-- [ ] Templates match store type (collectibles, general retail, etc.)
-- [ ] Can still customize after applying template
-
-### 1.3 Verify Store Credit
-**As a new store owner**, I want to verify Shopify store credit is enabled, so that I can ensure customers can redeem store credit
-
-**Acceptance Criteria:**
-- [ ] Check endpoint returns enabled/not_enabled status
-- [ ] If not enabled, provides direct link to Shopify payment settings
-- [ ] Shows clear instructions for enabling store credit
-- [ ] Retests after merchant enables the feature
-
-### 1.4 Mark Onboarding Complete
-**As a new store owner**, I want to mark onboarding complete, so that my loyalty program goes live
-
-**Acceptance Criteria:**
-- [ ] Can mark complete even if templates weren't applied
-- [ ] Updates tenant settings to reflect completion
-- [ ] Subsequent logins show completed state
+> **Total: 200 User Stories**
+> **Last Updated:** January 13, 2026
+> **Purpose:** Complete feature coverage for Shopify App Store launch
 
 ---
 
-## 2. MEMBER MANAGEMENT
+## Table of Contents
 
-### 2.1 Search for Customers
-**As a store staff member**, I want to search for existing Shopify customers by name, email, phone, or partner ID, so that I can enroll them as members
-
-**Acceptance Criteria:**
-- [ ] Search requires minimum 2 characters
-- [ ] Returns customer enrollment status (already member or not)
-- [ ] Shows member number and tier if already enrolled
-- [ ] Case-insensitive search
-- [ ] Handles special characters in names/emails
-
-### 2.2 Enroll Existing Customer
-**As a store staff member**, I want to enroll an existing Shopify customer as a TradeUp member, so that they can start earning rewards
-
-**Acceptance Criteria:**
-- [ ] Requires valid Shopify customer ID
-- [ ] Generates unique member number (TU1001, TU1002, etc.)
-- [ ] Automatically pulls customer name/email/phone from Shopify
-- [ ] Can optionally assign tier on enrollment
-- [ ] Can optionally assign partner customer ID (e.g., ORB#1050)
-- [ ] Returns confirmation with member number and tier
-- [ ] Prevents duplicate enrollments (same customer)
-
-### 2.3 Create New Member Manually
-**As a store staff member**, I want to manually create a new member with email, name, phone, so that I can enroll customers who may not have Shopify accounts yet
-
-**Acceptance Criteria:**
-- [ ] Email is required
-- [ ] Name and phone are optional
-- [ ] Can optionally assign tier and Shopify customer ID
-- [ ] Generates unique member number
-- [ ] Email must be unique per tenant
-
-### 2.4 Update Member Details
-**As a store staff member**, I want to update member details (name, email, phone, status, notes), so that I can keep member information current
-
-**Acceptance Criteria:**
-- [ ] Can update any allowed field
-- [ ] Changes reflected immediately in system
-- [ ] Email changes validated for uniqueness
-- [ ] Audit trail records who changed what and when
-
-### 2.5 List Members with Pagination
-**As a store staff member**, I want to list all members with pagination, so that I can manage large member databases
-
-**Acceptance Criteria:**
-- [ ] Default 50 members per page, max 100
-- [ ] Can filter by status (pending, active, paused, cancelled, expired)
-- [ ] Sorted by most recent first
-- [ ] Shows member count and page info
-- [ ] Can adjust per_page parameter
-
-### 2.6 View Member Details
-**As a store staff member**, I want to get a member's full details including stats, so that I can see their membership history and engagement
-
-**Acceptance Criteria:**
-- [ ] Shows member number, email, name, phone, tier
-- [ ] Shows total bonus earned, total trade-ins, total trade value
-- [ ] Shows tier assignment info (who assigned, when, expiration if any)
-- [ ] Shows subscription status if applicable
-
-### 2.7 Lookup by Member Number
-**As a store staff member**, I want to retrieve a member by their member number (e.g., TU1001), so that I can quickly access member records
-
-**Acceptance Criteria:**
-- [ ] Accepts TU prefix or just the number (1001 → TU1001)
-- [ ] Supports legacy QF prefix for backward compatibility
-- [ ] Returns 404 if member not found
-- [ ] Tenant-scoped (only returns members from requesting tenant)
+1. [App Discovery & Installation](#1-app-discovery--installation) (4 stories)
+2. [Onboarding & Initial Setup](#2-onboarding--initial-setup) (8 stories)
+3. [Billing & Subscription Management](#3-billing--subscription-management) (11 stories)
+4. [Member Management](#4-member-management) (17 stories)
+5. [Tier System Configuration](#5-tier-system-configuration) (15 stories)
+6. [Trade-In Management](#6-trade-in-management) (20 stories)
+7. [Store Credit Operations](#7-store-credit-operations) (12 stories)
+8. [Points System](#8-points-system) (8 stories)
+9. [Rewards Catalog](#9-rewards-catalog) (14 stories)
+10. [Referral Program](#10-referral-program) (8 stories)
+11. [Bulk Operations](#11-bulk-operations) (6 stories)
+12. [Analytics & Reporting](#12-analytics--reporting) (10 stories)
+13. [Settings & Configuration](#13-settings--configuration) (22 stories)
+14. [Promotions & Tier Rules](#14-promotions--tier-rules) (9 stories)
+15. [Shopify Integration](#15-shopify-integration) (7 stories)
+16. [Theme Extensions (Storefront)](#16-theme-extensions-storefront) (6 stories)
+17. [Customer Account Extension](#17-customer-account-extension) (4 stories)
+18. [App Proxy (Customer Rewards Page)](#18-app-proxy-customer-rewards-page) (4 stories)
+19. [Day-to-Day Operations](#19-day-to-day-operations) (10 stories)
+20. [Error Handling & Support](#20-error-handling--support) (5 stories)
 
 ---
 
-## 3. MEMBERSHIP TIERS
+## 1. App Discovery & Installation
 
-### 3.1 Create New Tier
-**As a store owner**, I want to create new membership tiers with custom names, pricing, and benefits, so that I can structure my loyalty program
-
-**Acceptance Criteria:**
-- [ ] Can specify monthly and yearly pricing (yearly optional)
-- [ ] Can set trade-in bonus rate (e.g., 5%, 10%)
-- [ ] Can set purchase cashback percentage (e.g., 1%, 2%, 3%)
-- [ ] Can set monthly store credit reward amount
-- [ ] Can optionally set credit expiration days
-- [ ] Can add custom benefits as JSON
-- [ ] Sets display order for UI presentation
-- [ ] Default tiers auto-seed if none exist
-
-### 3.2 Update Tier Configuration
-**As a store owner**, I want to update tier configuration (pricing, benefits, display order), so that I can adjust my tier structure
-
-**Acceptance Criteria:**
-- [ ] Can update any tier property
-- [ ] Changes apply to new members immediately
-- [ ] Can update active status (soft delete)
-- [ ] Cannot delete tier if active members use it
-
-### 3.3 Delete Tier (Soft Delete)
-**As a store owner**, I want to delete a tier (soft delete), so that I can retire old tier offerings
-
-**Acceptance Criteria:**
-- [ ] Sets is_active=False
-- [ ] Returns error if active members in tier
-- [ ] Tier still visible in history but not available for new assignments
-
-### 3.4 Reorder Tiers
-**As a store owner**, I want to reorder tiers for display, so that I can show them in priority order on storefront
-
-**Acceptance Criteria:**
-- [ ] Accepts ordered list of tier IDs
-- [ ] Updates display_order for each tier
-- [ ] Returns reordered tier list
-
-### 3.5 List Active Tiers
-**As a store owner**, I want to list all active membership tiers, so that I can view my tier structure
-
-**Acceptance Criteria:**
-- [ ] Returns only is_active=True tiers
-- [ ] Ordered by display_order
-- [ ] Shows all tier details (name, prices, benefits, bonus rates)
-- [ ] Shows Shopify selling plan ID if configured
-
-### 3.6 Assign Tier to Single Member
-**As a store staff member**, I want to assign a tier to a single member, so that I can grant membership status
-
-**Acceptance Criteria:**
-- [ ] Member becomes active upon tier assignment
-- [ ] Records who assigned and when
-- [ ] Can optionally set tier expiration date
-- [ ] Can remove tier by passing tier_id=null
-- [ ] Syncs tier tag to Shopify customer tags (tu-{tier_name_lowercase})
-- [ ] Returns updated member info
-
-### 3.7 Bulk Tier Assignment
-**As a store staff member**, I want to assign the same tier to multiple members at once, so that I can bulk promote members
-
-**Acceptance Criteria:**
-- [ ] Accepts array of member IDs and single tier_id
-- [ ] Updates all specified members
-- [ ] Sets tier_assigned_by and tier_assigned_at
-- [ ] Can optionally set expiration for all
-- [ ] Returns count of updated members
-- [ ] Returns summary of assignment
-
-### 3.8 Process Expired Tiers
-**As a store staff member**, I want to process expired tiers automatically, so that time-limited memberships are revoked
-
-**Acceptance Criteria:**
-- [ ] Finds all members where tier_expires_at has passed
-- [ ] Removes tier from expired members
-- [ ] Sets status to inactive
-- [ ] Removes Shopify tier tag
-- [ ] Returns count of processed memberships
-- [ ] Can be called manually or scheduled
-
-### 3.9 View Tier Assignment History
-**As a store owner**, I want to see tier assignment history for a member, so that I can audit tier changes
-
-**Acceptance Criteria:**
-- [ ] Returns list of all tier changes with timestamps
-- [ ] Shows who assigned the tier and reason
-- [ ] Shows previous and new tier
-- [ ] Paginated (default 20 records)
-- [ ] Ordered by most recent first
+| ID | User Story | Acceptance Criteria |
+|----|------------|---------------------|
+| US-1.1 | **As a** collectibles store owner, **I want to** find a loyalty and trade-in management app in the Shopify App Store **so that** I can modernize my customer retention strategy. | App listing visible in Shopify App Store with correct category tags |
+| US-1.2 | **As a** prospective merchant, **I want to** view screenshots, pricing, and feature descriptions **so that** I can determine if the app meets my business needs. | App store listing has screenshots, pricing table, feature list |
+| US-1.3 | **As a** merchant, **I want to** click "Install" and authorize the app **so that** it connects to my Shopify store and accesses required data. | OAuth flow completes, app installs, tenant created |
+| US-1.4 | **As a** merchant, **I want to** review and approve the permissions TradeUp requests **so that** I understand what store data the app will access. | Permissions screen shows required scopes clearly |
 
 ---
 
-## 4. TRADE-IN MANAGEMENT
+## 2. Onboarding & Initial Setup
 
-### 4.1 Create Trade-In Batch
-**As a store staff member**, I want to create a new trade-in batch for a member, so that I can record traded-in items
-
-**Acceptance Criteria:**
-- [ ] Can create for member OR guest (non-member)
-- [ ] Generates unique batch reference (TI-YYYYMMDD-###)
-- [ ] Sets category (sports, pokemon, magic, riftbound, tcg_other, other)
-- [ ] Records staff member who created it
-- [ ] Sets initial status to "pending"
-- [ ] Returns batch with batch_reference
-
-### 4.2 Add Items to Batch
-**As a store staff member**, I want to add items to a trade-in batch, so that I can record each individual item being traded in
-
-**Acceptance Criteria:**
-- [ ] Each item has product title, SKU, trade value, market value (optional)
-- [ ] Can add listing price and listed date later
-- [ ] Batch totals automatically update (total_items, total_trade_value)
-- [ ] Can add notes to each item
-- [ ] Returns updated batch with items
-
-### 4.3 List Trade-In Batches
-**As a store staff member**, I want to list all trade-in batches with filtering, so that I can manage trade-ins
-
-**Acceptance Criteria:**
-- [ ] Can filter by status (pending, listed, completed, cancelled)
-- [ ] Can filter by member_id
-- [ ] Can view guest-only trade-ins
-- [ ] Supports pagination (default 50, max 100)
-- [ ] Shows both member and guest trade-ins
-- [ ] Ordered by most recent first
-
-### 4.4 View Trade-In Details
-**As a store staff member**, I want to get full trade-in batch details including all items, so that I can see the complete trade-in record
-
-**Acceptance Criteria:**
-- [ ] Returns batch info + all items with details
-- [ ] Shows trade values, listing prices, sale prices
-- [ ] Shows days-to-sell calculation if item has been sold
-- [ ] Shows profit calculation if applicable
-
-### 4.5 Complete Trade-In and Issue Credit
-**As a store staff member**, I want to complete a trade-in batch and issue bonus credit, so that I can pay the customer
-
-**Acceptance Criteria:**
-- [ ] For member trade-ins, calculates tier bonus (e.g., 5% for Gold)
-- [ ] Records completion timestamp and staff member
-- [ ] Updates member's total_trade_ins and total_trade_value
-- [ ] Issues store credit for trade value + bonus
-- [ ] Sync credit to Shopify native store credit
-
-### 4.6 Mark Items as Listed
-**As a store staff member**, I want to mark items as listed in inventory, so that I can track when items go to sale
-
-**Acceptance Criteria:**
-- [ ] Records listing_price and listed_date
-- [ ] Updates batch status if all items listed
-
-### 4.7 Mark Items as Sold
-**As a store staff member**, I want to mark items as sold and record sale price, so that I can track profit
-
-**Acceptance Criteria:**
-- [ ] Records sold_date, sold_price, optionally shopify_order_id
-- [ ] Calculates days_to_sell automatically
-- [ ] Calculates profit (sold_price - trade_value)
-
-### 4.8 Cancel Trade-In
-**As a store staff member**, I want to cancel a trade-in batch, so that I can remove trades that don't happen
-
-**Acceptance Criteria:**
-- [ ] Sets status to "cancelled"
-- [ ] Prevents credit from being issued
-- [ ] Can include cancel reason in notes
+| ID | User Story | Acceptance Criteria |
+|----|------------|---------------------|
+| US-2.1 | **As a** new merchant, **I want to** be guided through a step-by-step setup wizard **so that** I can configure the app correctly without confusion. | Onboarding wizard displays with clear steps |
+| US-2.2 | **As a** merchant, **I want to** verify that Shopify store credit is enabled on my store **so that** the app can issue credits to customers. | Store credit check endpoint returns status |
+| US-2.3 | **As a** merchant, **I want to** be directed to Shopify settings to enable store credit **so that** I can complete the prerequisite setup. | Link to Shopify settings provided when store credit disabled |
+| US-2.4 | **As a** merchant, **I want to** select from pre-built tier templates (2-tier, 3-tier, 5-tier) **so that** I can quickly set up a membership structure. | Template selection UI works, templates apply correctly |
+| US-2.5 | **As a** merchant, **I want to** modify the names, pricing, and benefits of template tiers **so that** they match my brand and business model. | Tiers editable after template applied |
+| US-2.6 | **As an** experienced merchant, **I want to** skip the onboarding wizard **so that** I can configure everything manually at my own pace. | Skip button works, redirects to dashboard |
+| US-2.7 | **As a** merchant, **I want to** mark onboarding as complete **so that** I can access the full dashboard and start using the app. | Completion marks tenant as onboarded |
+| US-2.8 | **As a** merchant, **I want to** resume onboarding where I left off **so that** I can complete setup across multiple sessions. | Onboarding state persists, resumes correctly |
 
 ---
 
-## 5. STORE CREDIT & PROMOTIONS
+## 3. Billing & Subscription Management
 
-### 5.1 Add Manual Credit
-**As a store staff member**, I want to add manual store credit to a member, so that I can adjust for special circumstances
-
-**Acceptance Criteria:**
-- [ ] Requires amount (positive number)
-- [ ] Optional description (defaults to "Manual credit")
-- [ ] Can optionally set expiration date
-- [ ] Creates ledger entry with source_type='manual'
-- [ ] Syncs to Shopify native store credit
-- [ ] Returns new balance after transaction
-
-### 5.2 Deduct Credit
-**As a store staff member**, I want to deduct store credit from a member, so that I can reverse incorrect credits
-
-**Acceptance Criteria:**
-- [ ] Requires amount (positive number)
-- [ ] Validates member has sufficient balance
-- [ ] Optional description (defaults to "Manual deduction")
-- [ ] Returns error if insufficient balance
-- [ ] Syncs to Shopify
-- [ ] Returns new balance
-
-### 5.3 View Credit Balance
-**As a store staff member**, I want to view a member's store credit balance, so that I can see current rewards status
-
-**Acceptance Criteria:**
-- [ ] Shows total balance and available balance
-- [ ] Shows both local and Shopify balance (if synced)
-- [ ] Indicates if balances are in sync
-- [ ] Shows currency
-
-### 5.4 View Credit History
-**As a store staff member**, I want to view member's credit transaction history, so that I can audit credit activity
-
-**Acceptance Criteria:**
-- [ ] Paginated (default 50 records)
-- [ ] Shows all transaction types (trade_in, purchase, promotion, adjustment, expiration, redemption)
-- [ ] Shows source (trade-in ID, order ID, promotion ID, etc.)
-- [ ] Shows running balance after each transaction
-- [ ] Shows created_by and created_at
-- [ ] Ordered by most recent first
-
-### 5.5 Create Promotion
-**As a store owner**, I want to create a promotion with specific bonus types, so that I can run special offers
-
-**Acceptance Criteria:**
-- [ ] Can select promo type (trade_in_bonus, purchase_cashback, flat_bonus, multiplier)
-- [ ] Can set bonus percentage or flat amount or multiplier
-- [ ] Can specify date range (starts_at, ends_at)
-- [ ] Can specify daily time window (e.g., 6-9pm) and active days (Mon-Fri)
-- [ ] Can restrict to channel (all, in_store, online)
-- [ ] Returns confirmation with promotion ID
-
-### 5.6 Create Promotion with Product Filters
-**As a store owner**, I want to create a promotion with product filters, so that I can run category-specific bonuses
-
-**Acceptance Criteria:**
-- [ ] Can filter by Shopify collections
-- [ ] Can filter by vendor (e.g., "Pokemon", "Magic")
-- [ ] Can filter by product type (e.g., "Sealed Product", "Singles")
-- [ ] Can filter by product tags (e.g., "preorder", "exclusive")
-- [ ] Supports multiple filters with AND logic (all must match)
-- [ ] All filters optional (null = no restriction)
-
-### 5.7 Create Promotion with Tier Restrictions
-**As a store owner**, I want to create a promotion with member tier restrictions, so that I can give exclusive bonuses to premium members
-
-**Acceptance Criteria:**
-- [ ] Can restrict to specific tiers (e.g., ["GOLD", "PLATINUM"])
-- [ ] Null = applies to all tiers
-- [ ] Can set minimum trade value or minimum item count
-- [ ] Shows which tiers are eligible
-
-### 5.8 Configure Promotion Limits
-**As a store owner**, I want to configure promotion limits, so that I can control promotion budget
-
-**Acceptance Criteria:**
-- [ ] Can set max_uses (total across all members)
-- [ ] Can set max_uses_per_member
-- [ ] Tracks current_uses
-- [ ] Returns error if promotion maxed out
-- [ ] Null = unlimited
-
-### 5.9 View All Promotions
-**As a store owner**, I want to view all active and inactive promotions, so that I can manage my promotion calendar
-
-**Acceptance Criteria:**
-- [ ] Lists all promotions with full details
-- [ ] Shows promotion type, bonus amount, date range, active status
-- [ ] Shows is_active_now (current real-time status)
-- [ ] Shows usage counts
-- [ ] Filterable by status (active/inactive)
-
-### 5.10 Update/Delete Promotion
-**As a store owner**, I want to update or delete a promotion, so that I can adjust offers on the fly
-
-**Acceptance Criteria:**
-- [ ] Can modify any promotion field
-- [ ] Can deactivate (soft delete) without losing history
-- [ ] Changes apply immediately to new transactions
-
-### 5.11 Create Bulk Credit Operation
-**As a store owner**, I want to create a bulk credit operation for a specific group, so that I can issue bonuses to multiple members
-
-**Acceptance Criteria:**
-- [ ] Can target members by tier
-- [ ] Can target members by status
-- [ ] Can specify amount per member
-- [ ] Shows preview of member count and total amount before executing
-- [ ] Can execute or cancel
-- [ ] Tracks operation status (pending, processing, completed, failed)
-
-### 5.12 Execute Bulk Credit
-**As a store owner**, I want to execute a bulk credit operation, so that I can issue bonuses at scale
-
-**Acceptance Criteria:**
-- [ ] Creates ledger entries for each member
-- [ ] Creates bulk operation record for audit
-- [ ] Shows total amount issued
-- [ ] Records who created the operation and when
-- [ ] Handles failures gracefully
-
-### 5.13 View Promotion Statistics
-**As a store owner**, I want to view promotion statistics, so that I can see how promotions perform
-
-**Acceptance Criteria:**
-- [ ] Shows total credit issued from promotions
-- [ ] Shows count of transactions using each promotion
-- [ ] Shows top performing promotions
-- [ ] Shows promotion usage by tier, channel, product category
+| ID | User Story | Acceptance Criteria |
+|----|------------|---------------------|
+| US-3.1 | **As a** merchant, **I want to** see all subscription plans with features and limits **so that** I can choose the right plan for my business. | Plans endpoint returns all 4 plans with details |
+| US-3.2 | **As a** merchant, **I want to** use the Free plan (50 members, 2 tiers) **so that** I can test the app before committing financially. | Free plan enforces limits correctly |
+| US-3.3 | **As a** growing merchant, **I want to** subscribe to Starter ($19/mo, 200 members) **so that** I can access trade-in management and more tiers. | Starter subscription creates Shopify charge |
+| US-3.4 | **As a** scaling merchant, **I want to** subscribe to Growth ($49/mo, 1,000 members) **so that** I can unlock bulk operations and advanced analytics. | Growth subscription creates Shopify charge |
+| US-3.5 | **As a** high-volume merchant, **I want to** subscribe to Pro ($99/mo, unlimited) **so that** I have no limits on members or tiers. | Pro subscription creates Shopify charge |
+| US-3.6 | **As a** merchant, **I want to** start a 7-day free trial of a paid plan **so that** I can evaluate premium features risk-free. | Trial period tracked, features unlocked |
+| US-3.7 | **As a** merchant, **I want to** upgrade my plan immediately **so that** I can access higher limits when I hit capacity. | Upgrade flow works mid-cycle |
+| US-3.8 | **As a** merchant, **I want to** downgrade to a lower plan at billing cycle end **so that** I can reduce costs if my usage decreases. | Downgrade scheduled for cycle end |
+| US-3.9 | **As a** merchant, **I want to** cancel my subscription **so that** I stop being charged if I no longer need the app. | Cancel endpoint works, subscription ends |
+| US-3.10 | **As a** merchant, **I want to** see my payment history and invoices **so that** I can track expenses and reconcile accounting. | Billing history accessible |
+| US-3.11 | **As a** merchant, **I want to** be notified when I'm approaching plan limits **so that** I can upgrade before hitting capacity. | Usage warnings displayed at 80%, 90%, 100% |
 
 ---
 
-## 6. REFERRAL PROGRAM
+## 4. Member Management
 
-### 6.1 Get Referral Code
-**As a new member**, I want to receive a unique referral code, so that I can share with friends
-
-**Acceptance Criteria:**
-- [ ] Code generated automatically on member creation
-- [ ] 8-character alphanumeric code
-- [ ] Unique across entire system
-- [ ] Returned to member via GET endpoint
-
-### 6.2 View Referral Stats
-**As a member**, I want to view my referral code and referral stats, so that I can track my referral earnings
-
-**Acceptance Criteria:**
-- [ ] Shows referral code
-- [ ] Shows referral_url (customizable by store)
-- [ ] Shows referral_count (how many people they've referred)
-- [ ] Shows referral_earnings (total credit earned)
-
-### 6.3 Validate Referral Code
-**As a new member**, I want to validate a referral code before signup, so that I can confirm the code is valid
-
-**Acceptance Criteria:**
-- [ ] Public endpoint (no auth required)
-- [ ] Accepts code in request body
-- [ ] Returns valid/invalid
-- [ ] If valid, shows referrer name and referee credit amount
-- [ ] Case-insensitive code matching
-
-### 6.4 Apply Referral Code
-**As a new member**, I want to apply a referral code during enrollment, so that I can complete the referral chain
-
-**Acceptance Criteria:**
-- [ ] Links new member to referrer
-- [ ] Prevents self-referral (can't use own code)
-- [ ] Prevents double referral (member already has referrer)
-- [ ] Updates referrer's referral_count
-- [ ] Issues store credit to both referrer and referee if configured
-- [ ] Returns success with credit amounts issued
-
-### 6.5 View Referral Program Stats
-**As a store owner**, I want to view referral program statistics, so that I can see how referrals perform
-
-**Acceptance Criteria:**
-- [ ] Shows total referrals generated
-- [ ] Shows total credit issued for referrals
-- [ ] Shows referrer/referee reward amounts
-- [ ] Shows top 10 referrers with their referral counts and earnings
-- [ ] Shows recent referrals with names and dates
-
-### 6.6 View Referral Program Config
-**As a store owner**, I want to view referral program configuration, so that I can see reward amounts and rules
-
-**Acceptance Criteria:**
-- [ ] Shows referrer credit amount
-- [ ] Shows referee credit amount
-- [ ] Shows when credit is granted (signup, first purchase, first trade-in)
-- [ ] Shows monthly referral limit
-- [ ] Shows credit expiration settings
-
-### 6.7 Public Referral Info
-**As a public visitor**, I want to see referral program info on storefront, so that I understand the offer
-
-**Acceptance Criteria:**
-- [ ] Public endpoint returns program name, reward amounts, description
-- [ ] No auth required
-- [ ] Shows what referrer gets and what referee gets
+| ID | User Story | Acceptance Criteria |
+|----|------------|---------------------|
+| US-4.1 | **As a** merchant, **I want to** see a paginated list of all loyalty members **so that** I can manage my customer base. | GET /api/members returns paginated list |
+| US-4.2 | **As a** merchant, **I want to** search members by name, email, phone, or member number **so that** I can quickly find specific customers. | Search query parameter works |
+| US-4.3 | **As a** merchant, **I want to** filter members by their tier assignment **so that** I can see all Gold members, for example. | Tier filter works |
+| US-4.4 | **As a** merchant, **I want to** filter by active/cancelled/suspended status **so that** I can manage member lifecycle. | Status filter works |
+| US-4.5 | **As a** merchant, **I want to** search my Shopify customers and enroll them as members **so that** I can add existing customers to the loyalty program. | Shopify customer search works, enrollment creates member |
+| US-4.6 | **As a** merchant, **I want to** create a new customer record and enroll them simultaneously **so that** I can sign up walk-in customers at POS. | Create-and-enroll endpoint works |
+| US-4.7 | **As a** merchant, **I want to** view a member's full profile including tier, trade-ins, credit balance, and history **so that** I can understand their engagement. | Member detail page shows all data |
+| US-4.8 | **As a** merchant, **I want to** update member name, email, phone, and notes **so that** I can keep records accurate. | PUT /api/members/{id} works |
+| US-4.9 | **As a** merchant, **I want to** add external partner IDs (e.g., ORB#) to members **so that** I can cross-reference with other systems. | Partner ID field saves correctly |
+| US-4.10 | **As a** merchant, **I want to** manually change a member's tier **so that** I can upgrade loyal customers or fix assignment errors. | Manual tier assignment works |
+| US-4.11 | **As a** merchant, **I want to** see when and why a member's tier changed **so that** I can audit membership changes. | Tier history endpoint returns changes |
+| US-4.12 | **As a** merchant, **I want to** suspend a member's account **so that** they temporarily lose access to benefits. | Suspend status change works |
+| US-4.13 | **As a** merchant, **I want to** reactivate a suspended member **so that** they can resume using their benefits. | Reactivate status change works |
+| US-4.14 | **As a** merchant, **I want to** cancel a member's membership **so that** they are removed from the program. | Cancel status change works |
+| US-4.15 | **As a** merchant, **I want to** permanently delete a member **so that** I can comply with data deletion requests. | DELETE /api/members/{id} works |
+| US-4.16 | **As a** merchant, **I want to** export member data to CSV **so that** I can analyze it externally or backup records. | Export endpoint returns CSV |
+| US-4.17 | **As a** merchant, **I want to** see a member's recent activity (trades, purchases, credits) **so that** I can understand their engagement pattern. | Activity feed on member detail |
 
 ---
 
-## 7. BILLING & SUBSCRIPTIONS
+## 5. Tier System Configuration
 
-### 7.1 View Available Plans
-**As a store owner**, I want to view available subscription plans, so that I can choose the right tier
-
-**Acceptance Criteria:**
-- [ ] Lists all plans (Free, Starter, Growth, Pro)
-- [ ] Shows pricing, max members, max tiers for each plan
-- [ ] Shows features included in each plan
-- [ ] Ordered by price
-
-### 7.2 Subscribe to Plan
-**As a store owner**, I want to subscribe to a plan, so that I can upgrade from free
-
-**Acceptance Criteria:**
-- [ ] Accepts plan key (starter, growth, pro)
-- [ ] Validates Shopify connection
-- [ ] Returns confirmation URL to redirect for merchant approval
-- [ ] Prevents double subscription (returns error if already subscribed)
-- [ ] Shows current plan if already subscribed
-
-### 7.3 Cancel Subscription
-**As a store owner**, I want to cancel my subscription, so that I can downgrade or stop using paid features
-
-**Acceptance Criteria:**
-- [ ] Handles cancellation via Shopify Billing API
-- [ ] Updates tenant subscription_active status
-- [ ] Records cancellation date
-- [ ] Prevents access to plan features after cancellation
+| ID | User Story | Acceptance Criteria |
+|----|------------|---------------------|
+| US-5.1 | **As a** merchant, **I want to** see all configured membership tiers **so that** I can manage my tier structure. | GET /api/tiers returns all tiers |
+| US-5.2 | **As a** merchant, **I want to** create a new membership tier with name, pricing, and benefits **so that** I can expand my loyalty program. | POST /api/tiers creates tier |
+| US-5.3 | **As a** merchant, **I want to** set a monthly subscription price for a tier **so that** customers can pay monthly. | Monthly price field saves |
+| US-5.4 | **As a** merchant, **I want to** set a yearly subscription price (typically discounted) **so that** customers can commit annually. | Yearly price field saves |
+| US-5.5 | **As a** merchant, **I want to** set a bonus percentage (e.g., 10%) for trade-ins **so that** tier members get extra credit on trades. | Bonus rate applies to trade-ins |
+| US-5.6 | **As a** merchant, **I want to** set a cashback percentage on purchases **so that** members earn credit when they buy. | Cashback percentage saves and applies |
+| US-5.7 | **As a** merchant, **I want to** grant a fixed monthly credit amount to tier members **so that** they receive recurring value. | Monthly credit reward field works |
+| US-5.8 | **As a** merchant, **I want to** add custom text benefits (e.g., "Early access to new releases") **so that** I can differentiate tiers. | Custom benefits JSON field saves |
+| US-5.9 | **As a** merchant, **I want to** modify an existing tier's settings **so that** I can adjust benefits over time. | PUT /api/tiers/{id} works |
+| US-5.10 | **As a** merchant, **I want to** drag-and-drop reorder tiers **so that** they display in the correct hierarchy. | Reorder endpoint works |
+| US-5.11 | **As a** merchant, **I want to** deactivate a tier (hide from new signups) **so that** I can phase it out without affecting current members. | Active flag toggles correctly |
+| US-5.12 | **As a** merchant, **I want to** delete an unused tier **so that** I can clean up my tier structure. | DELETE /api/tiers/{id} works |
+| US-5.13 | **As a** merchant, **I want to** see how many members are in each tier **so that** I can understand program composition. | Tier stats show member counts |
+| US-5.14 | **As a** merchant, **I want to** configure automatic tier upgrades based on spend or trade-in thresholds **so that** members are rewarded automatically. | Eligibility rules engine works |
+| US-5.15 | **As a** merchant, **I want to** assign a tier to multiple members at once **so that** I can migrate customers efficiently. | Bulk assign endpoint works |
 
 ---
 
-## 8. CUSTOMER-FACING FEATURES
+## 6. Trade-In Management
 
-### 8.1 Customer Account - View Rewards
-**As a customer**, I want to view my rewards balance in my Shopify customer account, so that I can see my store credit
-
-**Acceptance Criteria:**
-- [ ] Shopify customer account extension shows balance
-- [ ] Shows tier (if member)
-- [ ] Shows referral code (if member)
-- [ ] Shows recent trade-in activity
-
-### 8.2 Customer Account - View Trade-In History
-**As a customer**, I want to view my trade-in history, so that I can see what I've traded in
-
-**Acceptance Criteria:**
-- [ ] Shows recent trade-ins with dates and amounts
-- [ ] Shows items in each batch
-- [ ] Shows status (pending, listed, sold, etc.)
-
-### 8.3 Theme Block - Membership Signup
-**As a store owner**, I want to add a membership signup block to storefront, so that customers can join loyalty program
-
-**Acceptance Criteria:**
-- [ ] Liquid block displays tier options
-- [ ] Shows pricing (monthly/yearly)
-- [ ] Shows tier benefits
-- [ ] Allows customers to sign up
-
-### 8.4 Theme Block - Store Credit Balance
-**As a store owner**, I want to add a store credit balance block to storefront, so that members see their credit
-
-**Acceptance Criteria:**
-- [ ] Displays current balance (requires authentication)
-- [ ] Shows last transaction date
-- [ ] Offers link to detailed history
-
-### 8.5 Theme Block - Trade-In CTA
-**As a store owner**, I want to add a trade-in CTA block to storefront, so that customers can start trade-ins
-
-**Acceptance Criteria:**
-- [ ] Shows trade-in process overview
-- [ ] Links to trade-in submission
-- [ ] Shows trade-in bonus for tiers
-
-### 8.6 Theme Block - Referral
-**As a store owner**, I want to add a referral block to storefront, so that members can share their code
-
-**Acceptance Criteria:**
-- [ ] Shows referral code (members only)
-- [ ] Shows program rewards
-- [ ] Provides share link/copy button
+| ID | User Story | Acceptance Criteria |
+|----|------------|---------------------|
+| US-6.1 | **As a** merchant, **I want to** see all trade-in batches with status and value **so that** I can manage incoming inventory. | GET /api/trade-ins returns list |
+| US-6.2 | **As a** merchant, **I want to** filter by pending/approved/listed/completed **so that** I can focus on specific workflow stages. | Status filter works |
+| US-6.3 | **As a** merchant, **I want to** filter by category (Pokemon, MTG, Sports Cards) **so that** I can manage by product type. | Category filter works |
+| US-6.4 | **As a** merchant, **I want to** start a new trade-in batch for a member **so that** I can record items they're selling. | POST /api/trade-ins creates batch |
+| US-6.5 | **As a** merchant, **I want to** create a trade-in for a non-member (guest) **so that** I can accept trades from anyone. | Guest trade-in works |
+| US-6.6 | **As a** merchant, **I want to** add individual items with title, SKU, and value **so that** I can itemize the trade. | POST /api/trade-ins/{id}/items works |
+| US-6.7 | **As a** merchant, **I want to** set the trade value I'm paying for each item **so that** I can track costs. | Trade value field saves |
+| US-6.8 | **As a** merchant, **I want to** record market reference value **so that** I can analyze margins later. | Market value field saves |
+| US-6.9 | **As a** merchant, **I want to** add notes about condition or special circumstances **so that** I can document details. | Notes field saves |
+| US-6.10 | **As a** merchant, **I want to** see the calculated tier bonus before completing **so that** I can verify the credit amount. | Preview bonus endpoint works |
+| US-6.11 | **As a** merchant, **I want to** approve a pending trade-in **so that** it moves to the listing stage. | Approve status change works |
+| US-6.12 | **As a** merchant, **I want to** reject a trade-in with reason **so that** I can decline unsuitable submissions. | Reject with reason works |
+| US-6.13 | **As a** merchant, **I want to** mark items as listed in Shopify **so that** I can track inventory status. | Listed status change works |
+| US-6.14 | **As a** merchant, **I want to** complete a batch and automatically issue store credit **so that** the member receives their payment. | Complete issues credit correctly |
+| US-6.15 | **As a** merchant, **I want to** view all items in a batch with values and status **so that** I can review the trade. | Trade-in detail shows items |
+| US-6.16 | **As a** merchant, **I want to** modify items or values before completing **so that** I can correct errors. | Edit items before completion works |
+| US-6.17 | **As a** merchant, **I want to** search trade-ins by member name or reference number **so that** I can find specific batches. | Search parameter works |
+| US-6.18 | **As a** merchant, **I want to** see status change history for a batch **so that** I can audit the workflow. | Timeline/history shown |
+| US-6.19 | **As a** merchant, **I want to** auto-approve trade-ins under $X **so that** small trades process automatically. | Auto-approve threshold setting works |
+| US-6.20 | **As a** merchant, **I want to** require manual review for trade-ins over $X **so that** I verify large transactions. | Manual review threshold works |
 
 ---
 
-## 9. SETTINGS & ADMIN CONFIGURATION
+## 7. Store Credit Operations
 
-### 9.1 View/Update App Settings
-**As a store owner**, I want to view and update app settings, so that I can configure TradeUp behavior
-
-**Acceptance Criteria:**
-- [ ] Can update configuration options
-- [ ] Changes apply immediately
-- [ ] Persisted to tenant settings
-
-### 9.2 View Email Templates
-**As a store owner**, I want to view email templates, so that I can customize member communications
-
-**Acceptance Criteria:**
-- [ ] Can preview templates (promotion announcement, new arrivals, tier benefits, events)
-- [ ] Shows available personalization variables ({member_name}, {member_number}, {tier_name})
-- [ ] Can use templates for bulk member emails
-
----
-
-## 10. BULK OPERATIONS & COMMUNICATIONS
-
-### 10.1 Send Tier Email
-**As a store owner**, I want to send email to members in specific tiers, so that I can run targeted campaigns
-
-**Acceptance Criteria:**
-- [ ] Can select one or more tier names
-- [ ] Can provide subject and message
-- [ ] Supports HTML message (optional)
-- [ ] Supports personalization variables
-- [ ] Preview shows recipient count before sending
-- [ ] Returns send results (sent count, failed count)
-
-### 10.2 Preview Email Recipients
-**As a store owner**, I want to preview tier email recipients, so that I can verify before sending
-
-**Acceptance Criteria:**
-- [ ] Returns member counts by tier
-- [ ] Shows total recipients
-- [ ] Returns error if no matching tiers found
-
-### 10.3 Use Email Templates
-**As a store owner**, I want to use pre-built email templates, so that I can quickly send professional emails
-
-**Acceptance Criteria:**
-- [ ] Lists 4+ templates (promotion, new arrivals, events, benefits reminder)
-- [ ] Shows template subject and body
-- [ ] Can customize template content
-- [ ] Can send using customized template
+| ID | User Story | Acceptance Criteria |
+|----|------------|---------------------|
+| US-7.1 | **As a** merchant, **I want to** see all store credit transactions **so that** I can track credits issued and used. | Credit ledger displays |
+| US-7.2 | **As a** merchant, **I want to** manually add credit to a member's account **so that** I can reward them or correct errors. | POST /api/store-credit/add works |
+| US-7.3 | **As a** merchant, **I want to** deduct credit from a member **so that** I can correct over-issuance. | POST /api/store-credit/deduct works |
+| US-7.4 | **As a** merchant, **I want to** set expiration dates on issued credit **so that** I can encourage timely redemption. | Expiration field saves and enforces |
+| US-7.5 | **As a** merchant, **I want to** see a member's current credit balance **so that** I can answer their questions. | Balance displayed on member detail |
+| US-7.6 | **As a** merchant, **I want to** see all credit transactions for a specific member **so that** I can audit their account. | Member credit history shows |
+| US-7.7 | **As a** merchant, **I want to** filter by trade-in/purchase/referral/manual **so that** I can analyze credit sources. | Event type filter works |
+| US-7.8 | **As a** merchant, **I want to** run a store-wide credit event (e.g., "10% credit on all orders today") **so that** I can drive sales. | Bulk credit event runs |
+| US-7.9 | **As a** merchant, **I want to** preview how many members and how much credit an event will affect **so that** I can verify before running. | Preview endpoint works |
+| US-7.10 | **As a** merchant, **I want to** schedule a credit event for a future date/time **so that** promotions run automatically. | Scheduled events work |
+| US-7.11 | **As a** merchant, **I want to** select from event templates (Trade Night, Grand Opening) **so that** I can quickly configure common promotions. | Templates available and apply |
+| US-7.12 | **As a** merchant, **I want to** choose how credit is delivered (native store credit, discount codes, gift cards) **so that** it fits my workflow. | Delivery method setting works |
 
 ---
 
-## 11. MEMBER IMPORT
+## 8. Points System
 
-### 11.1 Bulk Import Members
-**As a store owner**, I want to bulk import members from CSV/Excel, so that I can migrate existing loyalty members
-
-**Acceptance Criteria:**
-- [ ] Accepts CSV file with email, name, phone, tier
-- [ ] Validates each row before import
-- [ ] Reports success/failure for each row
-- [ ] Prevents duplicate enrollments
-- [ ] Creates member numbers automatically
-
----
-
-## 12. ANALYTICS & REPORTING
-
-### 12.1 View Dashboard Statistics
-**As a store owner**, I want to view dashboard statistics, so that I can understand program performance
-
-**Acceptance Criteria:**
-- [ ] Shows total members (by status)
-- [ ] Shows active members this month
-- [ ] Shows total trade-in volume
-- [ ] Shows total credit issued/redeemed
-- [ ] Shows promotion performance
-- [ ] Shows referral stats
-- [ ] Filterable by date range
-
-### 12.2 View Member Analytics
-**As a store owner**, I want to view member analytics, so that I can see engagement metrics
-
-**Acceptance Criteria:**
-- [ ] Average trade-in value
-- [ ] Average credit per member
-- [ ] Member lifetime value
-- [ ] Activity trends over time
+| ID | User Story | Acceptance Criteria |
+|----|------------|---------------------|
+| US-8.1 | **As a** merchant, **I want to** toggle the points system on or off **so that** I can choose whether to use it. | Points toggle in settings works |
+| US-8.2 | **As a** merchant, **I want to** set how many points members earn per dollar spent **so that** I control earning velocity. | Points per dollar setting saves |
+| US-8.3 | **As a** merchant, **I want to** give higher tiers bonus point multipliers (e.g., Gold = 1.5x) **so that** premium members earn faster. | Tier multipliers apply correctly |
+| US-8.4 | **As a** merchant, **I want to** see a member's current points balance **so that** I can answer inquiries. | Points balance displayed |
+| US-8.5 | **As a** merchant, **I want to** see all points earned/redeemed by a member **so that** I can audit their account. | Points history endpoint works |
+| US-8.6 | **As a** merchant, **I want to** add or remove points from a member **so that** I can correct issues or give bonuses. | Manual points adjustment works |
+| US-8.7 | **As a** merchant, **I want to** set points expiration rules (e.g., 365 days) **so that** I encourage redemption. | Points expiration setting works |
+| US-8.8 | **As a** merchant, **I want to** award bonus points for signup, referral, or birthday **so that** I incentivize engagement. | Bonus points rules work |
 
 ---
 
-## 13. ERROR HANDLING & EDGE CASES
+## 9. Rewards Catalog
 
-### 13.1 Clear Error Messages
-**As any user**, I want to see clear error messages, so that I understand what went wrong
-
-**Acceptance Criteria:**
-- [ ] All 4xx errors return descriptive messages
-- [ ] Includes actionable suggestions
-- [ ] No 500 errors without logging
-- [ ] Graceful error handling in list endpoints
-
-### 13.2 Concurrent Operations
-**As a staff member**, I want the system to handle concurrent operations safely, so that I can run bulk operations without data corruption
-
-**Acceptance Criteria:**
-- [ ] Bulk operations use database transactions
-- [ ] All-or-nothing semantics (no partial successes)
-- [ ] Proper rollback on errors
-
-### 13.3 Input Validation
-**As any user**, I want the system to validate all inputs, so that bad data doesn't corrupt the database
-
-**Acceptance Criteria:**
-- [ ] All numeric fields validated as numbers
-- [ ] All required fields validated
-- [ ] Email addresses validated
-- [ ] Dates validated as ISO 8601
-- [ ] Percentages validated (0-100)
-- [ ] Monetary amounts validated (positive, 2 decimals)
-
-### 13.4 Multi-Tenant Isolation
-**As a member**, I want multi-tenant isolation, so that my data isn't leaked to other stores
-
-**Acceptance Criteria:**
-- [ ] All queries filtered by tenant_id
-- [ ] Can't access members from other tenants
-- [ ] Can't view/modify tiers from other tenants
-- [ ] Can't see promotions from other tenants
-
-### 13.5 Shopify API Failures
-**As the system**, I want to handle Shopify API failures gracefully, so that the app continues working
-
-**Acceptance Criteria:**
-- [ ] Graceful degradation if Shopify API is down
-- [ ] Retries on temporary failures
-- [ ] Local fallback data if needed
-- [ ] Clear error messages for Shopify connectivity issues
+| ID | User Story | Acceptance Criteria |
+|----|------------|---------------------|
+| US-9.1 | **As a** merchant, **I want to** see all configured rewards **so that** I can manage what members can redeem. | GET /api/rewards returns list |
+| US-9.2 | **As a** merchant, **I want to** create a reward that gives a fixed or percentage discount **so that** members can redeem points for savings. | Discount reward type works |
+| US-9.3 | **As a** merchant, **I want to** create a reward for a free product **so that** members can redeem points for merchandise. | Product reward type works |
+| US-9.4 | **As a** merchant, **I want to** create a reward that grants store credit **so that** members can convert points to credit. | Store credit reward type works |
+| US-9.5 | **As a** merchant, **I want to** create a free shipping reward **so that** members can redeem points for shipping. | Free shipping reward type works |
+| US-9.6 | **As a** merchant, **I want to** set how many points a reward costs **so that** I control redemption economics. | Points cost field saves |
+| US-9.7 | **As a** merchant, **I want to** limit rewards to specific tiers (e.g., Platinum only) **so that** premium members get exclusive rewards. | Tier restriction works |
+| US-9.8 | **As a** merchant, **I want to** limit total redemptions for a reward **so that** limited-edition rewards stay exclusive. | Stock quantity enforced |
+| US-9.9 | **As a** merchant, **I want to** limit how many times one member can redeem **so that** I prevent abuse. | Per-member limit enforced |
+| US-9.10 | **As a** merchant, **I want to** set start/end dates for rewards **so that** I can run time-limited promotions. | Date range restriction works |
+| US-9.11 | **As a** merchant, **I want to** modify reward details **so that** I can update offers over time. | PUT /api/rewards/{id} works |
+| US-9.12 | **As a** merchant, **I want to** deactivate a reward **so that** it's no longer available for redemption. | Active flag toggles |
+| US-9.13 | **As a** merchant, **I want to** see all redemptions across members **so that** I can track reward popularity. | Redemption history endpoint works |
+| US-9.14 | **As a** merchant, **I want to** cancel a redemption and restore points **so that** I can handle customer issues. | Cancel redemption works |
 
 ---
 
-## 14. INTEGRATION TEST SCENARIOS
+## 10. Referral Program
 
-### Scenario 1: Complete Onboarding Flow
-1. User installs app
-2. Checks store credit enabled
-3. Applies tier template
-4. Marks complete
-5. Program goes live
-
-### Scenario 2: Enroll and Trade-In
-1. Staff searches/enrolls customer
-2. Customer trades in items
-3. Staff records items
-4. Staff completes trade-in
-5. Credit issued to member and synced to Shopify
-
-### Scenario 3: Tier Bonus Calculation
-1. Create trade-in for Gold member
-2. System calculates 5% bonus
-3. Issues trade value + bonus as store credit
-4. Updates member stats
-
-### Scenario 4: Promotion Application
-1. Create Pokemon-only promotion for Gold/Platinum members
-2. Member trades in Pokemon cards
-3. System applies promotion bonus
-4. Member receives credit + bonus
-
-### Scenario 5: Referral Chain
-1. Member A gets referral code
-2. Member B uses code to sign up
-3. Member A gets $10 credit
-4. Member B gets $5 credit
-5. Both credits appear in history
-
-### Scenario 6: Bulk Credit Operation
-1. Create bulk operation for $5 to all active Gold members
-2. Preview shows 50 members, $250 total
-3. Execute
-4. 50 ledger entries created
-5. Member balances updated
-
-### Scenario 7: Tier Expiration
-1. Assign 30-day tier to member
-2. Run expiration job after 31 days
-3. Tier removed
-4. Status set to inactive
-5. Shopify tag removed
-
-### Scenario 8: Store Credit Sync
-1. Add store credit via API
-2. Verify local balance updated
-3. Verify Shopify native credit synced
-4. Check member can redeem at checkout
-
-### Scenario 9: Member Email Campaign
-1. Create bulk email to Gold tier
-2. Preview shows 50 recipients
-3. Send email with personalization
-4. Verify {member_name}, {member_number}, {tier_name} populated
-
-### Scenario 10: Subscription Upgrade
-1. Start with Free plan (50 members max)
-2. Enroll 45 members
-3. Try to subscribe to Starter
-4. Confirm
-5. Limit increases to 200 members
+| ID | User Story | Acceptance Criteria |
+|----|------------|---------------------|
+| US-10.1 | **As a** merchant, **I want to** toggle referrals on or off **so that** I can choose whether to run a referral program. | Referrals toggle works |
+| US-10.2 | **As a** merchant, **I want to** set the credit amount referrers receive **so that** I incentivize sharing. | Referrer reward setting saves |
+| US-10.3 | **As a** merchant, **I want to** set the credit amount new signups receive **so that** I incentivize joining. | Referee reward setting saves |
+| US-10.4 | **As a** merchant, **I want to** grant rewards on signup or first purchase **so that** I control when rewards are issued. | Trigger setting works |
+| US-10.5 | **As a** merchant, **I want to** cap referrals per member per month **so that** I prevent abuse. | Monthly limit enforced |
+| US-10.6 | **As a** merchant, **I want to** see total referrals, earnings, and top referrers **so that** I can measure program success. | Referral stats endpoint works |
+| US-10.7 | **As a** merchant, **I want to** see a member's unique referral code **so that** I can share it with them if needed. | Referral code displayed |
+| US-10.8 | **As a** merchant, **I want to** see who referred whom **so that** I can understand viral growth. | Referral chain visible |
 
 ---
 
-## Testing Priority
+## 11. Bulk Operations
 
-### P0 - Critical Path (Test First)
-- Member enrollment
-- Trade-in creation and completion
-- Store credit issuance
-- Tier assignment
-- Shopify sync
+| ID | User Story | Acceptance Criteria |
+|----|------------|---------------------|
+| US-11.1 | **As a** merchant, **I want to** email all members in a specific tier **so that** I can communicate tier-specific promotions. | Bulk email by tier works |
+| US-11.2 | **As a** merchant, **I want to** preview who will receive a bulk email **so that** I can verify the audience. | Email preview endpoint works |
+| US-11.3 | **As a** merchant, **I want to** select from pre-built email templates **so that** I can send professional communications quickly. | Email templates available |
+| US-11.4 | **As a** merchant, **I want to** use {member_name}, {tier_name} variables **so that** emails feel personal. | Variable substitution works |
+| US-11.5 | **As a** merchant, **I want to** assign a tier to multiple selected members **so that** I can migrate groups efficiently. | Bulk tier assign works |
+| US-11.6 | **As a** merchant, **I want to** issue credit to all members matching criteria **so that** I can run promotions. | Bulk credit issuance works |
 
-### P1 - Core Features
-- Promotions
-- Referrals
-- Bulk operations
-- Email campaigns
+---
 
-### P2 - Supporting Features
-- Analytics
-- Settings
-- Import/Export
-- Theme blocks
+## 12. Analytics & Reporting
 
-### P3 - Edge Cases
-- Error handling
-- Concurrent operations
-- API failures
-- Multi-tenant isolation
+| ID | User Story | Acceptance Criteria |
+|----|------------|---------------------|
+| US-12.1 | **As a** merchant, **I want to** see key metrics at a glance (members, trades, credits) **so that** I understand program health. | Dashboard shows key stats |
+| US-12.2 | **As a** merchant, **I want to** see member count over time **so that** I can track growth. | Member growth trend displays |
+| US-12.3 | **As a** merchant, **I want to** see trade-in count and value over time **so that** I can track acquisition. | Trade-in trend displays |
+| US-12.4 | **As a** merchant, **I want to** see credits issued over time **so that** I can track loyalty investment. | Credit trend displays |
+| US-12.5 | **As a** merchant, **I want to** compare this month to last month **so that** I can identify trends. | Period comparison works |
+| US-12.6 | **As a** merchant, **I want to** analyze any date range **so that** I can investigate specific periods. | Custom date range works |
+| US-12.7 | **As a** merchant, **I want to** see members ranked by trade-in value **so that** I can identify VIPs. | Top members report works |
+| US-12.8 | **As a** merchant, **I want to** see detailed trade-in performance (by category, by status) **so that** I can optimize operations. | Trade-in report works |
+| US-12.9 | **As a** merchant, **I want to** see a live feed of recent trades and credits **so that** I can monitor in real-time. | Activity feed displays |
+| US-12.10 | **As a** merchant, **I want to** see how much of my plan limits I'm using **so that** I can plan for upgrades. | Usage stats displayed |
+
+---
+
+## 13. Settings & Configuration
+
+| ID | User Story | Acceptance Criteria |
+|----|------------|---------------------|
+| US-13.1 | **As a** merchant, **I want to** set app name, logo, and colors **so that** the loyalty program matches my brand. | Branding settings save |
+| US-13.2 | **As a** merchant, **I want to** select a visual theme (glass, solid, minimal) **so that** the app matches my aesthetic. | Theme selection works |
+| US-13.3 | **As a** merchant, **I want to** hide advanced features **so that** the interface is simpler for my needs. | Advanced features toggle works |
+| US-13.4 | **As a** merchant, **I want to** choose rounding mode (down, up, nearest) **so that** cashback calculations match my preference. | Rounding mode applies |
+| US-13.5 | **As a** merchant, **I want to** set a minimum threshold for issuing cashback **so that** I don't issue tiny amounts. | Min cashback threshold works |
+| US-13.6 | **As a** merchant, **I want to** toggle purchase cashback on or off **so that** I can control this benefit. | Purchase cashback toggle works |
+| US-13.7 | **As a** merchant, **I want to** toggle trade-in credit bonuses **so that** I can control this benefit. | Trade-in credit toggle works |
+| US-13.8 | **As a** merchant, **I want to** apply tier benefits to the membership purchase itself **so that** members get immediate value. | Same-transaction bonus works |
+| US-13.9 | **As a** merchant, **I want to** set trial days for new memberships **so that** customers can try before committing. | Trial days setting saves |
+| US-13.10 | **As a** merchant, **I want to** set grace period for failed payments **so that** members have time to fix payment issues. | Grace period setting saves |
+| US-13.11 | **As a** merchant, **I want to** send automatic welcome emails on enrollment **so that** new members feel welcomed. | Welcome email toggle works |
+| US-13.12 | **As a** merchant, **I want to** notify members when trade-in status changes **so that** they're informed. | Trade-in email toggle works |
+| US-13.13 | **As a** merchant, **I want to** notify members of tier upgrades/downgrades **so that** they know their status. | Tier change email toggle works |
+| US-13.14 | **As a** merchant, **I want to** notify members when they receive credit **so that** they're aware of rewards. | Credit email toggle works |
+| US-13.15 | **As a** merchant, **I want to** set sender name and email for notifications **so that** emails come from my brand. | Sender settings save |
+| US-13.16 | **As a** merchant, **I want to** auto-enroll customers after their first purchase **so that** they join automatically. | Auto-enrollment toggle works |
+| US-13.17 | **As a** merchant, **I want to** specify which tier auto-enrolled members join **so that** I control the starting point. | Default tier setting works |
+| US-13.18 | **As a** merchant, **I want to** require a minimum order value for auto-enrollment **so that** only real customers qualify. | Min order threshold works |
+| US-13.19 | **As a** merchant, **I want to** exclude customers with certain tags **so that** wholesale or staff don't auto-enroll. | Excluded tags setting works |
+| US-13.20 | **As a** merchant, **I want to** let customers sign up themselves on the storefront **so that** enrollment scales. | Self-signup toggle works |
+| US-13.21 | **As a** merchant, **I want to** configure my store's currency **so that** amounts display correctly. | Currency setting saves |
+| US-13.22 | **As a** merchant, **I want to** set my timezone **so that** dates and scheduled events are accurate. | Timezone setting saves |
+
+---
+
+## 14. Promotions & Tier Rules
+
+| ID | User Story | Acceptance Criteria |
+|----|------------|---------------------|
+| US-14.1 | **As a** merchant, **I want to** create a promo code (e.g., SUMMER2025) for tier upgrades **so that** I can run campaigns. | Promo code creation works |
+| US-14.2 | **As a** merchant, **I want to** limit total uses of a promo code **so that** I control promotion scope. | Usage limit enforced |
+| US-14.3 | **As a** merchant, **I want to** limit promo uses per member **so that** individuals can't abuse codes. | Per-member limit enforced |
+| US-14.4 | **As a** merchant, **I want to** set when a promo code expires **so that** promotions are time-limited. | Expiration date enforced |
+| US-14.5 | **As a** merchant, **I want to** restrict promos to upgrades only **so that** members can't use them to downgrade. | Upgrade-only flag works |
+| US-14.6 | **As a** merchant, **I want to** auto-upgrade members who spend $500/year to Gold **so that** top customers are rewarded. | Spend-based rules work |
+| US-14.7 | **As a** merchant, **I want to** auto-upgrade members with 10+ trade-ins to Silver **so that** active traders are recognized. | Trade-in count rules work |
+| US-14.8 | **As a** merchant, **I want to** evaluate rules over a rolling 365-day period **so that** eligibility stays current. | Time window calculation works |
+| US-14.9 | **As a** merchant, **I want to** see how many members used a promo **so that** I can measure campaign success. | Promo usage stats displayed |
+
+---
+
+## 15. Shopify Integration
+
+| ID | User Story | Acceptance Criteria |
+|----|------------|---------------------|
+| US-15.1 | **As a** merchant, **I want to** auto-create Shopify customer segments for TradeUp members **so that** I can use Shopify marketing tools. | Segment creation works |
+| US-15.2 | **As a** merchant, **I want to** have segments like "TradeUp Gold Members" **so that** I can target by tier. | Per-tier segments created |
+| US-15.3 | **As a** merchant, **I want to** auto-create purchasable membership products **so that** customers can subscribe on my storefront. | Membership products created |
+| US-15.4 | **As a** merchant, **I want to** use the product wizard to set up membership products **so that** setup is guided. | Product wizard UI works |
+| US-15.5 | **As a** merchant, **I want to** product variants to reflect my tier pricing **so that** customers see correct prices. | Variant pricing syncs |
+| US-15.6 | **As a** merchant, **I want to** publish products to my storefront **so that** customers can buy memberships. | Publish action works |
+| US-15.7 | **As a** merchant, **I want to** store tier and credit data in customer metafields **so that** I can use it in Liquid templates. | Metafield sync works |
+
+---
+
+## 16. Theme Extensions (Storefront)
+
+| ID | User Story | Acceptance Criteria |
+|----|------------|---------------------|
+| US-16.1 | **As a** merchant, **I want to** add a "Join Our Loyalty Program" block to my storefront **so that** visitors can sign up. | Membership signup block renders |
+| US-16.2 | **As a** merchant, **I want to** display customer's credit balance on the storefront **so that** logged-in members see their rewards. | Credit badge block works |
+| US-16.3 | **As a** merchant, **I want to** add a "Start Trade-In" button **so that** customers can submit trade-ins online. | Trade-in CTA block works |
+| US-16.4 | **As a** merchant, **I want to** display member's referral code and sharing options **so that** they can invite friends. | Referral block works |
+| US-16.5 | **As a** merchant, **I want to** place blocks anywhere in my theme **so that** they fit my site design. | Blocks configurable in theme editor |
+| US-16.6 | **As a** merchant, **I want to** blocks to inherit my theme's styling **so that** they look native. | Blocks use CSS variables |
+
+---
+
+## 17. Customer Account Extension
+
+| ID | User Story | Acceptance Criteria |
+|----|------------|---------------------|
+| US-17.1 | **As a** merchant, **I want to** display member's rewards info in their Shopify account **so that** they can check status. | Account extension renders balance |
+| US-17.2 | **As a** merchant, **I want to** show members their past trade-ins **so that** they can track submissions. | Trade-in history displays |
+| US-17.3 | **As a** merchant, **I want to** display current tier and benefits **so that** members understand their perks. | Tier info displays |
+| US-17.4 | **As a** merchant, **I want to** show referral stats in the account **so that** members see their impact. | Referral stats display |
+
+---
+
+## 18. App Proxy (Customer Rewards Page)
+
+| ID | User Story | Acceptance Criteria |
+|----|------------|---------------------|
+| US-18.1 | **As a** merchant, **I want to** have a `/apps/rewards` page on my store **so that** customers can view the loyalty program. | Proxy route serves HTML |
+| US-18.2 | **As a** merchant, **I want to** expose balance via JSON API **so that** I can build custom integrations. | /proxy/balance returns JSON |
+| US-18.3 | **As a** merchant, **I want to** expose available rewards via API **so that** custom apps can show them. | /proxy/rewards returns JSON |
+| US-18.4 | **As a** merchant, **I want to** expose tier benefits via API **so that** I can show comparison tables. | /proxy/tiers returns JSON |
+
+---
+
+## 19. Day-to-Day Operations
+
+| ID | User Story | Acceptance Criteria |
+|----|------------|---------------------|
+| US-19.1 | **As a** merchant at POS, **I want to** quickly create a trade-in batch, add items, and complete **so that** I can serve customers efficiently. | Full trade-in flow < 2 min |
+| US-19.2 | **As a** merchant, **I want to** search for a member by phone or email **so that** I can apply their benefits. | Quick search works |
+| US-19.3 | **As a** merchant, **I want to** quickly look up a member's credit balance **so that** I can answer customer inquiries. | Balance lookup < 5 sec |
+| US-19.4 | **As a** merchant, **I want to** view credit history for a member **so that** I can troubleshoot missing credits. | Credit history accessible |
+| US-19.5 | **As a** merchant, **I want to** manually issue credit with a note **so that** I can resolve customer complaints. | Manual credit with note works |
+| US-19.6 | **As a** merchant, **I want to** manually upgrade a member's tier **so that** I can handle special requests. | Manual tier upgrade works |
+| US-19.7 | **As a** merchant, **I want to** verify a member's subscription is active **so that** I can confirm benefits eligibility. | Subscription status visible |
+| US-19.8 | **As a** merchant, **I want to** review today's trade-ins and credits **so that** I can reconcile cash and inventory. | Daily report accessible |
+| US-19.9 | **As a** merchant, **I want to** schedule a bulk credit event **so that** trade night promotions run automatically. | Scheduled events work |
+| US-19.10 | **As a** merchant, **I want to** show staff how to use core features **so that** they can serve customers. | UI intuitive for training |
+
+---
+
+## 20. Error Handling & Support
+
+| ID | User Story | Acceptance Criteria |
+|----|------------|---------------------|
+| US-20.1 | **As a** merchant, **I want to** be notified of critical errors **so that** I can address issues promptly. | Sentry captures errors |
+| US-20.2 | **As a** merchant, **I want to** see recent errors and warnings **so that** I can troubleshoot problems. | Error feedback in UI |
+| US-20.3 | **As a** merchant, **I want to** easily access support contact info **so that** I can get help when needed. | Support link visible |
+| US-20.4 | **As a** merchant, **I want to** read help docs within the app **so that** I can learn features independently. | Help accessible |
+| US-20.5 | **As a** merchant, **I want to** submit bug reports **so that** issues get fixed. | Bug report mechanism exists |
+
+---
+
+## Summary by Category
+
+| Category | Count |
+|----------|-------|
+| App Discovery & Installation | 4 |
+| Onboarding & Initial Setup | 8 |
+| Billing & Subscription Management | 11 |
+| Member Management | 17 |
+| Tier System Configuration | 15 |
+| Trade-In Management | 20 |
+| Store Credit Operations | 12 |
+| Points System | 8 |
+| Rewards Catalog | 14 |
+| Referral Program | 8 |
+| Bulk Operations | 6 |
+| Analytics & Reporting | 10 |
+| Settings & Configuration | 22 |
+| Promotions & Tier Rules | 9 |
+| Shopify Integration | 7 |
+| Theme Extensions (Storefront) | 6 |
+| Customer Account Extension | 4 |
+| App Proxy (Customer Rewards Page) | 4 |
+| Day-to-Day Operations | 10 |
+| Error Handling & Support | 5 |
+| **TOTAL** | **200** |

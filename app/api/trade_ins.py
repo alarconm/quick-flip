@@ -23,6 +23,8 @@ def list_batches():
         - status: Filter by status
         - member_id: Filter by specific member
         - guest_only: If 'true', show only guest trade-ins
+        - search: Search by batch reference, guest name/email, or member name/email
+        - category: Filter by category
     """
     try:
         tenant_id = g.tenant_id
@@ -32,6 +34,8 @@ def list_batches():
         status = request.args.get('status')
         member_id = request.args.get('member_id', type=int)
         guest_only = request.args.get('guest_only', '').lower() == 'true'
+        search = request.args.get('search', '').strip()
+        category = request.args.get('category', '').strip()
 
         # Filter directly by tenant_id (now stored on batch for both member and guest trade-ins)
         query = TradeInBatch.query.filter_by(tenant_id=tenant_id)
@@ -42,6 +46,26 @@ def list_batches():
             query = query.filter(TradeInBatch.member_id == member_id)
         if guest_only:
             query = query.filter(TradeInBatch.member_id.is_(None))
+
+        # Search by batch reference, guest info, or member info
+        if search:
+            search_pattern = f'%{search}%'
+            # Join with Member table for member name/email search
+            query = query.outerjoin(Member, TradeInBatch.member_id == Member.id)
+            query = query.filter(
+                db.or_(
+                    TradeInBatch.batch_reference.ilike(search_pattern),
+                    TradeInBatch.guest_name.ilike(search_pattern),
+                    TradeInBatch.guest_email.ilike(search_pattern),
+                    Member.name.ilike(search_pattern),
+                    Member.email.ilike(search_pattern),
+                    Member.member_number.ilike(search_pattern)
+                )
+            )
+
+        # Filter by category
+        if category:
+            query = query.filter(TradeInBatch.category == category)
 
         pagination = query.order_by(TradeInBatch.created_at.desc()).paginate(
             page=page, per_page=per_page, error_out=False
@@ -428,3 +452,121 @@ def get_member_trade_in_summary(member_id):
         return jsonify(result)
     else:
         return jsonify(result), 404
+
+
+@trade_ins_bp.route('/<int:batch_id>/timeline', methods=['GET'])
+@require_shopify_auth
+def get_batch_timeline(batch_id):
+    """
+    Get timeline/history of events for a trade-in batch.
+
+    Returns a chronological list of events including:
+    - Batch creation
+    - Item additions
+    - Status changes
+    - Completion and bonus issuance
+
+    Returns:
+        Timeline of batch events
+    """
+    tenant_id = g.tenant_id
+    batch = TradeInBatch.query.filter_by(id=batch_id, tenant_id=tenant_id).first_or_404()
+
+    timeline = []
+
+    # 1. Batch creation event
+    timeline.append({
+        'event_type': 'batch_created',
+        'description': f'Trade-in batch {batch.batch_reference} created',
+        'timestamp': batch.created_at.isoformat() if batch.created_at else None,
+        'actor': batch.created_by or 'System',
+        'details': {
+            'category': batch.category,
+            'is_member': batch.member_id is not None,
+            'member_name': batch.member.name if batch.member_id and batch.member else batch.guest_name
+        }
+    })
+
+    # 2. Item addition events (using item creation timestamps)
+    items = batch.items.order_by(TradeInItem.created_at.asc()).all()
+    for item in items:
+        timeline.append({
+            'event_type': 'item_added',
+            'description': f'Item added: {item.product_title or "Unnamed item"}',
+            'timestamp': item.created_at.isoformat() if item.created_at else None,
+            'actor': batch.created_by or 'System',
+            'details': {
+                'item_id': item.id,
+                'product_title': item.product_title,
+                'trade_value': float(item.trade_value)
+            }
+        })
+
+    # 3. Items listed events
+    for item in items:
+        if item.listed_date:
+            timeline.append({
+                'event_type': 'item_listed',
+                'description': f'Item listed on Shopify: {item.product_title or "Unnamed item"}',
+                'timestamp': item.listed_date.isoformat(),
+                'actor': 'System',
+                'details': {
+                    'item_id': item.id,
+                    'product_title': item.product_title,
+                    'listing_price': float(item.listing_price) if item.listing_price else None,
+                    'shopify_product_id': item.shopify_product_id
+                }
+            })
+
+    # 4. Items sold events
+    for item in items:
+        if item.sold_date:
+            timeline.append({
+                'event_type': 'item_sold',
+                'description': f'Item sold: {item.product_title or "Unnamed item"}',
+                'timestamp': item.sold_date.isoformat(),
+                'actor': 'System',
+                'details': {
+                    'item_id': item.id,
+                    'product_title': item.product_title,
+                    'sold_price': float(item.sold_price) if item.sold_price else None,
+                    'days_to_sell': item.days_to_sell
+                }
+            })
+
+    # 5. Batch completion event
+    if batch.completed_at:
+        timeline.append({
+            'event_type': 'batch_completed',
+            'description': f'Trade-in batch completed',
+            'timestamp': batch.completed_at.isoformat(),
+            'actor': batch.completed_by or 'System',
+            'details': {
+                'total_items': batch.total_items,
+                'total_trade_value': float(batch.total_trade_value),
+                'bonus_amount': float(batch.bonus_amount) if batch.bonus_amount else 0
+            }
+        })
+
+    # 6. Status change to current (if not pending and not completed)
+    if batch.status not in ['pending', 'completed'] and batch.updated_at != batch.created_at:
+        timeline.append({
+            'event_type': 'status_changed',
+            'description': f'Status changed to {batch.status}',
+            'timestamp': batch.updated_at.isoformat() if batch.updated_at else None,
+            'actor': 'System',
+            'details': {
+                'new_status': batch.status
+            }
+        })
+
+    # Sort timeline by timestamp (oldest first)
+    timeline.sort(key=lambda x: x['timestamp'] or '')
+
+    return jsonify({
+        'batch_id': batch.id,
+        'batch_reference': batch.batch_reference,
+        'current_status': batch.status,
+        'timeline': timeline,
+        'total_events': len(timeline)
+    })

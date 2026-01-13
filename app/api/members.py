@@ -138,11 +138,25 @@ def enroll_shopify_customer():
     Customer name/email/phone are pulled from Shopify automatically.
     """
     tenant_id = g.tenant_id  # Use tenant_id from auth middleware
+    tenant = g.tenant
     data = request.json or {}
 
     shopify_customer_id = data.get('shopify_customer_id')
     if not shopify_customer_id:
         return jsonify({'error': 'shopify_customer_id is required'}), 400
+
+    # Check plan limits before enrollment
+    current_member_count = Member.query.filter_by(tenant_id=tenant_id, status='active').count()
+    max_members = tenant.max_members or 50  # Default to Free plan limit
+
+    if current_member_count >= max_members:
+        return jsonify({
+            'error': 'Member limit reached',
+            'message': f'Your plan allows up to {max_members} members. Please upgrade to add more.',
+            'current_count': current_member_count,
+            'limit': max_members,
+            'upgrade_required': True
+        }), 403
 
     service = MembershipService(tenant_id)
 
@@ -236,6 +250,7 @@ def create_and_enroll_customer():
     This is the "Create as New Customer" workflow - everything flows through Shopify.
     """
     tenant_id = g.tenant_id
+    tenant = g.tenant
     data = request.json or {}
 
     email = data.get('email', '').strip()
@@ -245,6 +260,19 @@ def create_and_enroll_customer():
     # Validate email format
     if '@' not in email or '.' not in email:
         return jsonify({'error': 'Invalid email format'}), 400
+
+    # Check plan limits before enrollment
+    current_member_count = Member.query.filter_by(tenant_id=tenant_id, status='active').count()
+    max_members = tenant.max_members or 50  # Default to Free plan limit
+
+    if current_member_count >= max_members:
+        return jsonify({
+            'error': 'Member limit reached',
+            'message': f'Your plan allows up to {max_members} members. Please upgrade to add more.',
+            'current_count': current_member_count,
+            'limit': max_members,
+            'upgrade_required': True
+        }), 403
 
     try:
         from ..services.shopify_client import ShopifyClient
@@ -595,10 +623,24 @@ def list_tiers():
 def create_tier():
     """Create a new membership tier."""
     tenant_id = g.tenant_id  # Use tenant_id from auth decorator instead of header
+    tenant = g.tenant
     data = request.json
 
     if not data or not data.get('name'):
         return jsonify({'error': 'Tier name is required'}), 400
+
+    # Check plan limits before creating tier
+    current_tier_count = MembershipTier.query.filter_by(tenant_id=tenant_id, is_active=True).count()
+    max_tiers = tenant.max_tiers or 2  # Default to Free plan limit
+
+    if current_tier_count >= max_tiers:
+        return jsonify({
+            'error': 'Tier limit reached',
+            'message': f'Your plan allows up to {max_tiers} tiers. Please upgrade to add more.',
+            'current_count': current_tier_count,
+            'limit': max_tiers,
+            'upgrade_required': True
+        }), 403
 
     tier = MembershipTier(
         tenant_id=tenant_id,

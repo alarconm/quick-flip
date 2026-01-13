@@ -7,6 +7,7 @@ import '@shopify/polaris/build/esm/styles.css';
 import enTranslations from '@shopify/polaris/locales/en.json';
 import { ErrorBoundary } from './components';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { ToastProvider } from './contexts/ToastContext';
 import { initSentry } from './utils/sentry';
 import { initWebVitals } from './utils/webVitals';
 import App from './App';
@@ -37,9 +38,11 @@ createRoot(document.getElementById('root')!).render(
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
           <AppProvider i18n={enTranslations}>
-            <ErrorBoundary>
-              <App />
-            </ErrorBoundary>
+            <ToastProvider>
+              <ErrorBoundary>
+                <App />
+              </ErrorBoundary>
+            </ToastProvider>
           </AppProvider>
         </ThemeProvider>
       </QueryClientProvider>

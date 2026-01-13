@@ -703,3 +703,91 @@ def sync_membership_products():
             'success': False,
             'error': str(e)
         }), 500
+
+
+# ==============================================
+# Bug Reports / Feedback
+# ==============================================
+
+@settings_bp.route('/bug-report', methods=['POST'])
+@require_shopify_auth
+def submit_bug_report():
+    """
+    Submit a bug report from the app.
+
+    Request body:
+        title: str - Brief description of the bug
+        description: str - Detailed description
+        category: str - Category (bug, feature_request, question, other)
+        severity: str - Severity (low, medium, high, critical)
+        steps_to_reproduce: str - Steps to reproduce (optional)
+        browser_info: dict - Browser/environment info (optional)
+        screenshot_url: str - Screenshot URL if uploaded (optional)
+
+    Returns:
+        success: bool
+        report_id: str - Reference ID for the report
+    """
+    tenant = g.tenant
+    data = request.json or {}
+
+    title = data.get('title', '').strip()
+    if not title:
+        return jsonify({'error': 'Title is required'}), 400
+
+    description = data.get('description', '').strip()
+    if not description:
+        return jsonify({'error': 'Description is required'}), 400
+
+    category = data.get('category', 'bug')
+    if category not in ['bug', 'feature_request', 'question', 'other']:
+        category = 'other'
+
+    severity = data.get('severity', 'medium')
+    if severity not in ['low', 'medium', 'high', 'critical']:
+        severity = 'medium'
+
+    # Generate report ID
+    import uuid
+    from datetime import datetime
+    report_id = f"BR-{datetime.utcnow().strftime('%Y%m%d')}-{str(uuid.uuid4())[:8].upper()}"
+
+    # Build report data
+    report = {
+        'report_id': report_id,
+        'title': title,
+        'description': description,
+        'category': category,
+        'severity': severity,
+        'steps_to_reproduce': data.get('steps_to_reproduce', ''),
+        'browser_info': data.get('browser_info', {}),
+        'screenshot_url': data.get('screenshot_url'),
+        'tenant_id': tenant.id,
+        'tenant_name': tenant.shop_name,
+        'shopify_domain': tenant.shopify_domain,
+        'subscription_plan': tenant.subscription_plan,
+        'submitted_at': datetime.utcnow().isoformat()
+    }
+
+    # Try to send to Sentry as a user feedback event
+    try:
+        import sentry_sdk
+        sentry_sdk.capture_message(
+            f"[{category.upper()}] {title}",
+            level='error' if severity in ['high', 'critical'] else 'warning',
+            extras=report
+        )
+    except Exception:
+        # Sentry might not be configured - that's OK
+        pass
+
+    # Log to console for debugging
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"Bug Report Submitted: {report}")
+
+    return jsonify({
+        'success': True,
+        'report_id': report_id,
+        'message': 'Thank you for your feedback! Our team will review your report.'
+    })
