@@ -1,15 +1,15 @@
 # TradeUp - Shopify App Store Readiness Review
 
-**Last Updated:** January 6, 2026
-**App Version:** 1.8 (Post-Onboarding Update)
+**Last Updated:** January 14, 2026
+**App Version:** 1.9 (Final Testing Phase)
 
 ---
 
 ## Executive Summary
 
-TradeUp is **PRODUCTION-READY** for Shopify App Store submission. All core features, extensions, documentation, and assets are complete. Only minor cleanup items remain.
+TradeUp is in **FINAL TESTING PHASE** with 98% of user stories passing (196/200). Core functionality is complete and deployed. Some extensions were disabled to unblock deployment.
 
-### Overall Status: READY FOR SUBMISSION
+### Overall Status: READY FOR E2E TESTING
 
 ---
 
@@ -56,16 +56,19 @@ TradeUp is **PRODUCTION-READY** for Shopify App Store submission. All core featu
 
 ### Shopify Extensions
 
-| Extension | Files | Status |
-|-----------|-------|--------|
-| **Customer Account UI** | `TradeUpRewards.jsx` | Complete |
-| **Theme Blocks** | 4 blocks | Complete |
+| Extension | Purpose | Status |
+|-----------|---------|--------|
+| **checkout-ui** | Checkout integration | Complete |
+| **customer-account-ui** | `TradeUpRewards.jsx` | Complete |
+| **post-purchase-ui** | Post-purchase upsells | Complete |
+| **tradeup-pixel** | Analytics tracking | Complete |
 
-**Theme Blocks:**
-1. `membership-signup.liquid` - Join membership CTA
-2. `credit-badge.liquid` - Store credit balance display
-3. `trade-in-cta.liquid` - Start trade-in button
-4. `refer-friend.liquid` - Referral program block
+**Disabled Extensions (in `.disabled` folders):**
+- `checkout-validation.disabled` - Disabled to unblock deploy
+- `tier-discount-function.disabled` - Disabled to unblock deploy
+
+**Removed (future enhancement):**
+- Theme blocks - Removed for deploy compatibility
 
 ### Landing Pages (13 A/B Variants)
 
@@ -170,8 +173,8 @@ All complete and ready for testing:
 
 ## Database
 
-- **9 migrations** - All applied
-- **7 models** - Member, Tenant, Trade-in, Promotions, etc.
+- **20 migrations** - All applied
+- **11 models** - Member, Tenant, Trade-in, Promotions, BillingHistory, TierChangeLog, etc.
 - PostgreSQL ready with proper indexes
 
 ---
@@ -182,8 +185,10 @@ All complete and ready for testing:
 
 | Item | Priority | Notes |
 |------|----------|-------|
+| Commit pending git changes | HIGH | Extension cleanup uncommitted |
 | Set SHOPIFY_BILLING_TEST=false | HIGH | For production charges |
-| Complete test store setup | MEDIUM | Verify store credit, products, theme blocks |
+| Complete E2E browser testing | HIGH | Full customer flow verification |
+| Complete test store setup | MEDIUM | Verify store credit, membership products |
 
 ### Should Test End-to-End
 
@@ -192,15 +197,18 @@ All complete and ready for testing:
 | New merchant install | Needs testing |
 | Billing subscription flow | Needs testing |
 | Customer account extension | Needs testing |
-| Theme block installation | Needs testing |
 | Trade-in full workflow | Needs testing |
 | Store credit at checkout | Needs testing |
+| Member enrollment | Needs testing |
+| Tier assignment/upgrade | Needs testing |
+| App proxy rewards page | Needs testing |
 
 ### Nice to Have (Post-Launch)
 
+- Re-enable checkout-validation extension
+- Re-enable tier-discount-function extension
+- Theme blocks for storefront
 - Enhanced analytics dashboard
-- Export functionality
-- Additional theme block variants
 
 ---
 

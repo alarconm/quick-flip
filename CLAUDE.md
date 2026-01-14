@@ -9,30 +9,40 @@ TradeUp is a **Shopify embedded app** for loyalty programs, trade-in management,
 - **Test Store**: uy288y-nx.myshopify.com (ORB Sports Cards)
 - **Repository**: https://github.com/alarconm/tradeup
 
-## Current Status (January 2026)
+## Current Status (January 14, 2026)
 
-**PRODUCTION-READY** - See `SHOPIFY_APP_STORE_READINESS.md` for full audit.
+**FINAL TESTING PHASE** - 98% of user stories passing (196/200). See `docs/TESTING_PROGRESS.md`.
 
 ### What's Complete
 
-| Component | Status | LOC |
-|-----------|--------|-----|
-| Backend API (16 endpoints) | Complete | 6,749 |
-| Frontend (49 components) | Complete | 2,433 |
-| Services (10 services) | Complete | 7,300 |
-| Customer Account Extension | Complete | - |
-| Theme Blocks (4 blocks) | Complete | - |
-| Shopify Billing (4 plans) | Complete | - |
-| Webhooks (6 handlers) | Complete | - |
-| Landing Pages (13 variants) | Complete | - |
-| Documentation (11 docs) | Complete | - |
-| App Store Assets | Complete | - |
+| Component | Status | Notes |
+|-----------|--------|-------|
+| Backend API (31 modules) | Complete | All endpoints functional |
+| Frontend (17 admin pages) | Complete | Full merchant dashboard |
+| Services (16 services) | Complete | Business logic layer |
+| Customer Account Extension | Complete | Rewards display in customer account |
+| Checkout UI Extension | Complete | Checkout integration |
+| Post-Purchase Extension | Complete | Post-purchase upsells |
+| Pixel Extension | Complete | Analytics tracking |
+| Shopify Billing (4 plans) | Complete | Free, Starter, Growth, Pro |
+| Webhooks (13 handlers) | Complete | Orders, customers, billing |
+| Landing Pages (13 variants) | Complete | A/B test ready |
+| App Proxy | Complete | Customer rewards page |
+
+### Temporarily Disabled Extensions
+
+| Extension | Reason | Status |
+|-----------|--------|--------|
+| checkout-validation | Blocking deploy | Can re-enable post-launch |
+| tier-discount-function | Blocking deploy | Can re-enable post-launch |
+| theme-blocks | Removed for deploy | Future enhancement |
 
 ### Remaining Items
 
-1. **Set SHOPIFY_BILLING_TEST=false** - For production charges
-2. **End-to-end testing** - Customer flows need verification
-3. **Complete setup checklist in test store** - Verify store credit, create membership products
+1. **Commit pending changes** - Extension cleanup needs to be committed
+2. **End-to-end browser testing** - Full customer flow verification
+3. **Set SHOPIFY_BILLING_TEST=false** - For production charges
+4. **Complete setup in test store** - Verify store credit, membership products
 
 ## Quick Commands
 
@@ -53,22 +63,24 @@ make dev                     # Local development
 ```
 tradeup/
 ├── app/                    # Flask backend
-│   ├── api/               # 17 REST API blueprints (incl. proxy)
-│   ├── models/            # 7 SQLAlchemy models
-│   ├── services/          # 10 business logic services
-│   ├── webhooks/          # 6 Shopify webhook handlers
+│   ├── api/               # 31 REST API modules
+│   ├── models/            # 11 SQLAlchemy models
+│   ├── services/          # 16 business logic services
+│   ├── webhooks/          # 13 Shopify webhook handlers
 │   └── utils/             # Helpers (sentry.py)
 ├── frontend/              # React SPA (Vite + TypeScript)
-│   ├── src/admin/         # Merchant admin pages
+│   ├── src/admin/         # 17 merchant admin pages
 │   ├── src/embedded/      # Shopify embedded pages
 │   └── src/pages/         # Public pages
 ├── extensions/            # Shopify extensions
+│   ├── checkout-ui/       # Checkout integration
 │   ├── customer-account-ui/  # Customer rewards display
-│   └── theme-blocks/         # 4 storefront blocks
+│   ├── post-purchase-ui/  # Post-purchase upsells
+│   └── tradeup-pixel/     # Analytics tracking
 ├── landing-pages/         # 13 A/B test variants
-├── migrations/            # 9 Alembic migrations
+├── migrations/            # 20 Alembic migrations
 ├── scripts/               # Dev tools
-└── docs/                  # 11 documentation files
+└── docs/                  # 13 documentation files
 ```
 
 ## API Endpoints
@@ -111,15 +123,18 @@ Accessible at: `store.myshopify.com/apps/rewards`
 
 ## Shopify Extensions
 
-### Customer Account UI
-- **File**: `extensions/customer-account-ui/src/TradeUpRewards.jsx`
-- Shows rewards balance and trade-in history in customer account
+### Active Extensions
 
-### Theme Blocks
-- `membership-signup.liquid` - Join membership CTA
-- `credit-badge.liquid` - Store credit balance display
-- `trade-in-cta.liquid` - Start trade-in button
-- `refer-friend.liquid` - Referral program block
+| Extension | Purpose | Key File |
+|-----------|---------|----------|
+| checkout-ui | Checkout integration | `extensions/checkout-ui/` |
+| customer-account-ui | Rewards display | `extensions/customer-account-ui/src/TradeUpRewards.jsx` |
+| post-purchase-ui | Post-purchase upsells | `extensions/post-purchase-ui/` |
+| tradeup-pixel | Analytics tracking | `extensions/tradeup-pixel/` |
+
+### Disabled Extensions (in `.disabled` folders)
+- `checkout-validation.disabled` - Checkout validation (future)
+- `tier-discount-function.disabled` - Tier discounts (future)
 
 ## Billing Plans
 
@@ -216,14 +231,29 @@ curl -X POST "https://app.cardflowlabs.com/api/admin/fix-schema?key=tradeup-sche
 ```
 Add new columns to `app/api/admin.py` in the `columns_to_add` list.
 
-## Recent Changes (January 6, 2026)
+## Recent Changes (January 13-14, 2026)
 
-1. Added onboarding flow with store credit check
-2. Added Sentry error tracking (frontend + backend)
-3. Fixed BrowserRouter missing in main.tsx
-4. Added Vite proxy for local API calls
-5. Added CSS variables for onboarding styling
-6. Comprehensive audit confirmed all features complete
+### Session 2 Enhancements (Jan 13)
+- Added usage warnings at 80%, 90%, 100% thresholds
+- Added member suspend/reactivate/cancel endpoints
+- Added tier change logging
+- Added trade-in item editing (PUT/DELETE)
+- Added auto-approval threshold enforcement
+- Added auto-upgrade/downgrade service
+- Added metafield sync/verify endpoints
+- Added 15+ granular notification controls
+- Added daily report endpoint with comparison metrics
+
+### Deploy Fixes (Jan 13)
+- Disabled checkout-validation and tier-discount-function to unblock deploy
+- Removed theme-blocks extension (blocking deploy)
+- Fixed shopify.app.toml for deploy compatibility
+- Made member search instant (like Shopify POS)
+
+### Earlier (Jan 6)
+- Added onboarding flow with store credit check
+- Added Sentry error tracking (frontend + backend)
+- Fixed BrowserRouter missing in main.tsx
 
 ## Contact
 
