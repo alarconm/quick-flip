@@ -7,6 +7,9 @@ api_version = "2025-01"
 [[extensions]]
 name = "TradeUp Tier Discounts"
 handle = "tradeup-tier-discounts"
+
+uid = "39db42b8-a969-dab6-ef1a-80c3708ad0d8152348da"
+
 type = "function"
 
   [extensions.build]

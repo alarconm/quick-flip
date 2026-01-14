@@ -5,6 +5,9 @@
 api_version = "2025-01"
 
 [[extensions]]
+
+uid = "0d54b46b-a2b9-b33c-a766-9990258be3ca68019635"
+
 type = "web_pixel_extension"
 name = "TradeUp Analytics"
 handle = "tradeup-analytics"
