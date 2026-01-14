@@ -565,6 +565,8 @@ function MemberDetailModal({
   const [creditExpiration, setCreditExpiration] = useState('');
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [suspendConfirmOpen, setSuspendConfirmOpen] = useState(false);
+  const [reactivateConfirmOpen, setReactivateConfirmOpen] = useState(false);
   const [showCreditHistory, setShowCreditHistory] = useState(false);
   const queryClient = useQueryClient();
 
@@ -660,13 +662,17 @@ function MemberDetailModal({
   });
 
   // Close issue credit modal and reset form
-  const closeIssueCreditModal = useCallback(() => {
+  const closeIssueCreditModal = useCallback((closeParent: boolean = false) => {
     setIssueCreditOpen(false);
     setCreditAmount('');
     setCreditDescription('');
     setCreditExpiration('');
     issueCreditMutation.reset();
-  }, [issueCreditMutation]);
+    // Close parent modal if credit was successfully issued so member data refreshes
+    if (closeParent) {
+      onClose();
+    }
+  }, [issueCreditMutation, onClose]);
 
   // Cancel membership mutation
   const cancelMembershipMutation = useMutation({
@@ -709,6 +715,44 @@ function MemberDetailModal({
     },
   });
 
+  // Suspend membership mutation
+  const suspendMembershipMutation = useMutation({
+    mutationFn: async () => {
+      const response = await authFetch(`${getApiUrl()}/members/${member?.id}/suspend`, shop, {
+        method: 'POST',
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to suspend membership');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['members'] });
+      setSuspendConfirmOpen(false);
+      onClose();
+    },
+  });
+
+  // Reactivate membership mutation
+  const reactivateMembershipMutation = useMutation({
+    mutationFn: async () => {
+      const response = await authFetch(`${getApiUrl()}/members/${member?.id}/reactivate`, shop, {
+        method: 'POST',
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to reactivate membership');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['members'] });
+      setReactivateConfirmOpen(false);
+      onClose();
+    },
+  });
+
   if (!member) return null;
 
   const tierOptions = [
@@ -732,6 +776,16 @@ function MemberDetailModal({
             content: 'Change Tier',
             onAction: () => setChangeTierOpen(true),
           },
+          // Show Suspend for active members
+          ...(member.status === 'active' ? [{
+            content: 'Suspend',
+            onAction: () => setSuspendConfirmOpen(true),
+          }] : []),
+          // Show Reactivate for suspended or cancelled members
+          ...(member.status === 'suspended' || member.status === 'cancelled' ? [{
+            content: 'Reactivate',
+            onAction: () => setReactivateConfirmOpen(true),
+          }] : []),
           {
             content: 'Cancel Membership',
             onAction: () => setCancelConfirmOpen(true),
@@ -962,13 +1016,13 @@ function MemberDetailModal({
       {/* Issue Credit Modal */}
       <Modal
         open={issueCreditOpen}
-        onClose={closeIssueCreditModal}
+        onClose={() => closeIssueCreditModal(false)}
         title="Issue Store Credit"
         primaryAction={
           issueCreditMutation.isSuccess
             ? {
                 content: 'Done',
-                onAction: closeIssueCreditModal,
+                onAction: () => closeIssueCreditModal(true),
               }
             : {
                 content: 'Issue Credit',
@@ -980,7 +1034,7 @@ function MemberDetailModal({
         secondaryActions={
           issueCreditMutation.isSuccess
             ? []
-            : [{ content: 'Cancel', onAction: closeIssueCreditModal }]
+            : [{ content: 'Cancel', onAction: () => closeIssueCreditModal(false) }]
         }
       >
         <Modal.Section>
@@ -1104,6 +1158,79 @@ function MemberDetailModal({
               </Text>
               <Text as="p">
                 Note: This does NOT delete the customer from Shopify - only from TradeUp.
+              </Text>
+            </BlockStack>
+          </Banner>
+        </Modal.Section>
+      </Modal>
+
+      {/* Suspend Membership Confirmation Modal */}
+      <Modal
+        open={suspendConfirmOpen}
+        onClose={() => setSuspendConfirmOpen(false)}
+        title="Suspend Membership"
+        primaryAction={{
+          content: 'Suspend Membership',
+          onAction: () => suspendMembershipMutation.mutate(),
+          loading: suspendMembershipMutation.isPending,
+        }}
+        secondaryActions={[
+          { content: 'Cancel', onAction: () => setSuspendConfirmOpen(false) },
+        ]}
+      >
+        <Modal.Section>
+          {suspendMembershipMutation.isError && (
+            <Box paddingBlockEnd="400">
+              <Banner tone="critical">
+                <p>{suspendMembershipMutation.error?.message || 'Failed to suspend membership'}</p>
+              </Banner>
+            </Box>
+          )}
+          <Banner tone="warning">
+            <BlockStack gap="200">
+              <Text as="p" fontWeight="semibold">
+                Suspend this membership?
+              </Text>
+              <Text as="p">
+                {member.first_name} {member.last_name}'s membership will be temporarily suspended.
+                They will not receive member benefits, but their data and store credit will be preserved.
+                You can reactivate their membership at any time.
+              </Text>
+            </BlockStack>
+          </Banner>
+        </Modal.Section>
+      </Modal>
+
+      {/* Reactivate Membership Confirmation Modal */}
+      <Modal
+        open={reactivateConfirmOpen}
+        onClose={() => setReactivateConfirmOpen(false)}
+        title="Reactivate Membership"
+        primaryAction={{
+          content: 'Reactivate Membership',
+          onAction: () => reactivateMembershipMutation.mutate(),
+          loading: reactivateMembershipMutation.isPending,
+        }}
+        secondaryActions={[
+          { content: 'Cancel', onAction: () => setReactivateConfirmOpen(false) },
+        ]}
+      >
+        <Modal.Section>
+          {reactivateMembershipMutation.isError && (
+            <Box paddingBlockEnd="400">
+              <Banner tone="critical">
+                <p>{reactivateMembershipMutation.error?.message || 'Failed to reactivate membership'}</p>
+              </Banner>
+            </Box>
+          )}
+          <Banner tone="success">
+            <BlockStack gap="200">
+              <Text as="p" fontWeight="semibold">
+                Reactivate this membership?
+              </Text>
+              <Text as="p">
+                {member.first_name} {member.last_name}'s membership will be reactivated.
+                They will immediately regain access to all member benefits and their existing store credit.
               </Text>
             </BlockStack>
           </Banner>
