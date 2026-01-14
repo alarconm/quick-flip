@@ -36,8 +36,9 @@ def get_checklist_items(tenant: Tenant, tenant_id: int) -> list:
     blocks_installed = sum(1 for v in theme_blocks.values() if v)
     total_blocks = 4  # membership-signup, credit-badge, trade-in-cta, refer-friend
 
-    # Store credit check
-    store_credit_enabled = settings.get('store_credit_verified', False)
+    # Store credit check - check both keys for backwards compatibility
+    # 'store_credit_verified' is set by setup_checklist, 'store_credit_enabled' by onboarding
+    store_credit_enabled = settings.get('store_credit_verified', False) or settings.get('store_credit_enabled', False)
 
     # Onboarding status
     onboarding_complete = settings.get('onboarding_complete', False)

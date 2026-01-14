@@ -87,8 +87,12 @@ def get_onboarding_status():
             break
         current_step = step['id'] + 1
 
+    # Setup is only truly complete if marked complete AND store credit is enabled
+    # This prevents infinite redirect when user needs to verify store credit
+    truly_complete = onboarding_complete and store_credit_enabled
+
     return jsonify({
-        'setup_complete': onboarding_complete,
+        'setup_complete': truly_complete,
         'current_step': min(current_step, 4),
         'steps': steps,
         'subscription_plan': status.get('subscription_plan', 'free'),
@@ -120,9 +124,12 @@ def check_store_credit():
     result = service.check_store_credit_enabled()
 
     # Save store credit status in tenant settings so we can track progress
+    # Set both keys for compatibility with setup_checklist
     if tenant.settings is None:
         tenant.settings = {}
-    tenant.settings['store_credit_enabled'] = result.get('enabled', False)
+    is_enabled = result.get('enabled', False)
+    tenant.settings['store_credit_enabled'] = is_enabled
+    tenant.settings['store_credit_verified'] = is_enabled  # Also set for setup_checklist
     flag_modified(tenant, 'settings')
     db.session.commit()
 

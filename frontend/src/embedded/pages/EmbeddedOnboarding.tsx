@@ -6,7 +6,7 @@
  * - Choose a tier template
  * - Go live
  */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Page,
@@ -189,9 +189,15 @@ export function EmbeddedOnboarding({ shop }: OnboardingProps) {
     );
   }
 
-  // If onboarding is complete, redirect to dashboard with a loading message
+  // If onboarding is complete, redirect to dashboard
+  useEffect(() => {
+    if (status?.setup_complete) {
+      navigate('/app/dashboard', { replace: true });
+    }
+  }, [status?.setup_complete, navigate]);
+
+  // Show loading while redirecting
   if (status?.setup_complete) {
-    navigate('/app/dashboard', { replace: true });
     return (
       <Page title="Setup Complete">
         <Box padding="1600">
