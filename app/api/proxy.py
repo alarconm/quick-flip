@@ -415,6 +415,8 @@ def render_rewards_page(shop, tenant, member, points_balance, tiers, rewards, re
     This is a beautiful, responsive page that matches the store's theme.
     Uses Liquid-compatible styles and minimal dependencies.
     """
+    # Dollar sign for f-string formatting
+    dollar = "$"
 
     # Build member section
     member_section = ''
@@ -470,7 +472,7 @@ def render_rewards_page(shop, tenant, member, points_balance, tiers, rewards, re
                 <li><strong>{earning_mult}x</strong> points on purchases</li>
                 {f'<li><strong>{cashback}%</strong> cashback</li>' if cashback else ''}
                 {f'<li><strong>{trade_bonus}%</strong> trade-in bonus</li>' if trade_bonus else ''}
-                {f'<li><strong>{"$"}{monthly_credit:.0f}</strong> monthly credit</li>' if monthly_credit else ''}
+                {f'<li><strong>{dollar}{monthly_credit:.0f}</strong> monthly credit</li>' if monthly_credit else ''}
                 {benefits_html}
             </ul>
         </div>
@@ -487,9 +489,9 @@ def render_rewards_page(shop, tenant, member, points_balance, tiers, rewards, re
             if hasattr(reward, 'discount_percent') and reward.discount_percent:
                 reward_value = f'{reward.discount_percent}% off'
             elif hasattr(reward, 'discount_amount') and reward.discount_amount:
-                reward_value = f'{"$"}{reward.discount_amount} off'
+                reward_value = f'{dollar}{reward.discount_amount} off'
         elif reward.reward_type == 'store_credit' and hasattr(reward, 'credit_value') and reward.credit_value:
-            reward_value = f'{"$"}{reward.credit_value} credit'
+            reward_value = f'{dollar}{reward.credit_value} credit'
         elif reward.reward_type == 'free_shipping':
             reward_value = 'Free shipping'
 
@@ -519,12 +521,12 @@ def render_rewards_page(shop, tenant, member, points_balance, tiers, rewards, re
             <div class="tradeup-referral-card">
                 <div class="tradeup-referral-rewards">
                     <div class="tradeup-referral-you">
-                        <span class="tradeup-reward-amount">{"$"}{referrer_reward:.0f}</span>
+                        <span class="tradeup-reward-amount">{dollar}{referrer_reward:.0f}</span>
                         <span class="tradeup-reward-desc">for you</span>
                     </div>
                     <div class="tradeup-referral-plus">+</div>
                     <div class="tradeup-referral-friend">
-                        <span class="tradeup-reward-amount">{"$"}{referred_reward:.0f}</span>
+                        <span class="tradeup-reward-amount">{dollar}{referred_reward:.0f}</span>
                         <span class="tradeup-reward-desc">for them</span>
                     </div>
                 </div>
@@ -1083,8 +1085,8 @@ def render_referral_landing_page(shop, tenant, code, referrer_name, referrer_rew
     # Get customization from config or use defaults
     headline = page_config.get('headline', f'{referrer_name} sent you a gift!')
     description = page_config.get('description',
-        f'Shop now and get {"$"}{referee_reward:.0f} off your first order. '
-        f'{referrer_name} will get {"$"}{referrer_reward:.0f} too!')
+        f'Shop now and get {dollar}{referee_reward:.0f} off your first order. '
+        f'{referrer_name} will get {dollar}{referrer_reward:.0f} too!')
     background_color = page_config.get('background_color', '#6366f1')
     cta_text = page_config.get('cta_text', 'Shop Now')
 
@@ -1097,14 +1099,17 @@ def render_referral_landing_page(shop, tenant, code, referrer_name, referrer_rew
         description = "This referral code doesn't seem to be valid. Check with your friend for the correct link!"
         cta_text = 'Browse Store'
 
+    # Dollar sign for f-string formatting (avoid nested f-string issues)
+    dollar = "$"
+
     html = f'''<!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>You're Invited! - Get {"$"}{referee_reward:.0f} Off</title>
+    <title>You're Invited! - Get {dollar}{referee_reward:.0f} Off</title>
     <meta property="og:title" content="{referrer_name} sent you a gift!">
-    <meta property="og:description" content="Get {"$"}{referee_reward:.0f} off your first order">
+    <meta property="og:description" content="Get {dollar}{referee_reward:.0f} off your first order">
     <meta property="og:type" content="website">
     <meta name="twitter:card" content="summary_large_image">
     <style>
@@ -1301,12 +1306,12 @@ def render_referral_landing_page(shop, tenant, code, referrer_name, referrer_rew
         {'<div class="rewards-display">' if valid_code else ''}
         {f'''
             <div class="reward-item">
-                <span class="reward-amount">{"$"}{referee_reward:.0f}</span>
+                <span class="reward-amount">{dollar}{referee_reward:.0f}</span>
                 <span class="reward-label">for you</span>
             </div>
             <div class="reward-divider">+</div>
             <div class="reward-item">
-                <span class="reward-amount">{"$"}{referrer_reward:.0f}</span>
+                <span class="reward-amount">{dollar}{referrer_reward:.0f}</span>
                 <span class="reward-label">for {referrer_name}</span>
             </div>
         ''' if valid_code else ''}
@@ -1330,9 +1335,9 @@ def render_referral_landing_page(shop, tenant, code, referrer_name, referrer_rew
         {'<div class="social-share">' if valid_code else ''}
         {f'''
             <a href="https://www.facebook.com/sharer/sharer.php?u={shop_url}/apps/rewards/refer/{code}" target="_blank" class="social-btn social-facebook" title="Share on Facebook">f</a>
-            <a href="https://twitter.com/intent/tweet?text=Get%20{"$"}{referee_reward:.0f}%20off%20at%20our%20favorite%20store!&url={shop_url}/apps/rewards/refer/{code}" target="_blank" class="social-btn social-twitter" title="Share on Twitter">t</a>
-            <a href="https://wa.me/?text=Get%20{"$"}{referee_reward:.0f}%20off%20with%20my%20referral%20link!%20{shop_url}/apps/rewards/refer/{code}" target="_blank" class="social-btn social-whatsapp" title="Share on WhatsApp">w</a>
-            <a href="mailto:?subject=You%27re%20Invited!&body=Get%20{"$"}{referee_reward:.0f}%20off%20your%20first%20order:%20{shop_url}/apps/rewards/refer/{code}" class="social-btn social-email" title="Share via Email">&#9993;</a>
+            <a href="https://twitter.com/intent/tweet?text=Get%20{dollar}{referee_reward:.0f}%20off%20at%20our%20favorite%20store!&url={shop_url}/apps/rewards/refer/{code}" target="_blank" class="social-btn social-twitter" title="Share on Twitter">t</a>
+            <a href="https://wa.me/?text=Get%20{dollar}{referee_reward:.0f}%20off%20with%20my%20referral%20link!%20{shop_url}/apps/rewards/refer/{code}" target="_blank" class="social-btn social-whatsapp" title="Share on WhatsApp">w</a>
+            <a href="mailto:?subject=You%27re%20Invited!&body=Get%20{dollar}{referee_reward:.0f}%20off%20your%20first%20order:%20{shop_url}/apps/rewards/refer/{code}" class="social-btn social-email" title="Share via Email">&#9993;</a>
         ''' if valid_code else ''}
         {'</div>' if valid_code else ''}
     </div>
