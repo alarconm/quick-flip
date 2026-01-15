@@ -143,7 +143,7 @@ def rewards_page():
         Reward.is_active == True,
         (Reward.starts_at.is_(None) | (Reward.starts_at <= now)),
         (Reward.ends_at.is_(None) | (Reward.ends_at >= now)),
-        (Reward.stock_quantity.is_(None) | (Reward.stock_quantity > 0))
+        (Reward.available_quantity.is_(None) | (Reward.available_quantity > 0))
     ).order_by(Reward.points_cost.asc()).limit(12).all()
 
     # Get referral program
@@ -327,7 +327,7 @@ def get_rewards():
         Reward.is_active == True,
         (Reward.starts_at.is_(None) | (Reward.starts_at <= now)),
         (Reward.ends_at.is_(None) | (Reward.ends_at >= now)),
-        (Reward.stock_quantity.is_(None) | (Reward.stock_quantity > 0))
+        (Reward.available_quantity.is_(None) | (Reward.available_quantity > 0))
     ).order_by(Reward.points_cost.asc()).all()
 
     # Build response with eligibility info
