@@ -314,13 +314,13 @@ export function SupportButton({
               width: '44px',
               height: '44px',
               borderRadius: '50%',
-              backgroundColor: '#2c6ecb',
+              backgroundColor: '#1a1a1a',
               border: 'none',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
             }}
             aria-label="Open help"
           >
