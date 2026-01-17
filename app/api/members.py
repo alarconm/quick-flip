@@ -357,15 +357,14 @@ def list_members():
         if status:
             query = query.filter_by(status=status)
 
-        # Search by name or email
+        # Search by name, email, or member number
+        # Note: first_name/last_name are derived from 'name' in to_dict(), not DB columns
         if search:
             search_pattern = f'%{search}%'
             query = query.filter(
                 db.or_(
                     Member.name.ilike(search_pattern),
                     Member.email.ilike(search_pattern),
-                    Member.first_name.ilike(search_pattern),
-                    Member.last_name.ilike(search_pattern),
                     Member.member_number.ilike(search_pattern)
                 )
             )
