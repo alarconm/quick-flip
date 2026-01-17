@@ -114,7 +114,9 @@ def create_app(config_name: str = None) -> Flask:
         return {'service': 'TradeUp by Cardflow Labs', 'status': 'running', 'version': '2.0.0'}
 
     # Shopify embedded app route - Serve React SPA
+    # Note: /app/ (with trailing slash) is required because Shopify accesses it that way
     @app.route('/app')
+    @app.route('/app/')
     @app.route('/app/<path:path>')
     def shopify_app(path=None):
         from flask import request, make_response
