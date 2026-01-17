@@ -291,9 +291,9 @@ def create_products():
                 # Add image if provided
                 image_url = config.get('image_url')
                 if image_url and not image_url.startswith('/product-templates'):
-                    # Custom image - would need to upload
-                    # For now, skip template images (they're placeholders)
-                    pass
+                    # Custom image - would need to upload via Shopify Product Images API
+                    # Skipping template placeholder images for now
+                    current_app.logger.debug(f"Skipping image upload for tier {tier_name}: {image_url}")
 
                 results.append({
                     'tier_id': config.get('tier_id'),

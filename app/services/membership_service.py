@@ -4,6 +4,7 @@ Membership service for managing members and tiers.
 import os
 from datetime import date
 from typing import Optional, Dict, Any, List
+from flask import current_app
 from ..extensions import db
 from ..models import Member, MembershipTier
 from .shopify_client import ShopifyClient
@@ -127,7 +128,7 @@ class MembershipService:
             )
         except Exception as e:
             # Flow triggers are non-critical - log and continue
-            print(f"Flow trigger error (non-blocking): {e}")
+            current_app.logger.warning(f"Flow trigger error (non-blocking): {e}")
 
         return member
 

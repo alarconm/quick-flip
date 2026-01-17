@@ -387,8 +387,8 @@ def admin_expire_tiers():
         if client and member.shopify_customer_id:
             try:
                 client.remove_customer_tag(member.shopify_customer_id, f'tu-{old_tier_name.lower()}')
-            except Exception:
-                pass
+            except Exception as e:
+                current_app.logger.warning(f"Failed to remove Shopify tag for member {member.id}: {e}")
 
     db.session.commit()
 

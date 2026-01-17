@@ -29,6 +29,7 @@ import json
 
 from ..extensions import db
 from ..models.member import Member, MembershipTier
+from ..models.tenant import Tenant
 from ..models.points import PointsTransaction
 from ..models.loyalty_points import (
     PointsBalance,
@@ -936,10 +937,43 @@ class PointsService:
         return int(result or 0)
 
     def _calculate_pending_points(self, member_id: int) -> int:
-        """Calculate pending points (e.g., from pending orders)."""
-        # Placeholder - implement based on business logic
-        # Could query pending orders that haven't been fulfilled yet
-        return 0
+        """
+        Calculate pending points from orders awaiting fulfillment/confirmation.
+
+        Pending points are calculated for tenants who:
+        - Award points on order fulfillment (not creation)
+        - Have orders in 'pending' financial status
+
+        This queries for points transactions with source='pending_order' that
+        haven't been finalized yet.
+        """
+        # Check if tenant has pending points tracking enabled
+        tenant = Tenant.query.get(self.tenant_id)
+        if not tenant:
+            return 0
+
+        settings = tenant.settings or {}
+
+        # If tenant awards points on fulfillment, check for unfulfilled orders
+        award_on_fulfillment = settings.get('award_points_on_fulfillment', False)
+        award_on_paid = settings.get('award_points_on_paid', False)
+
+        if not (award_on_fulfillment or award_on_paid):
+            # Points are awarded immediately on order creation, no pending
+            return 0
+
+        # Query for pending point transactions (not yet finalized)
+        # These would be created as 'pending' and converted to 'earn' on fulfillment/payment
+        result = db.session.query(
+            db.func.coalesce(db.func.sum(PointsTransaction.points), 0)
+        ).filter(
+            PointsTransaction.tenant_id == self.tenant_id,
+            PointsTransaction.member_id == member_id,
+            PointsTransaction.transaction_type == 'pending',
+            PointsTransaction.reversed_at.is_(None)
+        ).scalar()
+
+        return int(result or 0)
 
     def _calculate_lifetime_earned(self, member_id: int) -> int:
         """Calculate lifetime points earned."""

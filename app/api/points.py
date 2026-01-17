@@ -140,7 +140,7 @@ def get_points_history():
             start_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
             query = query.filter(PointsTransaction.created_at >= start_dt)
         except ValueError:
-            pass
+            current_app.logger.warning(f"Invalid start_date format: {start_date}")
 
     end_date = request.args.get('end_date')
     if end_date:
@@ -148,7 +148,7 @@ def get_points_history():
             end_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
             query = query.filter(PointsTransaction.created_at <= end_dt)
         except ValueError:
-            pass
+            current_app.logger.warning(f"Invalid end_date format: {end_date}")
 
     # Order by most recent first
     query = query.order_by(PointsTransaction.created_at.desc())

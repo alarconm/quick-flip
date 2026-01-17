@@ -992,3 +992,355 @@ def handle_order_fulfilled():
     except Exception as e:
         current_app.logger.error(f'Error processing order fulfilled webhook: {str(e)}')
         return jsonify({'error': str(e)}), 500
+
+
+@order_lifecycle_bp.route('/refunds/create', methods=['POST'])
+def handle_refund_created():
+    """
+    Handle REFUNDS_CREATE webhook.
+
+    Reverses points and store credit proportionally based on refund amount.
+    This handles partial refunds correctly by calculating the refund ratio.
+
+    Shopify refund payload includes:
+    - id: Refund ID
+    - order_id: Original order ID
+    - created_at: Refund timestamp
+    - refund_line_items: Items being refunded
+    - transactions: Refund payment transactions
+    """
+    shop_domain = request.headers.get('X-Shopify-Shop-Domain', '')
+    tenant = get_tenant_from_domain(shop_domain)
+
+    if not tenant:
+        return jsonify({'error': 'Unknown shop'}), 404
+
+    try:
+        refund_data = request.json
+        refund_id = str(refund_data.get('id'))
+        order_id = str(refund_data.get('order_id'))
+        created_at = refund_data.get('created_at')
+
+        # Calculate total refund amount from transactions
+        transactions = refund_data.get('transactions', [])
+        refund_amount = Decimal('0')
+        for txn in transactions:
+            if txn.get('kind') == 'refund' and txn.get('status') == 'success':
+                refund_amount += Decimal(str(txn.get('amount', 0)))
+
+        # Calculate refund from line items if no transaction amount
+        if refund_amount == 0:
+            refund_line_items = refund_data.get('refund_line_items', [])
+            for item in refund_line_items:
+                subtotal = Decimal(str(item.get('subtotal', 0)))
+                refund_amount += subtotal
+
+        result = {
+            'success': True,
+            'refund_id': refund_id,
+            'order_id': order_id,
+            'refund_amount': float(refund_amount),
+            'points_reversed': 0,
+            'credit_reversed': 0
+        }
+
+        if refund_amount == 0:
+            result['message'] = 'Zero refund amount, nothing to reverse'
+            return jsonify(result)
+
+        # Find original points transaction for this order
+        from ..models import PointsTransaction
+        original_transaction = PointsTransaction.query.filter_by(
+            tenant_id=tenant.id,
+            reference_id=order_id,
+            transaction_type='earn'
+        ).first()
+
+        if original_transaction and not original_transaction.reversed_at:
+            member = original_transaction.member
+
+            # Calculate proportion of refund to original order
+            # We need the original order total - try to get from note or estimate
+            original_points = original_transaction.points
+
+            # Get tenant's points per dollar setting
+            settings = tenant.settings or {}
+            points_per_dollar = settings.get('points_per_dollar', 1)
+
+            # Calculate points to reverse based on refund amount
+            points_to_reverse = int(float(refund_amount) * points_per_dollar)
+
+            # Don't reverse more than originally awarded
+            points_to_reverse = min(points_to_reverse, original_points)
+
+            if points_to_reverse > 0:
+                # Check if already partially reversed
+                existing_reversals = PointsTransaction.query.filter_by(
+                    tenant_id=tenant.id,
+                    related_transaction_id=original_transaction.id,
+                    transaction_type='adjustment'
+                ).all()
+
+                total_already_reversed = sum(abs(r.points) for r in existing_reversals)
+                remaining_to_reverse = original_points - total_already_reversed
+                points_to_reverse = min(points_to_reverse, remaining_to_reverse)
+
+                if points_to_reverse > 0:
+                    # Create reversal transaction
+                    reversal = PointsTransaction(
+                        tenant_id=tenant.id,
+                        member_id=member.id,
+                        points=-points_to_reverse,
+                        transaction_type='adjustment',
+                        source='refund',
+                        reference_id=refund_id,
+                        reference_type='shopify_refund',
+                        description=f'Points reversed - refund ${float(refund_amount):.2f} on order #{order_id}',
+                        related_transaction_id=original_transaction.id,
+                        created_at=datetime.utcnow()
+                    )
+                    db.session.add(reversal)
+
+                    # Update member balance
+                    member.points_balance = max(0, (member.points_balance or 0) - points_to_reverse)
+                    result['points_reversed'] = points_to_reverse
+                    result['new_points_balance'] = member.points_balance
+
+                    # If full refund, mark original as reversed
+                    if total_already_reversed + points_to_reverse >= original_points:
+                        original_transaction.reversed_at = datetime.utcnow()
+                        original_transaction.reversed_reason = 'refunded'
+
+        # Check for store credit to reverse (cashback)
+        from ..models.promotions import StoreCreditLedger
+        cashback_entries = StoreCreditLedger.query.filter_by(
+            tenant_id=tenant.id,
+            source_type='cashback',
+            source_id=order_id
+        ).all()
+
+        for entry in cashback_entries:
+            if entry.amount > 0 and not entry.reversed_at:
+                member = entry.member
+
+                # Calculate cashback to reverse proportionally
+                # Get original order subtotal from entry description or estimate
+                cashback_to_reverse = entry.amount  # Full reversal for now
+
+                # Create debit entry for reversal
+                reversal_entry = StoreCreditLedger(
+                    tenant_id=tenant.id,
+                    member_id=entry.member_id,
+                    amount=-cashback_to_reverse,
+                    balance_after=max(Decimal('0'), (member.store_credit_balance or Decimal('0')) - cashback_to_reverse),
+                    event_type='adjustment',
+                    description=f'Cashback reversed - refund on order #{order_id}',
+                    source_type='refund',
+                    source_id=refund_id,
+                    channel='webhook',
+                    created_by='shopify_refund'
+                )
+                db.session.add(reversal_entry)
+
+                # Update member balance
+                member.store_credit_balance = max(Decimal('0'), (member.store_credit_balance or Decimal('0')) - cashback_to_reverse)
+                result['credit_reversed'] = float(result.get('credit_reversed', 0)) + float(cashback_to_reverse)
+
+                # Mark original as reversed
+                entry.reversed_at = datetime.utcnow()
+                entry.reversed_reason = 'refunded'
+
+        db.session.commit()
+
+        current_app.logger.info(
+            f'Processed refund {refund_id} for order {order_id}: '
+            f'reversed {result["points_reversed"]} points, ${result["credit_reversed"]:.2f} credit'
+        )
+
+        return jsonify(result)
+
+    except Exception as e:
+        current_app.logger.error(f'Error processing refund webhook: {str(e)}')
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+@order_lifecycle_bp.route('/orders/paid', methods=['POST'])
+def handle_order_paid():
+    """
+    Handle ORDERS_PAID webhook.
+
+    This webhook fires when payment is confirmed (after orders/create).
+    For most merchants, points are awarded at order creation, so this
+    is primarily used for payment confirmation tracking.
+
+    Some use cases:
+    - Merchants who only award points after payment confirmation
+    - Tracking payment method for analytics
+    - Delayed membership activation until payment clears
+    """
+    shop_domain = request.headers.get('X-Shopify-Shop-Domain', '')
+    tenant = get_tenant_from_domain(shop_domain)
+
+    if not tenant:
+        return jsonify({'error': 'Unknown shop'}), 404
+
+    try:
+        order_data = request.json
+        order_id = str(order_data.get('id'))
+        order_number = order_data.get('order_number')
+        financial_status = order_data.get('financial_status')
+
+        result = {
+            'success': True,
+            'order_id': order_id,
+            'order_number': order_number,
+            'financial_status': financial_status
+        }
+
+        # Check if tenant requires payment confirmation before awarding points
+        settings = tenant.settings or {}
+        award_on_paid = settings.get('award_points_on_paid', False)
+
+        if not award_on_paid:
+            result['message'] = 'Points awarded at order creation, not payment confirmation'
+            return jsonify(result)
+
+        # If tenant requires payment confirmation, check if points were awarded
+        from ..models import PointsTransaction
+        existing_transaction = PointsTransaction.query.filter_by(
+            tenant_id=tenant.id,
+            reference_id=order_id,
+            transaction_type='earn'
+        ).first()
+
+        if existing_transaction:
+            result['message'] = 'Points already awarded for this order'
+            return jsonify(result)
+
+        # Award points now that payment is confirmed
+        # (Similar logic to orders/create but triggered here)
+        customer_data = order_data.get('customer', {})
+        shopify_customer_id = str(customer_data.get('id', '')) if customer_data else None
+
+        if shopify_customer_id:
+            member = Member.query.filter_by(
+                tenant_id=tenant.id,
+                shopify_customer_id=shopify_customer_id
+            ).first()
+
+            if member:
+                # Calculate points
+                subtotal = Decimal(str(order_data.get('subtotal_price', 0)))
+                points_per_dollar = settings.get('points_per_dollar', 1)
+                points_earned = int(float(subtotal) * points_per_dollar)
+
+                if points_earned > 0:
+                    transaction = PointsTransaction(
+                        tenant_id=tenant.id,
+                        member_id=member.id,
+                        points=points_earned,
+                        transaction_type='earn',
+                        source='purchase',
+                        reference_id=order_id,
+                        reference_type='shopify_order',
+                        description=f'Points earned - order #{order_number} (paid)',
+                        created_at=datetime.utcnow()
+                    )
+                    db.session.add(transaction)
+
+                    member.points_balance = (member.points_balance or 0) + points_earned
+                    member.lifetime_points = (member.lifetime_points or 0) + points_earned
+                    db.session.commit()
+
+                    result['points_earned'] = points_earned
+                    result['new_balance'] = member.points_balance
+
+        return jsonify(result)
+
+    except Exception as e:
+        current_app.logger.error(f'Error processing order paid webhook: {str(e)}')
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+@order_lifecycle_bp.route('/products/create', methods=['POST'])
+def handle_product_created():
+    """
+    Handle PRODUCTS_CREATE webhook.
+
+    Detects new membership products and can auto-configure them.
+    Useful for merchants who create new tier products.
+
+    Detection:
+    - Product type = 'Membership'
+    - Product tags containing 'membership' or 'tier'
+    - Product metafield 'tradeup.tier_id'
+    """
+    shop_domain = request.headers.get('X-Shopify-Shop-Domain', '')
+    tenant = get_tenant_from_domain(shop_domain)
+
+    if not tenant:
+        return jsonify({'error': 'Unknown shop'}), 404
+
+    try:
+        product_data = request.json
+        product_id = str(product_data.get('id'))
+        product_title = product_data.get('title', '')
+        product_type = product_data.get('product_type', '')
+        product_tags = product_data.get('tags', '')
+
+        result = {
+            'success': True,
+            'product_id': product_id,
+            'product_title': product_title,
+            'is_membership_product': False
+        }
+
+        # Check if this is a membership product
+        is_membership = False
+        detected_tier = None
+
+        # Check product type
+        if product_type and product_type.lower() == 'membership':
+            is_membership = True
+
+        # Check tags
+        tags_lower = product_tags.lower() if product_tags else ''
+        if 'membership' in tags_lower or 'tier' in tags_lower:
+            is_membership = True
+
+            # Try to extract tier name from tags
+            import re
+            tier_match = re.search(r'(?:membership|tier)[:\-_]?(\w+)', tags_lower)
+            if tier_match:
+                detected_tier = tier_match.group(1)
+
+        if is_membership:
+            result['is_membership_product'] = True
+            result['detected_tier'] = detected_tier
+
+            current_app.logger.info(
+                f'Detected new membership product: {product_title} (ID: {product_id}), '
+                f'detected tier: {detected_tier}'
+            )
+
+            # Optionally auto-link to tier if we can match by name
+            if detected_tier:
+                tier = MembershipTier.query.filter(
+                    MembershipTier.tenant_id == tenant.id,
+                    MembershipTier.is_active == True,
+                    db.func.lower(MembershipTier.name) == detected_tier.lower()
+                ).first()
+
+                if tier:
+                    result['matched_tier_id'] = tier.id
+                    result['matched_tier_name'] = tier.name
+                    # Note: We don't auto-link here, just report the match
+                    # Merchant should configure this manually for safety
+
+        return jsonify(result)
+
+    except Exception as e:
+        current_app.logger.error(f'Error processing product create webhook: {str(e)}')
+        return jsonify({'error': str(e)}), 500

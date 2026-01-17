@@ -124,7 +124,7 @@ class TradeInService:
             sync_service.sync_trade_in(batch)
         except Exception as e:
             # Log but don't fail the trade-in creation
-            print(f"Partner sync error (non-blocking): {e}")
+            current_app.logger.warning(f"Partner sync error (non-blocking): {e}")
 
         # Send trade-in created email notification
         try:
@@ -135,7 +135,7 @@ class TradeInService:
             )
         except Exception as e:
             # Log but don't fail the trade-in creation
-            print(f"Notification error (non-blocking): {e}")
+            current_app.logger.warning(f"Notification error (non-blocking): {e}")
 
         return batch
 
@@ -504,7 +504,7 @@ class TradeInService:
             )
         except Exception as e:
             # Log but don't fail the completion
-            print(f"Failed to send trade-in completion email: {e}")
+            current_app.logger.warning(f"Failed to send trade-in completion email: {e}")
 
         # Sync member metafields to Shopify (trade count, bonus earned, etc.)
         if not is_guest and member.shopify_customer_id:
@@ -530,7 +530,7 @@ class TradeInService:
                     shopify_customer_id=member.shopify_customer_id
                 )
             except Exception as sync_err:
-                print(f"Failed to sync metafields/trigger Flow: {sync_err}")
+                current_app.logger.warning(f"Failed to sync metafields/trigger Flow: {sync_err}")
 
         # Build response
         result = {
@@ -697,7 +697,7 @@ class TradeInService:
                     reason=reason
                 )
         except Exception as e:
-            print(f"Failed to send status notification: {e}")
+            current_app.logger.warning(f"Failed to send status notification: {e}")
 
         return {
             'success': True,

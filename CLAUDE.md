@@ -9,7 +9,7 @@ TradeUp is a **Shopify embedded app** for loyalty programs, trade-in management,
 - **Test Store**: uy288y-nx.myshopify.com (ORB Sports Cards)
 - **Repository**: https://github.com/alarconm/tradeup
 
-## Current Status (January 14, 2026)
+## Current Status (January 17, 2026)
 
 **FINAL TESTING PHASE** - 98% of user stories passing (196/200). See `docs/TESTING_PROGRESS.md`.
 
@@ -17,17 +17,32 @@ TradeUp is a **Shopify embedded app** for loyalty programs, trade-in management,
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Backend API (31 modules) | Complete | All endpoints functional |
-| Frontend (17 admin pages) | Complete | Full merchant dashboard |
-| Services (16 services) | Complete | Business logic layer |
-| Customer Account Extension | Complete | Rewards display in customer account |
-| Checkout UI Extension | Complete | Checkout integration |
-| Post-Purchase Extension | Complete | Post-purchase upsells |
-| Pixel Extension | Complete | Analytics tracking |
+| Backend API (43 modules) | 98% Complete | 2 runtime bugs need fixing |
+| Frontend (17+ admin pages) | Complete | Full merchant dashboard, no TODOs |
+| Services (30 services) | 95% Complete | 2 critical bugs, some placeholders |
+| Customer Account Extension | Complete | 1,211 lines, production ready |
+| Checkout UI Extension | Complete | Points display, tier badges |
+| Post-Purchase Extension | Complete | Celebration + referral prompts |
+| POS UI Extension | Complete | Member lookup for retail |
 | Shopify Billing (4 plans) | Complete | Free, Starter, Growth, Pro |
-| Webhooks (13 handlers) | Complete | Orders, customers, billing |
+| Webhooks (10/13 handlers) | 77% Complete | 3 missing handlers |
 | Landing Pages (13 variants) | Complete | A/B test ready |
 | App Proxy | Complete | Customer rewards page |
+
+### All Critical Bugs FIXED (January 17, 2026)
+
+| Bug | Fix Applied |
+|-----|-------------|
+| `flow_service.py:651` | ✓ Changed to `get_shopify_balance(member).get('balance', 0)` |
+| `tier_service.py:46` | ✓ Added `shopify_client` parameter to `__init__()` |
+
+### All Missing Webhook Handlers IMPLEMENTED
+
+| Topic | Status |
+|-------|--------|
+| `refunds/create` | ✓ Reverses points and credit proportionally |
+| `orders/paid` | ✓ Optional payment confirmation workflow |
+| `products/create` | ✓ Detects new membership products |
 
 ### Temporarily Disabled Extensions
 
@@ -35,14 +50,13 @@ TradeUp is a **Shopify embedded app** for loyalty programs, trade-in management,
 |-----------|--------|--------|
 | checkout-validation | Blocking deploy | Can re-enable post-launch |
 | tier-discount-function | Blocking deploy | Can re-enable post-launch |
-| theme-blocks | Removed for deploy | Future enhancement |
 
 ### Remaining Items
 
-1. **Commit pending changes** - Extension cleanup needs to be committed
-2. **End-to-end browser testing** - Full customer flow verification
-3. **Set SHOPIFY_BILLING_TEST=false** - For production charges
-4. **Complete setup in test store** - Verify store credit, membership products
+1. **Fix critical bugs** - flow_service.py and tier_service.py runtime errors
+2. **Implement refunds/create webhook** - Financial impact if refunds aren't processed
+3. **End-to-end browser testing** - Full customer flow verification
+4. **Set SHOPIFY_BILLING_TEST=false** - For production charges
 
 ## Quick Commands
 
@@ -63,24 +77,25 @@ make dev                     # Local development
 ```
 tradeup/
 ├── app/                    # Flask backend
-│   ├── api/               # 31 REST API modules
+│   ├── api/               # 43 REST API modules
 │   ├── models/            # 11 SQLAlchemy models
-│   ├── services/          # 16 business logic services
-│   ├── webhooks/          # 13 Shopify webhook handlers
+│   ├── services/          # 30 business logic services
+│   ├── webhooks/          # 6 webhook handler files (10 implemented topics)
 │   └── utils/             # Helpers (sentry.py)
 ├── frontend/              # React SPA (Vite + TypeScript)
-│   ├── src/admin/         # 17 merchant admin pages
-│   ├── src/embedded/      # Shopify embedded pages
+│   ├── src/admin/         # Admin components
+│   ├── src/embedded/      # 17+ Shopify embedded pages
 │   └── src/pages/         # Public pages
 ├── extensions/            # Shopify extensions
-│   ├── checkout-ui/       # Checkout integration
-│   ├── customer-account-ui/  # Customer rewards display
-│   ├── post-purchase-ui/  # Post-purchase upsells
-│   └── tradeup-pixel/     # Analytics tracking
+│   ├── checkout-ui/       # Checkout points display
+│   ├── customer-account-ui/  # Customer rewards display (1,211 lines)
+│   ├── post-purchase-ui/  # Post-purchase celebration
+│   ├── pos-ui/            # POS member lookup
+│   └── *.disabled/        # Temporarily disabled extensions
 ├── landing-pages/         # 13 A/B test variants
-├── migrations/            # 20 Alembic migrations
+├── migrations/            # Alembic migrations
 ├── scripts/               # Dev tools
-└── docs/                  # 13 documentation files
+└── docs/                  # Documentation files
 ```
 
 ## API Endpoints
@@ -123,18 +138,18 @@ Accessible at: `store.myshopify.com/apps/rewards`
 
 ## Shopify Extensions
 
-### Active Extensions
+### Active Extensions (4)
 
-| Extension | Purpose | Key File |
-|-----------|---------|----------|
-| checkout-ui | Checkout integration | `extensions/checkout-ui/` |
-| customer-account-ui | Rewards display | `extensions/customer-account-ui/src/TradeUpRewards.jsx` |
-| post-purchase-ui | Post-purchase upsells | `extensions/post-purchase-ui/` |
-| tradeup-pixel | Analytics tracking | `extensions/tradeup-pixel/` |
+| Extension | Purpose | Key Files |
+|-----------|---------|-----------|
+| checkout-ui | Points display at checkout | `src/Checkout.jsx`, 5 components |
+| customer-account-ui | Full rewards dashboard | `src/TradeUpRewards.jsx` (1,211 lines) |
+| post-purchase-ui | Celebration + referral prompt | `src/index.jsx` (585 lines) |
+| pos-ui | POS member lookup | `src/SmartGridTile.tsx`, `src/MemberModal.tsx` (TypeScript) |
 
-### Disabled Extensions (in `.disabled` folders)
-- `checkout-validation.disabled` - Checkout validation (future)
-- `tier-discount-function.disabled` - Tier discounts (future)
+### Disabled Extensions (2)
+- `checkout-validation.disabled` - Checkout validation (can re-enable post-launch)
+- `tier-discount-function.disabled` - Tier discounts (can re-enable post-launch)
 
 ## Billing Plans
 

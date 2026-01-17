@@ -10,6 +10,7 @@ from decimal import Decimal
 from typing import List, Dict, Any, Optional, Set
 from dataclasses import dataclass, field, asdict
 import httpx
+from flask import current_app
 
 
 @dataclass
@@ -968,7 +969,7 @@ class StoreCreditEventService:
                 result = self.shopify_client._execute_query(graphql_query, variables)
                 orders_data = result.get('orders', {})
             except Exception as e:
-                print(f"[StoreCreditEvents] Error fetching orders: {e}")
+                current_app.logger.error(f"[StoreCreditEvents] Error fetching orders: {e}")
                 break
 
             edges = orders_data.get('edges', [])

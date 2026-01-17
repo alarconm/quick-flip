@@ -803,9 +803,9 @@ def submit_bug_report():
             level='error' if severity in ['high', 'critical'] else 'warning',
             extras=report
         )
-    except Exception:
-        # Sentry might not be configured - that's OK
-        pass
+    except Exception as e:
+        # Sentry might not be configured - that's OK, log locally
+        current_app.logger.debug(f"Could not send to Sentry (may not be configured): {e}")
 
     # Log to console for debugging
     import logging

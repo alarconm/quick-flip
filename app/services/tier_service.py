@@ -43,9 +43,18 @@ class TierService:
         result = service.assign_tier(member_id, tier_id, source='staff', ...)
     """
 
-    def __init__(self, tenant_id: int):
+    def __init__(self, tenant_id: int, shopify_client=None):
         self.tenant_id = tenant_id
         self.tenant = Tenant.query.get(tenant_id)
+        # Create ShopifyClient if not provided (needed for metafield sync and Flow triggers)
+        if shopify_client:
+            self.shopify_client = shopify_client
+        else:
+            try:
+                from .shopify_client import ShopifyClient
+                self.shopify_client = ShopifyClient(tenant_id)
+            except Exception:
+                self.shopify_client = None
 
     # ==================== Core Tier Assignment ====================
 

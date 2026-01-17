@@ -14,6 +14,7 @@ import os
 import requests
 from datetime import datetime
 from typing import Optional, Dict, Any, List
+from flask import current_app
 from ..extensions import db
 from ..models import Member, MembershipTier, Tenant
 from .email_service import email_service
@@ -565,7 +566,7 @@ class ShopifyBillingWebhookHandler:
         status = payload.get('app_purchase_one_time', {}).get('status')
 
         # Log the purchase update
-        print(f"[Shopify Billing] One-time purchase {purchase_id}: {status}")
+        current_app.logger.info(f"[Shopify Billing] One-time purchase {purchase_id}: {status}")
 
         return {
             'handled': True,

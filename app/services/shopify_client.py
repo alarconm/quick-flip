@@ -4,6 +4,7 @@ Handles store credit operations and customer management.
 """
 import httpx
 from typing import Optional, Dict, Any, List
+from flask import current_app
 
 
 class ShopifyClient:
@@ -2233,8 +2234,8 @@ class ShopifyClient:
 
         # Alternative approach: Use discount codes with customer tag validation
         # For now, log that manual configuration may be needed
-        print(f"Note: Customer tag '{customer_tag}' condition for discount {discount_id}")
-        print("Automatic discounts with customer eligibility may require manual Shopify admin setup")
+        current_app.logger.info(f"Note: Customer tag '{customer_tag}' condition for discount {discount_id}")
+        current_app.logger.info("Automatic discounts with customer eligibility may require manual Shopify admin setup")
         return True
 
     def create_tier_discount_code(

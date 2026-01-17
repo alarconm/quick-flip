@@ -55,14 +55,14 @@ def list_entries():
                 start = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
                 query = query.filter(TradeInLedger.trade_date >= start)
             except ValueError:
-                pass
+                current_app.logger.warning(f"Invalid start_date format: {start_date}")
 
         if end_date:
             try:
                 end = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
                 query = query.filter(TradeInLedger.trade_date <= end)
             except ValueError:
-                pass
+                current_app.logger.warning(f"Invalid end_date format: {end_date}")
 
         if search:
             search_term = f'%{search}%'
@@ -375,14 +375,14 @@ def get_summary():
                 start = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
                 query = query.filter(TradeInLedger.trade_date >= start)
             except ValueError:
-                pass
+                current_app.logger.warning(f"Invalid start_date format: {start_date}")
 
         if end_date:
             try:
                 end = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
                 query = query.filter(TradeInLedger.trade_date <= end)
             except ValueError:
-                pass
+                current_app.logger.warning(f"Invalid end_date format: {end_date}")
 
         result = query.first()
 

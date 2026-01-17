@@ -16,6 +16,7 @@ These tasks can be triggered by:
 from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import List, Dict, Any, Optional
+from flask import current_app
 from sqlalchemy import and_, or_
 from ..extensions import db
 from ..models.member import Member, MembershipTier
@@ -428,10 +429,11 @@ class ScheduledTasksService:
     def _log_scheduled_task(self, task_name: str, tenant_id: int, results: Dict):
         """Log a scheduled task execution for audit purposes."""
         # Could store in a ScheduledTaskLog model
-        # For now, just print
-        print(f"[ScheduledTask] {task_name} for tenant {tenant_id}: "
-              f"processed={results.get('processed', 0)}, "
-              f"errors={len(results.get('errors', []))}")
+        current_app.logger.info(
+            f"[ScheduledTask] {task_name} for tenant {tenant_id}: "
+            f"processed={results.get('processed', 0)}, "
+            f"errors={len(results.get('errors', []))}"
+        )
 
 
     # ==================== POINTS EXPIRATION ====================

@@ -596,13 +596,13 @@ def get_audit_log():
             from_dt = datetime.fromisoformat(from_date.replace('Z', '+00:00'))
             query = query.filter(TierChangeLog.created_at >= from_dt)
         except ValueError:
-            pass
+            current_app.logger.warning(f"Invalid from_date format: {from_date}")
     if to_date:
         try:
             to_dt = datetime.fromisoformat(to_date.replace('Z', '+00:00'))
             query = query.filter(TierChangeLog.created_at <= to_dt)
         except ValueError:
-            pass
+            current_app.logger.warning(f"Invalid to_date format: {to_date}")
 
     total = query.count()
     logs = query.order_by(TierChangeLog.created_at.desc()).limit(limit).offset(offset).all()

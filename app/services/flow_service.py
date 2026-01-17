@@ -647,8 +647,9 @@ class FlowService:
                 sync_to_shopify=True
             )
 
-            # Get updated balance
-            balance = store_credit_service.get_balance(member.id)
+            # Get updated balance from Shopify (source of truth)
+            balance_info = store_credit_service.get_shopify_balance(member)
+            balance = balance_info.get('balance', 0)
 
             return {
                 'success': True,
@@ -766,9 +767,10 @@ class FlowService:
                 'is_member': False
             }
 
-        # Get credit balance
+        # Get credit balance from Shopify (source of truth)
         try:
-            balance = store_credit_service.get_balance(member.id)
+            balance_info = store_credit_service.get_shopify_balance(member)
+            balance = balance_info.get('balance', 0)
         except Exception:
             balance = 0
 

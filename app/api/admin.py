@@ -6,11 +6,12 @@ Authentication:
 - Uses Shopify session tokens (JWT) for embedded app requests
 - Falls back to shop query param or X-Tenant-ID header for dev/backwards compat
 """
-from flask import Blueprint, request, jsonify, g
+from flask import Blueprint, request, jsonify, g, current_app
 from functools import wraps
 
 from ..extensions import db
 from ..models.member import Member, MembershipTier
+from ..models.promotions import StoreCreditLedger
 from ..services.shopify_client import ShopifyClient
 from ..services.store_credit_events import StoreCreditEventService
 from ..middleware.shopify_auth import require_shopify_auth
@@ -47,7 +48,8 @@ def require_tenant(f):
                 g.tenant_id = int(tenant_id)
                 return f(*args, **kwargs)
             except (ValueError, TypeError):
-                pass
+                # Invalid tenant ID format - fall through to error
+                current_app.logger.warning(f"Invalid tenant ID format: {tenant_id}")
 
         return jsonify({'error': 'Tenant ID required'}), 400
 
@@ -108,12 +110,28 @@ def get_dashboard_stats():
             'meta': {'member_id': member.id}
         })
 
+    # Count store credit events this month (credit ledger entries)
+    total_events_this_month = StoreCreditLedger.query.filter(
+        StoreCreditLedger.tenant_id == tenant_id,
+        StoreCreditLedger.created_at >= month_start
+    ).count()
+
+    # Sum of credits issued this month (positive amounts only)
+    total_credited_result = db.session.query(
+        func.coalesce(func.sum(StoreCreditLedger.amount), 0)
+    ).filter(
+        StoreCreditLedger.tenant_id == tenant_id,
+        StoreCreditLedger.created_at >= month_start,
+        StoreCreditLedger.amount > 0  # Only positive credits, not deductions
+    ).scalar()
+    total_credited_this_month = float(total_credited_result or 0)
+
     return jsonify({
         'total_members': total_members,
         'active_members': active_members,
         'members_this_month': members_this_month,
-        'total_events_this_month': 0,  # TODO: Track events
-        'total_credited_this_month': 0,  # TODO: Track credits
+        'total_events_this_month': total_events_this_month,
+        'total_credited_this_month': total_credited_this_month,
         'members_by_tier': members_by_tier,
         'recent_activity': recent_activity
     })

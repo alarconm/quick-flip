@@ -6,7 +6,7 @@ import os
 import hmac
 import hashlib
 import base64
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from ..services.shopify_billing import ShopifyBillingWebhookHandler
 
 shopify_billing_webhook_bp = Blueprint('shopify_billing_webhook', __name__)
@@ -70,7 +70,7 @@ def handle_subscription_webhook():
     handler = ShopifyBillingWebhookHandler(tenant.id)
     result = handler.handle_subscription_update(payload)
 
-    print(f"[Shopify Billing] Subscription update for {shop_domain}: {result}")
+    current_app.logger.info(f"[Shopify Billing] Subscription update for {shop_domain}: {result}")
 
     return jsonify(result)
 
@@ -99,7 +99,7 @@ def handle_purchase_webhook():
     handler = ShopifyBillingWebhookHandler(tenant.id)
     result = handler.handle_one_time_purchase_update(payload)
 
-    print(f"[Shopify Billing] Purchase update for {shop_domain}: {result}")
+    current_app.logger.info(f"[Shopify Billing] Purchase update for {shop_domain}: {result}")
 
     return jsonify(result)
 
@@ -128,7 +128,7 @@ def handle_usage_alert_webhook():
     handler = ShopifyBillingWebhookHandler(tenant.id)
     result = handler.handle_approaching_capped_amount(payload)
 
-    print(f"[Shopify Billing] Usage alert for {shop_domain}: {result}")
+    current_app.logger.info(f"[Shopify Billing] Usage alert for {shop_domain}: {result}")
 
     return jsonify(result)
 
