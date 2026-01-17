@@ -155,6 +155,7 @@ class MembershipService:
 
             customer['is_member'] = existing is not None
             if existing:
+                customer['member_id'] = existing.id
                 customer['member_number'] = existing.member_number
                 customer['member_tier'] = existing.tier.name if existing.tier else None
 

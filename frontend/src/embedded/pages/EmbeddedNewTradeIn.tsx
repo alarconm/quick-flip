@@ -1,7 +1,7 @@
 /**
  * TradeUp New Trade-In - Shopify Embedded Version
  *
- * Create new trade-in batches with member search, category selection,
+ * Create new trade-in batches with Shopify customer search, category selection,
  * and item entry. Uses Shopify Polaris for consistent UX.
  */
 import { useState, useCallback, useEffect } from 'react';
@@ -19,11 +19,11 @@ import {
   TextField,
   FormLayout,
   Banner,
-  Autocomplete,
   Icon,
   Divider,
   ChoiceList,
   Modal,
+  Spinner,
 } from '@shopify/polaris';
 import {
   SearchIcon,
@@ -38,17 +38,6 @@ import { getApiUrl, authFetch } from '../../hooks/useShopifyBridge';
 
 interface NewTradeInProps {
   shop: string | null;
-}
-
-interface Member {
-  id: number;
-  member_number: string;
-  name: string | null;
-  email: string;
-  tier: {
-    id: number;
-    name: string;
-  } | null;
 }
 
 interface TradeInCategory {
@@ -67,13 +56,33 @@ interface TradeInItem {
 
 interface ShopifyCustomer {
   id: string;
+  gid?: string;
   email: string;
   firstName: string;
   lastName: string;
   displayName?: string;
+  name?: string;
   phone: string | null;
-  ordersCount: number;
-  totalSpent: number | string;
+  ordersCount?: number;
+  numberOfOrders?: number;
+  totalSpent?: number | string;
+  amountSpent?: number | string;
+  storeCredit?: number;
+  is_member?: boolean;
+  member_id?: number;
+  member_number?: string;
+}
+
+// Custom hook for debouncing a value
+function useDebouncedValue<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+
+  return debouncedValue;
 }
 
 // Default categories if none are configured (TCGs and collectibles)
@@ -87,13 +96,6 @@ const DEFAULT_CATEGORIES: TradeInCategory[] = [
   { id: 'tcg_other', name: 'Other TCG', icon: '🎴' },
   { id: 'other', name: 'Other', icon: '📦' },
 ];
-
-async function searchMembers(shop: string | null, query: string): Promise<{ members: Member[] }> {
-  const params = new URLSearchParams({ search: query, limit: '10' });
-  const response = await authFetch(`${getApiUrl()}/members?${params}`, shop);
-  if (!response.ok) throw new Error('Failed to search members');
-  return response.json();
-}
 
 async function fetchCategories(shop: string | null): Promise<{ categories: TradeInCategory[] }> {
   const response = await authFetch(`${getApiUrl()}/trade-ins/categories`, shop);
@@ -158,21 +160,21 @@ export function EmbeddedNewTradeIn({ shop }: NewTradeInProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  // Member search state
-  const [memberSearch, setMemberSearch] = useState('');
-  const [selectedMember, setSelectedMember] = useState<Member | null>(null);
-  const [memberOptions, setMemberOptions] = useState<Array<{ value: string; label: string }>>([]);
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [, setSearchPerformed] = useState(false);
-
-  // Inline add member modal state
-  const [addMemberModalOpen, setAddMemberModalOpen] = useState(false);
-  const [customerSearchQuery, setCustomerSearchQuery] = useState('');
-  const [customerSearchResults, setCustomerSearchResults] = useState<ShopifyCustomer[]>([]);
-  const [customerSearching, setCustomerSearching] = useState(false);
+  // Customer search state (instant search like Add Member modal)
+  const [customerSearch, setCustomerSearch] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState<ShopifyCustomer | null>(null);
-  const [enrolling, setEnrolling] = useState(false);
-  const [enrollError, setEnrollError] = useState('');
+  const [searchResults, setSearchResults] = useState<ShopifyCustomer[]>([]);
+  const [searching, setSearching] = useState(false);
+
+  // Fast debounce for instant search feel (like Shopify POS)
+  const debouncedSearch = useDebouncedValue(customerSearch, 150);
+
+  // Create new customer mode
+  const [createNewMode, setCreateNewMode] = useState(false);
+  const [newEmail, setNewEmail] = useState('');
+  const [newFirstName, setNewFirstName] = useState('');
+  const [newLastName, setNewLastName] = useState('');
+  const [newPhone, setNewPhone] = useState('');
 
   // Category state
   const [selectedCategory, setSelectedCategory] = useState('other');
@@ -199,133 +201,129 @@ export function EmbeddedNewTradeIn({ shop }: NewTradeInProps) {
     ? categoriesData.categories
     : DEFAULT_CATEGORIES;
 
-  // Member search with debounce
+  // Instant search triggered by debounced query (like Shopify POS)
   useEffect(() => {
-    if (!memberSearch || memberSearch.length < 2 || selectedMember) {
-      setMemberOptions([]);
-      if (!memberSearch) setSearchPerformed(false);
-      return;
-    }
+    const searchCustomers = async () => {
+      // Only search if we have at least 2 characters and no customer selected
+      if (!debouncedSearch || debouncedSearch.length < 2 || selectedCustomer) {
+        if (!selectedCustomer) setSearchResults([]);
+        return;
+      }
 
-    const timeoutId = setTimeout(async () => {
-      setSearchLoading(true);
+      setSearching(true);
       try {
-        const result = await searchMembers(shop, memberSearch);
-        setMemberOptions(
-          result.members.filter(m => m && m.id != null).map((m) => ({
-            value: String(m.id),
-            label: `${m.name || m.email || 'Unknown'} (${m.member_number || 'N/A'})`,
-            member: m,
-          }))
+        const response = await authFetch(
+          `${getApiUrl()}/members/search-shopify?q=${encodeURIComponent(debouncedSearch)}`,
+          shop
         );
-        setSearchPerformed(true);
+        if (response.ok) {
+          const data = await response.json();
+          setSearchResults(data.customers || []);
+        }
       } catch (err) {
         console.error('Search failed:', err);
-        setMemberOptions([]);
-        setSearchPerformed(true);
       } finally {
-        setSearchLoading(false);
+        setSearching(false);
       }
-    }, 300);
+    };
 
-    return () => clearTimeout(timeoutId);
-  }, [memberSearch, shop, selectedMember]);
-
-  // Search Shopify customers for inline add member
-  const searchShopifyCustomers = useCallback(async () => {
-    if (!customerSearchQuery || customerSearchQuery.length < 2) return;
-
-    setCustomerSearching(true);
-    try {
-      const response = await authFetch(
-        `${getApiUrl()}/admin/shopify/customers/search?q=${encodeURIComponent(customerSearchQuery)}`,
-        shop
-      );
-      if (response.ok) {
-        const data = await response.json();
-        setCustomerSearchResults(data.customers || []);
-      }
-    } catch (err) {
-      console.error('Customer search failed:', err);
-    } finally {
-      setCustomerSearching(false);
-    }
-  }, [customerSearchQuery, shop]);
-
-  // Enroll customer as member
-  const enrollCustomerAsMember = useCallback(async () => {
-    if (!selectedCustomer) return;
-
-    setEnrolling(true);
-    setEnrollError('');
-    try {
-      const response = await authFetch(`${getApiUrl()}/members`, shop, {
-        method: 'POST',
-        body: JSON.stringify({
-          shopify_customer_id: selectedCustomer.id,
-          email: selectedCustomer.email,
-          first_name: selectedCustomer.firstName,
-          last_name: selectedCustomer.lastName,
-          phone: selectedCustomer.phone,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to enroll member');
-      }
-
-      const newMember = await response.json();
-
-      // Set the new member as selected
-      setSelectedMember({
-        id: newMember.id,
-        member_number: newMember.member_number || '',
-        name: `${selectedCustomer.firstName} ${selectedCustomer.lastName}`.trim() || null,
-        email: selectedCustomer.email,
-        tier: newMember.tier || null,
-      });
-
-      // Invalidate members query for future searches
-      queryClient.invalidateQueries({ queryKey: ['members'] });
-
-      // Close modal and reset state
-      setAddMemberModalOpen(false);
-      setCustomerSearchQuery('');
-      setCustomerSearchResults([]);
-      setSelectedCustomer(null);
-    } catch (err) {
-      setEnrollError(err instanceof Error ? err.message : 'Failed to enroll member');
-    } finally {
-      setEnrolling(false);
-    }
-  }, [selectedCustomer, shop, queryClient]);
-
-  // Close add member modal and reset
-  const closeAddMemberModal = useCallback(() => {
-    setAddMemberModalOpen(false);
-    setCustomerSearchQuery('');
-    setCustomerSearchResults([]);
-    setSelectedCustomer(null);
-    setEnrollError('');
-  }, []);
+    searchCustomers();
+  }, [debouncedSearch, shop, selectedCustomer]);
 
   // Success state for showing completion result
   const [completionResult, setCompletionResult] = useState<CompleteBatchResult | null>(null);
 
-  // Create trade-in mutation - now auto-completes and issues store credit
+  // Create new Shopify customer mutation
+  const createCustomerMutation = useMutation({
+    mutationFn: async () => {
+      if (!newEmail) throw new Error('Email is required');
+
+      const response = await authFetch(`${getApiUrl()}/members/create-and-enroll`, shop, {
+        method: 'POST',
+        body: JSON.stringify({
+          email: newEmail,
+          first_name: newFirstName || undefined,
+          last_name: newLastName || undefined,
+          phone: newPhone || undefined,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create customer');
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      // Set the new customer as selected
+      setSelectedCustomer({
+        id: data.shopify_customer_id || data.id,
+        email: newEmail,
+        firstName: newFirstName,
+        lastName: newLastName,
+        phone: newPhone || null,
+        is_member: true,
+        member_number: data.member_number,
+      });
+
+      // Reset create mode
+      setCreateNewMode(false);
+      setNewEmail('');
+      setNewFirstName('');
+      setNewLastName('');
+      setNewPhone('');
+
+      queryClient.invalidateQueries({ queryKey: ['members'] });
+    },
+    onError: (err: Error) => {
+      setError(err.message);
+    },
+  });
+
+  // Create trade-in mutation - auto-enrolls customer if needed, then creates and completes trade-in
   const createMutation = useMutation({
     mutationFn: async () => {
-      if (!selectedMember) throw new Error('Please select a member');
+      if (!selectedCustomer) throw new Error('Please select a customer');
 
       const validItems = items.filter((item) => item.trade_value && parseFloat(item.trade_value) > 0);
       if (validItems.length === 0) {
         throw new Error('Please add at least one item with a trade value');
       }
 
+      let memberId: number;
+
+      // If customer is already a member, use their member_id
+      if (selectedCustomer.is_member && selectedCustomer.member_id) {
+        memberId = selectedCustomer.member_id;
+      } else {
+        // Enroll the customer as a member first
+        const enrollResponse = await authFetch(`${getApiUrl()}/members/enroll`, shop, {
+          method: 'POST',
+          body: JSON.stringify({
+            shopify_customer_id: selectedCustomer.id,
+          }),
+        });
+
+        if (!enrollResponse.ok) {
+          const error = await enrollResponse.json();
+          throw new Error(error.error || 'Failed to enroll customer');
+        }
+
+        const enrollData = await enrollResponse.json();
+        memberId = enrollData.id || enrollData.member_id;
+
+        // Update the selected customer to reflect membership
+        setSelectedCustomer({
+          ...selectedCustomer,
+          is_member: true,
+          member_id: memberId,
+          member_number: enrollData.member_number,
+        });
+      }
+
       // Create batch
       const batch = await createTradeInBatch(shop, {
-        member_id: selectedMember.id,
+        member_id: memberId,
         category: selectedCategory,
         notes: batchNotes || undefined,
       });
@@ -349,31 +347,29 @@ export function EmbeddedNewTradeIn({ shop }: NewTradeInProps) {
     onSuccess: (result) => {
       setCompletionResult(result);
       queryClient.invalidateQueries({ queryKey: ['trade-ins'] });
+      queryClient.invalidateQueries({ queryKey: ['members'] });
     },
     onError: (err: Error) => {
       setError(err.message);
     },
   });
 
-  // Handle member selection
-  const handleMemberSelect = useCallback((selected: string[]) => {
-    const memberId = selected[0];
-    if (!memberId) return;
-
-    // Find the member from options
-    const option = memberOptions.find((o) => o.value === memberId);
-    if (option && 'member' in option) {
-      setSelectedMember((option as { member: Member }).member);
-      setMemberSearch('');
-      setMemberOptions([]);
-    }
-  }, [memberOptions]);
-
-  // Clear member selection
-  const clearMember = useCallback(() => {
-    setSelectedMember(null);
-    setMemberSearch('');
+  // Handle customer selection
+  const handleCustomerSelect = useCallback((customer: ShopifyCustomer) => {
+    setSelectedCustomer(customer);
+    setCustomerSearch('');
+    setSearchResults([]);
   }, []);
+
+  // Clear customer selection
+  const clearCustomer = useCallback(() => {
+    setSelectedCustomer(null);
+    setCustomerSearch('');
+    setSearchResults([]);
+  }, []);
+
+  // Determine if we can create a new customer
+  const canCreateNew = newEmail && newEmail.includes('@') && newEmail.includes('.');
 
   // Add item
   const addItem = useCallback(() => {
@@ -434,13 +430,13 @@ export function EmbeddedNewTradeIn({ shop }: NewTradeInProps) {
   return (
     <Page
       title="New Trade-In"
-      subtitle="Create a new trade-in batch for a member"
+      subtitle="Create a new trade-in batch for a customer"
       backAction={{ content: 'Trade-Ins', onAction: () => navigate('/app/trade-ins') }}
       primaryAction={{
         content: `Complete Trade-In & Issue ${formatCurrency(totalTradeValue)}`,
         onAction: handleSubmit,
         loading: createMutation.isPending,
-        disabled: !selectedMember || totalTradeValue <= 0,
+        disabled: !selectedCustomer || totalTradeValue <= 0,
       }}
     >
       <Layout>
@@ -452,25 +448,25 @@ export function EmbeddedNewTradeIn({ shop }: NewTradeInProps) {
           </Layout.Section>
         )}
 
-        {/* Warning when no member selected but items added */}
-        {!selectedMember && totalTradeValue > 0 && (
+        {/* Warning when no customer selected but items added */}
+        {!selectedCustomer && totalTradeValue > 0 && (
           <Layout.Section>
             <Banner tone="warning" icon={AlertCircleIcon}>
-              <p>Please select a member before creating the trade-in. Use the search above or add a new member from your Shopify customers.</p>
+              <p>Please select a customer before creating the trade-in. Search for an existing customer or create a new one.</p>
             </Banner>
           </Layout.Section>
         )}
 
-        {/* Step 1: Select Member */}
+        {/* Step 1: Select Customer */}
         <Layout.Section>
           <Card>
             <BlockStack gap="400">
               <InlineStack gap="200" blockAlign="center">
                 <Badge tone="info">1</Badge>
-                <Text as="h2" variant="headingMd">Select Member</Text>
+                <Text as="h2" variant="headingMd">Select Customer</Text>
               </InlineStack>
 
-              {selectedMember ? (
+              {selectedCustomer ? (
                 <Box
                   padding="400"
                   background="bg-surface-success"
@@ -488,68 +484,210 @@ export function EmbeddedNewTradeIn({ shop }: NewTradeInProps) {
                         <Icon source={CheckIcon} tone="success" />
                       </Box>
                       <BlockStack gap="050">
-                        <Text as="span" variant="bodyMd" fontWeight="semibold">
-                          {selectedMember.name || selectedMember.email}
-                        </Text>
+                        <InlineStack gap="200" blockAlign="center">
+                          <Text as="span" variant="bodyMd" fontWeight="semibold">
+                            {selectedCustomer.name || `${selectedCustomer.firstName || ''} ${selectedCustomer.lastName || ''}`.trim() || selectedCustomer.email}
+                          </Text>
+                          {selectedCustomer.is_member && (
+                            <Badge tone="success" size="small">Member</Badge>
+                          )}
+                        </InlineStack>
                         <Text as="span" variant="bodySm" tone="subdued">
-                          {selectedMember.member_number} · {selectedMember.tier?.name || 'No tier'}
+                          {selectedCustomer.email}
+                          {selectedCustomer.is_member && selectedCustomer.member_number && ` · ${selectedCustomer.member_number}`}
                         </Text>
                       </BlockStack>
                     </InlineStack>
-                    <Button variant="plain" onClick={clearMember}>
+                    <Button variant="plain" onClick={clearCustomer}>
                       Change
                     </Button>
                   </InlineStack>
                 </Box>
+              ) : createNewMode ? (
+                <BlockStack gap="400">
+                  <Banner tone="info">
+                    <Text as="p">
+                      Create a new customer in Shopify. They will be automatically enrolled in your loyalty program.
+                    </Text>
+                  </Banner>
+
+                  <FormLayout>
+                    <TextField
+                      label="Email"
+                      type="email"
+                      value={newEmail}
+                      onChange={setNewEmail}
+                      autoComplete="email"
+                      placeholder="customer@example.com"
+                      requiredIndicator
+                      error={newEmail && !canCreateNew ? 'Please enter a valid email' : undefined}
+                    />
+
+                    <FormLayout.Group>
+                      <TextField
+                        label="First Name"
+                        value={newFirstName}
+                        onChange={setNewFirstName}
+                        autoComplete="given-name"
+                        placeholder="John"
+                      />
+                      <TextField
+                        label="Last Name"
+                        value={newLastName}
+                        onChange={setNewLastName}
+                        autoComplete="family-name"
+                        placeholder="Doe"
+                      />
+                    </FormLayout.Group>
+
+                    <TextField
+                      label="Phone (optional)"
+                      type="tel"
+                      value={newPhone}
+                      onChange={setNewPhone}
+                      autoComplete="tel"
+                      placeholder="+1 555-123-4567"
+                    />
+                  </FormLayout>
+
+                  <InlineStack gap="200">
+                    <Button
+                      variant="primary"
+                      onClick={() => createCustomerMutation.mutate()}
+                      loading={createCustomerMutation.isPending}
+                      disabled={!canCreateNew}
+                    >
+                      Create Customer
+                    </Button>
+                    <Button
+                      variant="plain"
+                      onClick={() => {
+                        setCreateNewMode(false);
+                        setNewEmail('');
+                        setNewFirstName('');
+                        setNewLastName('');
+                        setNewPhone('');
+                      }}
+                    >
+                      Back to Search
+                    </Button>
+                  </InlineStack>
+                </BlockStack>
               ) : (
                 <BlockStack gap="300">
-                  <Autocomplete
-                    options={memberOptions}
-                    selected={[]}
-                    onSelect={handleMemberSelect}
-                    loading={searchLoading}
-                    textField={
-                      <Autocomplete.TextField
-                        label="Search members"
-                        labelHidden
-                        onChange={setMemberSearch}
-                        value={memberSearch}
-                        prefix={<Icon source={SearchIcon} />}
-                        placeholder="Search by member number, name, or email..."
-                        autoComplete="off"
-                      />
-                    }
-                    emptyState={
-                      memberSearch.length >= 2 ? (
-                        <Box padding="400">
-                          <BlockStack gap="200" inlineAlign="center">
-                            <Text as="p" tone="subdued" alignment="center">
-                              No members found matching "{memberSearch}"
-                            </Text>
-                            <Button
-                              size="slim"
-                              onClick={() => setAddMemberModalOpen(true)}
-                            >
-                              Add New Member
-                            </Button>
-                          </BlockStack>
-                        </Box>
-                      ) : undefined
-                    }
+                  <TextField
+                    label="Search Shopify Customers"
+                    labelHidden
+                    value={customerSearch}
+                    onChange={setCustomerSearch}
+                    placeholder="Type to search by name, email, or phone..."
+                    autoComplete="off"
+                    clearButton
+                    onClearButtonClick={() => setCustomerSearch('')}
+                    prefix={<Icon source={SearchIcon} />}
+                    suffix={searching ? <Spinner size="small" /> : null}
+                    helpText={customerSearch.length > 0 && customerSearch.length < 2 ? "Type at least 2 characters" : undefined}
                   />
-                  {!selectedMember && !memberSearch && (
-                    <InlineStack gap="200" blockAlign="center">
-                      <Text as="span" variant="bodySm" tone="subdued">
-                        Don't see the customer?
+
+                  {searchResults.length > 0 ? (
+                    <BlockStack gap="200">
+                      <Text as="h3" variant="headingSm">
+                        Search Results ({searchResults.length})
+                      </Text>
+                      {searchResults.map((customer) => (
+                        <div
+                          key={customer.id}
+                          onClick={() => handleCustomerSelect(customer)}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(e) => e.key === 'Enter' && handleCustomerSelect(customer)}
+                          style={{ cursor: 'pointer' }}
+                        >
+                          <Box
+                            padding="300"
+                            background="bg-surface-secondary"
+                            borderRadius="200"
+                          >
+                            <InlineStack align="space-between" blockAlign="center">
+                              <BlockStack gap="100">
+                                <InlineStack gap="200" blockAlign="center">
+                                  <Text as="span" fontWeight="semibold">
+                                    {customer.name || `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || 'Unknown'}
+                                  </Text>
+                                  {customer.is_member && (
+                                    <Badge tone="success" size="small">{`Member ${customer.member_number || ''}`}</Badge>
+                                  )}
+                                </InlineStack>
+                                <Text as="span" variant="bodySm" tone="subdued">
+                                  {customer.email}
+                                </Text>
+                              </BlockStack>
+                              <BlockStack gap="050" inlineAlign="end">
+                                <InlineStack gap="200">
+                                  <Text as="span" variant="bodySm">
+                                    {customer.numberOfOrders || customer.ordersCount || 0} orders
+                                  </Text>
+                                  <Text as="span" variant="bodySm" tone="subdued">
+                                    ${Number(customer.amountSpent || customer.totalSpent || 0).toFixed(2)} spent
+                                  </Text>
+                                </InlineStack>
+                                {(customer.storeCredit ?? 0) > 0 && (
+                                  <Badge tone="info" size="small">
+                                    {`$${Number(customer.storeCredit).toFixed(2)} credit`}
+                                  </Badge>
+                                )}
+                              </BlockStack>
+                            </InlineStack>
+                          </Box>
+                        </div>
+                      ))}
+
+                      <Divider />
+                      <Button
+                        variant="plain"
+                        onClick={() => setCreateNewMode(true)}
+                      >
+                        Or create a new customer
+                      </Button>
+                    </BlockStack>
+                  ) : debouncedSearch.length >= 2 && !searching ? (
+                    <BlockStack gap="300">
+                      <Banner tone="info">
+                        <Text as="p">No customers found matching "{debouncedSearch}"</Text>
+                      </Banner>
+                      <Button
+                        variant="primary"
+                        onClick={() => {
+                          setCreateNewMode(true);
+                          // Pre-fill email if search query looks like an email
+                          if (customerSearch.includes('@')) {
+                            setNewEmail(customerSearch);
+                          }
+                        }}
+                        fullWidth
+                      >
+                        Create New Customer
+                      </Button>
+                    </BlockStack>
+                  ) : (
+                    <BlockStack gap="300">
+                      <Text as="p" tone="subdued" alignment="center">
+                        {searching ? (
+                          <InlineStack gap="200" align="center">
+                            <Spinner size="small" />
+                            <span>Searching...</span>
+                          </InlineStack>
+                        ) : (
+                          'Start typing to search for Shopify customers, or create a new customer.'
+                        )}
                       </Text>
                       <Button
                         variant="plain"
-                        size="slim"
-                        onClick={() => setAddMemberModalOpen(true)}
+                        onClick={() => setCreateNewMode(true)}
                       >
-                        Add new member from Shopify
+                        Create new customer instead
                       </Button>
-                    </InlineStack>
+                    </BlockStack>
                   )}
                 </BlockStack>
               )}
@@ -698,136 +836,13 @@ export function EmbeddedNewTradeIn({ shop }: NewTradeInProps) {
               variant="primary"
               onClick={handleSubmit}
               loading={createMutation.isPending}
-              disabled={!selectedMember || totalTradeValue <= 0}
+              disabled={!selectedCustomer || totalTradeValue <= 0}
             >
               Complete Trade-In & Issue {formatCurrency(totalTradeValue)}
             </Button>
           </InlineStack>
         </Layout.Section>
       </Layout>
-
-      {/* Inline Add Member Modal */}
-      <Modal
-        open={addMemberModalOpen}
-        onClose={closeAddMemberModal}
-        title="Add New Member"
-        primaryAction={
-          selectedCustomer
-            ? {
-                content: 'Enroll as Member',
-                onAction: enrollCustomerAsMember,
-                loading: enrolling,
-              }
-            : undefined
-        }
-        secondaryActions={
-          selectedCustomer
-            ? [{ content: 'Back', onAction: () => setSelectedCustomer(null) }]
-            : [{ content: 'Cancel', onAction: closeAddMemberModal }]
-        }
-      >
-        <Modal.Section>
-          {enrollError && (
-            <Box paddingBlockEnd="400">
-              <Banner tone="critical">
-                <p>{enrollError}</p>
-              </Banner>
-            </Box>
-          )}
-
-          {selectedCustomer ? (
-            <BlockStack gap="400">
-              <Text as="p">Enroll this Shopify customer as a TradeUp member:</Text>
-              <Card background="bg-surface-secondary">
-                <BlockStack gap="200">
-                  <Text as="h3" variant="headingSm">
-                    {selectedCustomer.firstName} {selectedCustomer.lastName}
-                  </Text>
-                  <Text as="p" tone="subdued">
-                    {selectedCustomer.email}
-                  </Text>
-                  <InlineStack gap="400">
-                    <Text as="span" variant="bodySm">
-                      {selectedCustomer.ordersCount} orders
-                    </Text>
-                    <Text as="span" variant="bodySm">
-                      ${selectedCustomer.totalSpent} spent
-                    </Text>
-                  </InlineStack>
-                </BlockStack>
-              </Card>
-            </BlockStack>
-          ) : (
-            <BlockStack gap="400">
-              <Text as="p">Search your Shopify customers to add them as members:</Text>
-
-              <TextField
-                label="Search customers"
-                labelHidden
-                value={customerSearchQuery}
-                onChange={(value) => {
-                  setCustomerSearchQuery(value);
-                }}
-                placeholder="Search by name, email, or phone..."
-                autoComplete="off"
-                prefix={<Icon source={SearchIcon} />}
-                connectedRight={
-                  <Button onClick={searchShopifyCustomers} loading={customerSearching}>
-                    Search
-                  </Button>
-                }
-              />
-
-              {customerSearchResults.length > 0 ? (
-                <BlockStack gap="200">
-                  <Text as="h3" variant="headingSm">
-                    Results ({customerSearchResults.length})
-                  </Text>
-                  {customerSearchResults.map((customer) => (
-                    <div
-                      key={customer.id}
-                      onClick={() => setSelectedCustomer(customer)}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => e.key === 'Enter' && setSelectedCustomer(customer)}
-                      style={{ cursor: 'pointer' }}
-                    >
-                      <Box
-                        padding="300"
-                        background="bg-surface-secondary"
-                        borderRadius="200"
-                      >
-                        <InlineStack align="space-between" blockAlign="center">
-                          <BlockStack gap="100">
-                            <Text as="span" fontWeight="semibold">
-                              {customer.firstName} {customer.lastName}
-                            </Text>
-                            <Text as="span" variant="bodySm" tone="subdued">
-                              {customer.email}
-                            </Text>
-                          </BlockStack>
-                          <BlockStack gap="050" inlineAlign="end">
-                            <Text as="span" variant="bodySm">
-                              {customer.ordersCount} orders
-                            </Text>
-                            <Text as="span" variant="bodySm" tone="subdued">
-                              ${customer.totalSpent}
-                            </Text>
-                          </BlockStack>
-                        </InlineStack>
-                      </Box>
-                    </div>
-                  ))}
-                </BlockStack>
-              ) : customerSearchQuery.length >= 2 && !customerSearching ? (
-                <Text as="p" tone="subdued" alignment="center">
-                  No customers found. Try a different search.
-                </Text>
-              ) : null}
-            </BlockStack>
-          )}
-        </Modal.Section>
-      </Modal>
 
       {/* Success Modal - Shows after trade-in is completed */}
       <Modal
@@ -843,7 +858,7 @@ export function EmbeddedNewTradeIn({ shop }: NewTradeInProps) {
             content: 'Create Another',
             onAction: () => {
               setCompletionResult(null);
-              setSelectedMember(null);
+              setSelectedCustomer(null);
               setItems([{ id: '1', product_title: '', trade_value: '', market_value: '', notes: '' }]);
               setBatchNotes('');
             },

@@ -501,6 +501,7 @@ export function EmbeddedMembers({ shop }: MembersProps) {
         member={detailMember}
         shop={shop}
         onClose={() => setDetailMember(null)}
+        onMemberUpdated={(updatedMember) => setDetailMember(updatedMember)}
         formatCurrency={formatCurrency}
         formatDate={formatDate}
       />
@@ -538,6 +539,7 @@ interface MemberDetailModalProps {
   member: Member | null;
   shop: string | null;
   onClose: () => void;
+  onMemberUpdated: (updatedMember: Member) => void;
   formatCurrency: (amount: number) => string;
   formatDate: (dateStr: string | null) => string;
 }
@@ -571,6 +573,7 @@ function MemberDetailModal({
   member,
   shop,
   onClose,
+  onMemberUpdated,
   formatCurrency,
   formatDate,
 }: MemberDetailModalProps) {
@@ -635,6 +638,18 @@ function MemberDetailModal({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['members'] });
       queryClient.invalidateQueries({ queryKey: ['tier-history', shop, member?.id] });
+
+      // Update the member in the parent state with the new tier
+      if (member) {
+        const newTier = tiers?.find(t => String(t.id) === selectedTierId);
+        onMemberUpdated({
+          ...member,
+          tier: newTier
+            ? { id: newTier.id, name: newTier.name, color: '' }
+            : { id: 0, name: 'None', color: '' },
+        });
+      }
+
       setChangeTierOpen(false);
       setSelectedTierId('');
       setTierReason('');
@@ -1503,6 +1518,7 @@ interface ShopifyCustomer {
   amountSpent?: number | string;
   storeCredit?: number;
   is_member?: boolean;
+  member_id?: number;
   member_number?: string;
 }
 
