@@ -7,6 +7,7 @@ Shopify-Native Member System:
 - Flow: Search Shopify customers → Enroll as member → Create trade-ins
 """
 from flask import Blueprint, request, jsonify, g
+from sqlalchemy.orm import joinedload
 from ..extensions import db
 from ..models import Member, MembershipTier
 from ..services.membership_service import MembershipService
@@ -352,7 +353,8 @@ def list_members():
         search = request.args.get('search', '').strip()
         tier_filter = request.args.get('tier', '').strip()
 
-        query = Member.query.filter_by(tenant_id=tenant_id)
+        # Use eager loading to prevent N+1 queries when accessing member.tier
+        query = Member.query.options(joinedload(Member.tier)).filter_by(tenant_id=tenant_id)
 
         if status:
             query = query.filter_by(status=status)
@@ -405,7 +407,10 @@ def list_members():
 def get_member(member_id):
     """Get member details."""
     tenant_id = g.tenant_id
-    member = Member.query.filter_by(id=member_id, tenant_id=tenant_id).first_or_404()
+    # Use eager loading for tier to prevent N+1 query
+    member = Member.query.options(joinedload(Member.tier)).filter_by(
+        id=member_id, tenant_id=tenant_id
+    ).first_or_404()
     return jsonify(member.to_dict(include_stats=True))
 
 
@@ -422,7 +427,8 @@ def get_member_by_number(member_number):
     else:
         member_number = upper_num
 
-    member = Member.query.filter_by(
+    # Use eager loading for tier to prevent N+1 query
+    member = Member.query.options(joinedload(Member.tier)).filter_by(
         tenant_id=tenant_id,
         member_number=member_number
     ).first_or_404()
@@ -468,7 +474,10 @@ def update_member(member_id):
     from datetime import datetime
 
     tenant_id = g.tenant_id
-    member = Member.query.filter_by(id=member_id, tenant_id=tenant_id).first_or_404()
+    # Use eager loading for tier to prevent N+1 query
+    member = Member.query.options(joinedload(Member.tier)).filter_by(
+        id=member_id, tenant_id=tenant_id
+    ).first_or_404()
     data = request.json
 
     # Track tier change for logging
@@ -658,7 +667,10 @@ def suspend_member(member_id):
         Updated member details
     """
     tenant_id = g.tenant_id
-    member = Member.query.filter_by(id=member_id, tenant_id=tenant_id).first_or_404()
+    # Use eager loading for tier to prevent N+1 query
+    member = Member.query.options(joinedload(Member.tier)).filter_by(
+        id=member_id, tenant_id=tenant_id
+    ).first_or_404()
     data = request.get_json(silent=True) or {}
 
     if member.status == 'suspended':
@@ -701,7 +713,10 @@ def reactivate_member(member_id):
         Updated member details
     """
     tenant_id = g.tenant_id
-    member = Member.query.filter_by(id=member_id, tenant_id=tenant_id).first_or_404()
+    # Use eager loading for tier to prevent N+1 query
+    member = Member.query.options(joinedload(Member.tier)).filter_by(
+        id=member_id, tenant_id=tenant_id
+    ).first_or_404()
     data = request.get_json(silent=True) or {}
 
     # Allow reactivation from suspended, paused, or expired status
@@ -749,7 +764,10 @@ def cancel_member(member_id):
     """
     from datetime import date
     tenant_id = g.tenant_id
-    member = Member.query.filter_by(id=member_id, tenant_id=tenant_id).first_or_404()
+    # Use eager loading for tier to prevent N+1 query
+    member = Member.query.options(joinedload(Member.tier)).filter_by(
+        id=member_id, tenant_id=tenant_id
+    ).first_or_404()
     data = request.get_json(silent=True) or {}
 
     if member.status == 'cancelled':
@@ -1095,7 +1113,10 @@ def sync_member_metafields(member_id):
         Sync result with metafields set
     """
     tenant_id = g.tenant_id
-    member = Member.query.filter_by(id=member_id, tenant_id=tenant_id).first_or_404()
+    # Use eager loading for tier (needed for tier metafield sync)
+    member = Member.query.options(joinedload(Member.tier)).filter_by(
+        id=member_id, tenant_id=tenant_id
+    ).first_or_404()
 
     if not member.shopify_customer_id:
         return jsonify({
@@ -1125,7 +1146,10 @@ def verify_member_metafields(member_id):
         Verification result with any mismatches
     """
     tenant_id = g.tenant_id
-    member = Member.query.filter_by(id=member_id, tenant_id=tenant_id).first_or_404()
+    # Use eager loading for tier (needed for tier verification)
+    member = Member.query.options(joinedload(Member.tier)).filter_by(
+        id=member_id, tenant_id=tenant_id
+    ).first_or_404()
 
     if not member.shopify_customer_id:
         return jsonify({
@@ -1201,8 +1225,8 @@ def sync_all_member_metafields():
     tenant_id = g.tenant_id
     dry_run = request.args.get('dry_run', 'false').lower() == 'true'
 
-    # Get all active members with Shopify links
-    members = Member.query.filter(
+    # Get all active members with Shopify links (eager load tier to prevent N+1)
+    members = Member.query.options(joinedload(Member.tier)).filter(
         Member.tenant_id == tenant_id,
         Member.status == 'active',
         Member.shopify_customer_id.isnot(None)
@@ -1265,8 +1289,8 @@ def verify_all_member_metafields():
     limit = request.args.get('limit', 100, type=int)
     only_mismatched = request.args.get('only_mismatched', 'false').lower() == 'true'
 
-    # Get members with Shopify links
-    members = Member.query.filter(
+    # Get members with Shopify links (eager load tier to prevent N+1)
+    members = Member.query.options(joinedload(Member.tier)).filter(
         Member.tenant_id == tenant_id,
         Member.status == 'active',
         Member.shopify_customer_id.isnot(None)
