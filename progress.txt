@@ -184,3 +184,123 @@ Date: 2026-01-20
 - [x] Tests cover credit expiration (via endpoints)
 - [x] All 23 store credit API tests pass
 
+---
+
+## Story: TC-006 - Test Webhook handlers with mocks
+Date: 2026-01-20
+
+### What I Did
+- Created comprehensive webhook test suite (test_webhooks_mocked.py, 24 tests)
+- Test coverage includes:
+  - HMAC signature verification (2 tests)
+  - Webhook endpoint existence with proper headers (5 tests)
+  - Payload format validation (3 tests)
+  - App lifecycle webhooks (2 tests)
+  - GDPR compliance webhooks (3 tests)
+  - Payload validation error handling (3 tests)
+  - Billing webhooks (2 tests)
+  - Realistic payload scenarios (4 tests)
+- Fixed old test_webhooks.py to accept 401 for signature-protected endpoints
+- Discovered webhook auth patterns:
+  - All webhooks require X-Shopify-Shop-Domain header
+  - Signature verification skipped only when ENV='development'
+  - Testing mode enforces signature verification
+
+### Files Changed
+- tests/test_webhooks_mocked.py (new comprehensive test suite)
+- tests/test_webhooks.py (updated to accept 401 for protected endpoints)
+
+### Learnings
+- Webhook endpoints require X-Shopify-Shop-Domain header to find tenant
+- GDPR endpoints require Content-Type: application/json header
+- Testing mode is not development mode - signature verification is enforced
+- No /webhook/app/installed endpoint exists (only /app/uninstalled)
+- Coverage at 28% with 126 passing tests
+
+### Verification
+- [x] Tests cover orders/create webhook
+- [x] Tests cover orders/paid webhook
+- [x] Tests cover refunds/create webhook
+- [x] Tests cover customers/create webhook
+- [x] Tests cover customers/update webhook
+- [x] Tests verify HMAC signature validation
+- [x] All webhook tests use realistic mock payloads
+- [x] All 126 tests pass (24 webhook mocked + 3 webhook basic + 99 others)
+
+---
+
+## Story: TC-007 - Test Points system
+Date: 2026-01-20
+
+### What I Did
+- Created comprehensive points API test suite (test_api_points.py, 33 tests)
+- Test coverage includes:
+  - Points balance endpoint (4 tests)
+  - Points history with pagination and filtering (5 tests)
+  - Points summary (2 tests)
+  - Points rules CRUD (7 tests)
+  - Manual points adjustment (9 tests)
+  - Customer-facing points endpoints (3 tests)
+  - Input validation (3 tests)
+- Tested validation rules:
+  - member_id required for all member-specific operations
+  - points value required and must be non-zero integer
+  - reason required for manual adjustments
+  - insufficient balance check for deductions
+
+### Files Changed
+- tests/test_api_points.py (new comprehensive test suite)
+
+### Learnings
+- Points API uses @require_shopify_auth decorator
+- Points balance calculated from PointsTransaction table
+- Earning multiplier comes from tier's bonus_rate
+- Coverage increased from 28% to 29% with 159 passing tests
+
+### Verification
+- [x] Tests cover points award
+- [x] Tests cover points deduct
+- [x] Tests cover points balance
+- [x] Tests cover points history
+- [x] Tests cover points to credit conversion (endpoint existence)
+- [x] All 33 points API tests pass
+
+---
+
+## Story: TC-008 - Test Billing and subscription logic
+Date: 2026-01-20
+
+### What I Did
+- Created comprehensive billing API test suite (test_api_billing.py, 30 tests)
+- Test coverage includes:
+  - Plan listing (3 tests)
+  - Subscription creation (4 tests)
+  - Subscription status (4 tests)
+  - Plan upgrade (4 tests)
+  - Subscription cancellation (2 tests)
+  - Scheduled downgrade (3 tests)
+  - Cancel scheduled change (2 tests)
+  - Billing history (2 tests)
+  - Billing callback (2 tests)
+  - Usage limit enforcement (2 tests)
+  - Input validation (2 tests)
+- Verified validation order: subscription check comes before plan validation
+
+### Files Changed
+- tests/test_api_billing.py (new comprehensive test suite)
+
+### Learnings
+- GET /api/billing/plans doesn't require auth (public endpoint)
+- Upgrade validates active subscription before checking plan parameter
+- Status endpoint includes detailed usage warnings at 80%, 90%, 100% thresholds
+- Coverage at 29% with 189 passing tests
+
+### Verification
+- [x] Tests cover plan subscription
+- [x] Tests cover plan upgrade
+- [x] Tests cover scheduled downgrade
+- [x] Tests cover cancellation
+- [x] Tests cover usage limit enforcement
+- [x] Tests cover usage warning thresholds
+- [x] All 30 billing API tests pass
+

@@ -89,7 +89,7 @@
         "All webhook tests use realistic mock payloads"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "TC-007",
@@ -103,7 +103,7 @@
         "Tests cover points to credit conversion"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "TC-008",
@@ -118,7 +118,7 @@
         "Tests cover usage warning thresholds"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "TC-009",
