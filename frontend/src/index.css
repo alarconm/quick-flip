@@ -955,3 +955,57 @@ body {
     width: 100% !important;
   }
 }
+
+/* ========================================
+   SHOPIFY APP BRIDGE NAVMENU FALLBACK
+   When accessed outside Shopify Admin, NavMenu
+   renders links directly - add proper spacing
+   ======================================== */
+
+/* NavMenu fallback container - renders as nav with links */
+nav:has(> a[href*="/app/"]) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background-color: #f6f6f7;
+  border-bottom: 1px solid #e1e3e5;
+}
+
+nav:has(> a[href*="/app/"]) > a {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  color: #202223;
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border-radius: 6px;
+  transition: background-color 150ms ease;
+  white-space: nowrap;
+}
+
+nav:has(> a[href*="/app/"]) > a:hover {
+  background-color: #e4e5e7;
+}
+
+nav:has(> a[href*="/app/"]) > a.active,
+nav:has(> a[href*="/app/"]) > a[aria-current="page"] {
+  background-color: #e4e5e7;
+  color: #008060;
+}
+
+/* Mobile responsive - stack links vertically on small screens */
+@media (max-width: 600px) {
+  nav:has(> a[href*="/app/"]) {
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0.5rem;
+  }
+
+  nav:has(> a[href*="/app/"]) > a {
+    padding: 0.625rem 1rem;
+    width: 100%;
+    justify-content: flex-start;
+  }
+}

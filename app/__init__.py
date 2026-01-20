@@ -150,6 +150,28 @@ def create_app(config_name: str = None) -> Flask:
         from flask import send_from_directory
         return send_from_directory('static', 'terms-of-service.html')
 
+    # Landing pages (marketing/A/B test variants)
+    @app.route('/landing')
+    @app.route('/landing/')
+    def landing_index():
+        from flask import send_from_directory
+        app_dir = os.path.dirname(os.path.abspath(__file__))
+        landing_dir = os.path.join(os.path.dirname(app_dir), 'landing-pages')
+        return send_from_directory(landing_dir, 'index.html')
+
+    @app.route('/landing/<variant>')
+    def landing_variant(variant):
+        from flask import send_from_directory, abort
+        import os as os_module
+        app_dir = os.path.dirname(os.path.abspath(__file__))
+        landing_dir = os.path.join(os.path.dirname(app_dir), 'landing-pages')
+        # Support both with and without .html extension
+        filename = f'{variant}.html' if not variant.endswith('.html') else variant
+        filepath = os.path.join(landing_dir, filename)
+        if not os_module.path.exists(filepath):
+            abort(404)
+        return send_from_directory(landing_dir, filename)
+
     # Root route - redirect to app
     @app.route('/')
     def index():
