@@ -8,12 +8,14 @@ Endpoints for:
 - Tier configuration
 - Purchase cashback processing
 """
-
+import logging
 from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from flask import Blueprint, request, jsonify, current_app, g
 import sqlalchemy as sa
 from sqlalchemy import func, and_, or_
+
+logger = logging.getLogger(__name__)
 
 from ..extensions import db
 from ..middleware.shopify_auth import require_shopify_auth
@@ -703,7 +705,7 @@ def list_tiers():
         }), 200
     except Exception as e:
         # Table may not exist yet - return empty with migration hint
-        print(f"[Promotions] Tiers endpoint error: {e}")
+        logger.warning("Tiers endpoint error: %s", e)
         return jsonify({
             'tiers': [],
             'error': 'Tier configurations not available - database may need migration',

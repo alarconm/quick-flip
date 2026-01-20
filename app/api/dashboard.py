@@ -1,12 +1,15 @@
 """
 Dashboard API endpoints.
 """
+import logging
 from flask import Blueprint, request, jsonify, g
 from datetime import datetime, timedelta
 from sqlalchemy import func
 from ..extensions import db
 from ..models import Member, MembershipTier, TradeInBatch, TradeInItem, StoreCreditLedger, Tenant, TradeInLedger
 from ..middleware.shopify_auth import require_shopify_auth
+
+logger = logging.getLogger(__name__)
 
 dashboard_bp = Blueprint('dashboard', __name__)
 
@@ -126,9 +129,7 @@ def get_dashboard_stats():
             'product_wizard_in_progress': wizard_in_progress,
         })
     except Exception as e:
-        import traceback
-        print(f"[Dashboard] Error getting stats: {e}")
-        traceback.print_exc()
+        logger.exception("Error getting stats: %s", e)
         # Return safe defaults matching expected interface
         return jsonify({
             'total_members': 0,
@@ -309,9 +310,7 @@ def get_dashboard_stats_for_period():
         })
 
     except Exception as e:
-        import traceback
-        print(f"[Dashboard] Error getting period stats: {e}")
-        traceback.print_exc()
+        logger.exception("Error getting period stats: %s", e)
         return jsonify({'error': str(e)}), 500
 
 
@@ -482,9 +481,7 @@ def get_activity():
 
         return jsonify(activities)
     except Exception as e:
-        import traceback
-        print(f"[Dashboard] Error getting activity: {e}")
-        traceback.print_exc()
+        logger.exception("Error getting activity: %s", e)
         return jsonify([]), 200
 
 
@@ -690,9 +687,7 @@ def get_daily_report():
         })
 
     except Exception as e:
-        import traceback
-        print(f"[Dashboard] Error getting daily report: {e}")
-        traceback.print_exc()
+        logger.exception("Error getting daily report: %s", e)
         return jsonify({
             'success': False,
             'error': str(e),

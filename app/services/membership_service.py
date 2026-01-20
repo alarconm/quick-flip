@@ -5,6 +5,7 @@ import os
 from datetime import date
 from typing import Optional, Dict, Any, List
 from flask import current_app
+from sqlalchemy.orm import joinedload
 from ..extensions import db
 from ..models import Member, MembershipTier
 from .shopify_client import ShopifyClient
@@ -136,6 +137,9 @@ class MembershipService:
         """
         Search Shopify customers and check enrollment status.
 
+        Optimized to batch check enrollment status with a single query
+        instead of N+1 queries.
+
         Args:
             query: Search query (name, email, phone, or ORB#)
 
@@ -147,13 +151,24 @@ class MembershipService:
 
         customers = self.shopify_client.search_customers(query, limit=20)
 
-        # Check enrollment status for each customer
-        for customer in customers:
-            existing = Member.query.filter_by(
-                tenant_id=self.tenant_id,
-                shopify_customer_id=customer['id']
-            ).first()
+        if not customers:
+            return []
 
+        # Batch check enrollment status with a single query (optimized from N+1)
+        customer_ids = [c['id'] for c in customers]
+        existing_members = Member.query.filter(
+            Member.tenant_id == self.tenant_id,
+            Member.shopify_customer_id.in_(customer_ids)
+        ).options(
+            joinedload(Member.tier)  # Eager load tier to avoid N+1 on tier name
+        ).all()
+
+        # Build lookup dictionary for O(1) access
+        member_lookup = {m.shopify_customer_id: m for m in existing_members}
+
+        # Enrich customer data with membership info
+        for customer in customers:
+            existing = member_lookup.get(customer['id'])
             customer['is_member'] = existing is not None
             if existing:
                 customer['member_id'] = existing.id

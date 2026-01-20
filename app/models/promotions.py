@@ -9,8 +9,10 @@ World-class promotion system supporting:
 - Bulk credit operations
 - Full audit trail
 """
-
+import logging
 from datetime import datetime, time
+
+logger = logging.getLogger(__name__)
 from decimal import Decimal
 from enum import Enum
 from typing import Optional, List, Dict, Any
@@ -676,11 +678,11 @@ def seed_tier_configurations():
                 tier = TierConfiguration(**config)
                 db.session.add(tier)
             db.session.commit()
-            print(f"[Promotions] Seeded {len(DEFAULT_TIER_CONFIGS)} tier configurations")
+            logger.info(f"Seeded {len(DEFAULT_TIER_CONFIGS)} tier configurations")
     except Exception as e:
         # Table may not exist yet - that's ok, will be created by migration
         db.session.rollback()
-        print(f"[Promotions] Could not seed tier configurations: {e}")
+        logger.debug(f"Could not seed tier configurations: {e}")
 
 
 # ==================== Store Credit Events ====================

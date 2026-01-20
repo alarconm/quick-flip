@@ -4,11 +4,14 @@ Setup Checklist API - Track onboarding progress and milestones.
 Provides comprehensive setup status for the dashboard checklist,
 milestone tracking, and celebration triggers.
 """
+import logging
 from flask import Blueprint, request, jsonify, g
 from datetime import datetime
 from ..extensions import db
 from ..models import Member, MembershipTier, TradeInBatch, Tenant
 from ..middleware.shopify_auth import require_shopify_auth
+
+logger = logging.getLogger(__name__)
 
 setup_checklist_bp = Blueprint('setup_checklist', __name__)
 
@@ -231,9 +234,7 @@ def get_setup_status():
             'uncelebrated_milestones': uncelebrated,
         })
     except Exception as e:
-        import traceback
-        print(f"[SetupChecklist] Error: {e}")
-        traceback.print_exc()
+        logger.exception("Error: %s", e)
         return jsonify({'error': str(e)}), 500
 
 

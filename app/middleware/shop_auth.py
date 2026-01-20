@@ -5,10 +5,13 @@ Simplified auth decorator for embedded Shopify app requests.
 Extracts shop domain from query params, headers, or session token.
 """
 import os
+import logging
 from functools import wraps
 from flask import request, jsonify, g
 from ..models import Tenant
 from ..extensions import db
+
+logger = logging.getLogger(__name__)
 
 # Development mode - skip strict verification
 DEV_MODE = os.getenv('FLASK_ENV') == 'development' or os.getenv('SHOPIFY_AUTH_DEV_MODE') == 'true'
@@ -76,7 +79,7 @@ def get_or_create_tenant(shop: str) -> Tenant | None:
         )
         db.session.add(tenant)
         db.session.commit()
-        print(f'[Auth] Auto-created dev tenant for {shop}')
+        logger.info(f'Auto-created dev tenant for {shop}')
 
     return tenant
 

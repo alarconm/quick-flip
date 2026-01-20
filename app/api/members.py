@@ -6,6 +6,7 @@ Shopify-Native Member System:
 - No manual member creation - use search & enroll workflow
 - Flow: Search Shopify customers → Enroll as member → Create trade-ins
 """
+import logging
 from flask import Blueprint, request, jsonify, g
 from sqlalchemy.orm import joinedload
 from sqlalchemy import func
@@ -14,6 +15,8 @@ from ..models import Member, MembershipTier
 from ..services.tier_cache_service import invalidate_tier_cache
 from ..services.membership_service import MembershipService
 from ..middleware.shopify_auth import require_shopify_auth, require_shopify_auth_debug
+
+logger = logging.getLogger(__name__)
 
 members_bp = Blueprint('members', __name__)
 
@@ -117,8 +120,7 @@ def search_shopify_customers():
         return jsonify({'error': str(e)}), 400
     except Exception as e:
         # Log full traceback for debugging
-        print(f"[TradeUp] Search error: {type(e).__name__}: {e}")
-        print(f"[TradeUp] Traceback: {traceback.format_exc()}")
+        logger.exception("Search error: %s: %s", type(e).__name__, e)
         return jsonify({
             'error': f'Search failed: {str(e)}',
             'error_type': type(e).__name__,
@@ -394,9 +396,7 @@ def list_members():
             'pages': pagination.pages
         })
     except Exception as e:
-        import traceback
-        print(f"[Members] Error listing members: {e}")
-        traceback.print_exc()
+        logger.exception("Error listing members: %s", e)
         return jsonify({
             'error': 'Failed to list members',
             'members': [],

@@ -13,8 +13,10 @@ The system supports:
 - Points expiration
 - Tier-based earning multipliers
 """
-
+import logging
 from datetime import datetime, timedelta
+
+logger = logging.getLogger(__name__)
 from decimal import Decimal
 from enum import Enum
 from typing import Optional, List, Dict, Any
@@ -1096,8 +1098,8 @@ def seed_points_program(tenant_id: int):
                 db.session.add(reward)
 
         db.session.commit()
-        print(f"[LoyaltyPoints] Seeded points program for tenant {tenant_id}")
+        logger.info(f"Seeded points program for tenant {tenant_id}")
 
     except Exception as e:
         db.session.rollback()
-        print(f"[LoyaltyPoints] Could not seed points program: {e}")
+        logger.warning(f"Could not seed points program: {e}")

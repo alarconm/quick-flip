@@ -4,6 +4,9 @@ Sentry Error Tracking Integration.
 Captures exceptions and performance data for TradeUp.
 """
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def init_sentry(app=None):
@@ -18,7 +21,7 @@ def init_sentry(app=None):
     """
     dsn = os.getenv('SENTRY_DSN')
     if not dsn:
-        print('[TradeUp] Sentry DSN not configured, error tracking disabled')
+        logger.info('Sentry DSN not configured, error tracking disabled')
         return None
 
     try:
@@ -51,11 +54,11 @@ def init_sentry(app=None):
             attach_stacktrace=True,
         )
 
-        print(f'[TradeUp] Sentry initialized (env: {environment})')
+        logger.info(f'Sentry initialized (env: {environment})')
         return sentry_sdk
 
     except ImportError:
-        print('[TradeUp] sentry-sdk not installed, error tracking disabled')
+        logger.info('sentry-sdk not installed, error tracking disabled')
         return None
 
 

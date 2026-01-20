@@ -13,10 +13,13 @@ Session tokens are issued by Shopify App Bridge and contain:
 - exp: Expiration time
 """
 import os
+import logging
 import jwt
 from functools import wraps
 from flask import request, jsonify, g
 from ..models import Tenant
+
+logger = logging.getLogger(__name__)
 
 
 # Shopify App credentials
@@ -54,13 +57,13 @@ def decode_session_token(token: str) -> dict | None:
         )
         return payload
     except jwt.ExpiredSignatureError:
-        print('[Auth] Session token expired')
+        logger.debug('Session token expired')
         return None
     except jwt.InvalidAudienceError:
-        print('[Auth] Invalid token audience')
+        logger.warning('Invalid token audience')
         return None
     except jwt.InvalidTokenError as e:
-        print(f'[Auth] Invalid token: {e}')
+        logger.debug(f'Invalid token: {e}')
         return None
 
 
@@ -223,7 +226,7 @@ def require_shopify_auth(f):
                 )
                 db.session.add(tenant)
                 db.session.commit()
-                print(f'[Auth] Auto-created dev tenant for {shop}')
+                logger.info(f'Auto-created dev tenant for {shop}')
             else:
                 return jsonify({
                     'error': 'Shop not found',
@@ -247,7 +250,7 @@ def require_shopify_auth(f):
                 has_token = bool(tenant.shopify_access_token)
             except Exception as e:
                 # Log but don't block - encryption key might not be configured
-                print(f'[Auth] Warning: Could not check access token: {e}')
+                logger.warning(f'Could not check access token: {e}')
                 has_token = True  # Assume installed if we can't check
 
             if not has_token:
@@ -336,9 +339,7 @@ def require_shopify_auth_debug(f):
             return f(*args, **kwargs)
 
         except Exception as e:
-            import traceback
-            print(f"[Auth Debug] Error in decorator: {e}")
-            traceback.print_exc()
+            logger.exception(f"Error in auth decorator: {e}")
             return jsonify({
                 'error': 'Auth error',
                 'message': str(e),

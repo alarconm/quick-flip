@@ -4,6 +4,7 @@ Trade-In Ledger API - Simplified trade-in tracking endpoints.
 Simple CRUD operations for recording trade-in transactions.
 No complex workflows or item-level tracking.
 """
+import logging
 from flask import Blueprint, request, jsonify, g
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
@@ -11,6 +12,8 @@ from sqlalchemy import func, desc
 from ..extensions import db
 from ..models import TradeInLedger, Member
 from ..middleware.shopify_auth import require_shopify_auth
+
+logger = logging.getLogger(__name__)
 
 trade_ledger_bp = Blueprint('trade_ledger', __name__)
 
@@ -89,9 +92,7 @@ def list_entries():
             'pages': pagination.pages,
         })
     except Exception as e:
-        import traceback
-        print(f"[TradeLedger] Error listing entries: {e}")
-        traceback.print_exc()
+        logger.exception("Error listing entries: %s", e)
         return jsonify({'error': str(e)}), 500
 
 
@@ -187,9 +188,7 @@ def create_entry():
 
     except Exception as e:
         db.session.rollback()
-        import traceback
-        print(f"[TradeLedger] Error creating entry: {e}")
-        traceback.print_exc()
+        logger.exception("Error creating entry: %s", e)
         return jsonify({'error': str(e)}), 500
 
 
@@ -419,9 +418,7 @@ def get_summary():
             'categories': categories,
         })
     except Exception as e:
-        import traceback
-        print(f"[TradeLedger] Error getting summary: {e}")
-        traceback.print_exc()
+        logger.exception("Error getting summary: %s", e)
         return jsonify({'error': str(e)}), 500
 
 

@@ -2,6 +2,7 @@
 Shopify OAuth flow for app installation.
 Handles the OAuth dance for installing the TradeUp app on Shopify stores.
 """
+import logging
 import os
 import hmac
 import hashlib
@@ -11,6 +12,8 @@ from urllib.parse import urlencode
 from flask import Blueprint, request, redirect, jsonify
 from ..models import Tenant
 from ..extensions import db
+
+logger = logging.getLogger(__name__)
 
 shopify_oauth_bp = Blueprint('shopify_oauth', __name__)
 
@@ -319,7 +322,7 @@ def register_webhooks(shop: str, access_token: str):
                 json={'webhook': webhook}
             )
         except Exception as e:
-            print(f"[Webhook] Failed to register {webhook['topic']}: {e}")
+            logger.warning("Failed to register webhook %s: %s", webhook['topic'], e)
 
 
 @shopify_oauth_bp.route('/uninstall', methods=['POST'])
@@ -343,7 +346,7 @@ def handle_uninstall():
         tenant.subscription_status = 'uninstalled'
         db.session.commit()
 
-    print(f"[OAuth] App uninstalled from {shop}")
+    logger.info("App uninstalled from %s", shop)
     return jsonify({'success': True})
 
 

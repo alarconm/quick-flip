@@ -5,6 +5,7 @@ Handles tier management, store credit, and member portal.
 Tiers are now staff-assigned or earned through activity/purchases.
 No Stripe integration - all billing goes through Shopify.
 """
+import logging
 import os
 from datetime import datetime
 from decimal import Decimal
@@ -16,6 +17,8 @@ from ..services.shopify_client import ShopifyClient
 from ..services.tier_service import TierService
 from ..services.store_credit_service import store_credit_service
 from ..models.promotions import CreditEventType
+
+logger = logging.getLogger(__name__)
 
 membership_bp = Blueprint('membership', __name__)
 
@@ -279,7 +282,7 @@ def admin_assign_tier():
             if new_tier:
                 client.add_customer_tag(member.shopify_customer_id, f'tu-{new_tier.name.lower()}')
         except Exception as e:
-            print(f"[Membership] Failed to sync tier tag to Shopify: {e}")
+            logger.warning("Failed to sync tier tag to Shopify: %s", e)
 
     return jsonify({
         'success': True,

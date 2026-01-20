@@ -3,11 +3,15 @@ TradeUp Membership Platform
 Flask application factory
 """
 import os
+import logging
 from flask import Flask
 from flask_cors import CORS
 
 from .extensions import db, migrate
 from .config import get_config
+from .utils.logging_config import setup_logging
+
+logger = logging.getLogger(__name__)
 
 # Optional compression (graceful fallback if not installed)
 try:
@@ -29,6 +33,9 @@ def create_app(config_name: str = None) -> Flask:
     """
     if config_name is None:
         config_name = os.getenv('FLASK_ENV', 'development')
+
+    # Setup logging before anything else
+    setup_logging()
 
     app = Flask(__name__)
     app.config.from_object(get_config(config_name))
@@ -82,9 +89,17 @@ def create_app(config_name: str = None) -> Flask:
         from .middleware import init_rate_limiter
         if init_rate_limiter:
             init_rate_limiter(app)
-            print('[TradeUp] Rate limiting enabled')
+            logger.info('Rate limiting enabled')
         else:
-            print('[TradeUp] Flask-Limiter not installed, rate limiting disabled')
+            logger.info('Flask-Limiter not installed, rate limiting disabled')
+
+    # Initialize query profiler (set QUERY_PROFILING=true to enable)
+    from .middleware import init_query_profiler
+    init_query_profiler(app)
+
+    # Initialize request ID tracking for request tracing
+    from .middleware import init_request_id_tracking
+    init_request_id_tracking(app)
 
     # Register blueprints
     register_blueprints(app)
@@ -153,7 +168,7 @@ def create_app(config_name: str = None) -> Flask:
         from flask import request, make_response
         shop = request.args.get('shop', '')
         host = request.args.get('host', '')
-        print(f'[TradeUp] /app request: shop={shop}, host={host}, path={path}, url={request.url}')
+        logger.debug(f'/app request: shop={shop}, host={host}, path={path}')
         api_key = os.getenv('SHOPIFY_CLIENT_ID', os.getenv('SHOPIFY_API_KEY', ''))
         # Get app URL - use request.url_root for local dev, APP_URL for production
         # This ensures local dev always uses the correct port from the actual request

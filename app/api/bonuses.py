@@ -3,11 +3,14 @@ Bonuses API endpoints.
 
 Provides access to pending and completed bonus credit transactions.
 """
+import logging
 from flask import Blueprint, request, jsonify
 from datetime import datetime
 from sqlalchemy import func
 from ..extensions import db
 from ..models import Member, StoreCreditLedger, BulkCreditOperation
+
+logger = logging.getLogger(__name__)
 
 bonuses_bp = Blueprint('bonuses', __name__)
 
@@ -99,9 +102,7 @@ def list_bonuses():
         })
 
     except Exception as e:
-        import traceback
-        print(f"[Bonuses] Error listing bonuses: {e}")
-        traceback.print_exc()
+        logger.exception("Error listing bonuses: %s", e)
         return jsonify({
             'bonuses': [],
             'total': 0,
@@ -165,9 +166,7 @@ def get_bonus_stats():
         })
 
     except Exception as e:
-        import traceback
-        print(f"[Bonuses] Error getting stats: {e}")
-        traceback.print_exc()
+        logger.exception("Error getting stats: %s", e)
         return jsonify({
             'total': {'count': 0, 'amount': 0},
             'pending': {'count': 0, 'amount': 0},
@@ -231,9 +230,7 @@ def list_bulk_operations():
         })
 
     except Exception as e:
-        import traceback
-        print(f"[Bonuses] Error listing bulk operations: {e}")
-        traceback.print_exc()
+        logger.exception("Error listing bulk operations: %s", e)
         return jsonify({
             'operations': [],
             'total': 0,

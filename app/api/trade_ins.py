@@ -1,12 +1,15 @@
 """
 Trade-in API endpoints.
 """
+import logging
 from flask import Blueprint, request, jsonify, g
 from datetime import datetime
 from ..extensions import db
 from ..models import TradeInBatch, TradeInItem, Member
 from ..services.trade_in_service import TradeInService
 from ..middleware.shopify_auth import require_shopify_auth
+
+logger = logging.getLogger(__name__)
 
 trade_ins_bp = Blueprint('trade_ins', __name__)
 
@@ -95,9 +98,7 @@ def list_batches():
             'per_page': per_page
         })
     except Exception as e:
-        import traceback
-        print(f"[TradeIns] Error listing batches: {e}")
-        traceback.print_exc()
+        logger.exception("Error listing batches: %s", e)
         return jsonify({
             'error': 'Failed to list trade-in batches',
             'batches': [],
@@ -224,7 +225,7 @@ def get_categories():
                             })
         except Exception as e:
             # Log but don't fail - just return templates
-            print(f"[TradeIns] Failed to fetch collections: {e}")
+            logger.warning("Failed to fetch collections: %s", e)
 
     return jsonify({
         'categories': categories,

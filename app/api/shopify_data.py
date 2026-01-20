@@ -7,9 +7,12 @@ Provides access to Shopify store data for use in promotion configuration:
 - Product types
 - Product tags
 """
+import logging
 from flask import Blueprint, request, jsonify, g
 from ..services.shopify_client import ShopifyClient
 from ..middleware.shopify_auth import require_shopify_auth
+
+logger = logging.getLogger(__name__)
 
 shopify_data_bp = Blueprint('shopify_data', __name__)
 
@@ -26,7 +29,7 @@ def get_shopify_client_for_tenant():
     try:
         return ShopifyClient(tenant_id)
     except Exception as e:
-        print(f'[ShopifyData] Failed to create client: {e}')
+        logger.warning('Failed to create client: %s', e)
         return None
 
 
