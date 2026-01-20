@@ -81,7 +81,7 @@
         "Member tier lookups use cached tier data"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "PO-007",

@@ -11,6 +11,7 @@ from sqlalchemy.orm import joinedload
 from sqlalchemy import func
 from ..extensions import db
 from ..models import Member, MembershipTier
+from ..services.tier_cache_service import invalidate_tier_cache
 from ..services.membership_service import MembershipService
 from ..middleware.shopify_auth import require_shopify_auth, require_shopify_auth_debug
 
@@ -863,6 +864,7 @@ def create_tier():
 
     db.session.add(tier)
     db.session.commit()
+    invalidate_tier_cache(tenant_id)
 
     return jsonify(tier.to_dict()), 201
 
@@ -916,6 +918,7 @@ def update_tier(tier_id):
         tier.is_active = data['is_active']
 
     db.session.commit()
+    invalidate_tier_cache(tenant_id)
     return jsonify(tier.to_dict())
 
 
@@ -944,6 +947,7 @@ def delete_tier(tier_id):
     # Soft delete
     tier.is_active = False
     db.session.commit()
+    invalidate_tier_cache(tenant_id)
 
     return jsonify({'success': True, 'message': f'Tier "{tier.name}" deleted'})
 
@@ -973,6 +977,7 @@ def reorder_tiers():
             tier.display_order = order
 
     db.session.commit()
+    invalidate_tier_cache(tenant_id)
 
     # Return updated tiers
     tiers = MembershipTier.query.filter_by(
