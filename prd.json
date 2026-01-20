@@ -68,7 +68,7 @@
         "Cache hit/miss logged for debugging"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "PO-006",
