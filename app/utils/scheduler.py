@@ -88,13 +88,23 @@ def init_scheduler(app):
             replace_existing=True
         )
 
+        # Pending distribution expiration - Daily at 1 AM UTC
+        _scheduler.add_job(
+            run_pending_expiration,
+            trigger=CronTrigger(hour=1, minute=0),
+            id='pending_expiration',
+            name='Expire old pending distributions',
+            replace_existing=True
+        )
+
         _scheduler.start()
         os.environ['SCHEDULER_RUNNING'] = 'true'
 
         # Use print during init to avoid app context issues
-        print('[Scheduler] Started with 3 scheduled jobs:')
-        print('  - Monthly credits: 1st of month at 6:00 UTC')
+        print('[Scheduler] Started with 4 scheduled jobs:')
+        print('  - Monthly credits: 1st of month at 6:00 UTC (creates pending for approval)')
         print('  - Credit expiration: Daily at 0:00 UTC')
+        print('  - Pending expiration: Daily at 1:00 UTC')
         print('  - Expiration warnings: Daily at 9:00 UTC')
 
         # Register shutdown
@@ -117,8 +127,12 @@ def shutdown_scheduler():
 
 def run_monthly_credits():
     """
-    Distribute monthly credits to all tenants.
-    Runs on the 1st of each month.
+    Create pending distributions for monthly credits (with approval workflow).
+
+    Runs on the 1st of each month. Creates pending distributions that require
+    merchant approval before actual credit distribution. If auto-approve is
+    enabled AND first distribution has been manually approved, credits are
+    distributed immediately.
     """
     global _flask_app
 
@@ -126,43 +140,67 @@ def run_monthly_credits():
         logger.error('[Scheduler] Flask app not initialized')
         return
 
-    logger.info('[Scheduler] Starting monthly credit distribution...')
+    logger.info('[Scheduler] Starting monthly credit processing...')
 
     with _flask_app.app_context():
         try:
             from ..extensions import db
             from ..models.tenant import Tenant
-            from ..services.scheduled_tasks import ScheduledTasksService
+            from ..services.pending_distribution_service import PendingDistributionService
 
             # Get all active tenants
             tenants = Tenant.query.filter_by(subscription_active=True).all()
 
-            total_processed = 0
-            total_credited = 0
-            total_amount = 0
+            pending_service = PendingDistributionService()
 
-            service = ScheduledTasksService()
+            total_pending = 0
+            total_auto_approved = 0
+            total_skipped = 0
 
             for tenant in tenants:
                 try:
-                    result = service.distribute_monthly_credits(tenant.id, dry_run=False)
+                    # Check if auto-approve is enabled and first distribution completed
+                    if pending_service.should_auto_approve(tenant.id):
+                        # Create and immediately approve
+                        pending = pending_service.create_monthly_credit_pending(tenant.id)
+                        result = pending_service.approve_distribution(
+                            pending_id=pending.id,
+                            tenant_id=tenant.id,
+                            approved_by='system:auto-approve'
+                        )
+                        execution = result.get('execution_result', {})
+                        total_auto_approved += 1
 
-                    total_processed += result.get('processed', 0)
-                    total_credited += result.get('credited', 0)
-                    total_amount += float(result.get('total_amount', 0))
+                        logger.info(
+                            f'[Scheduler] Tenant {tenant.id}: Auto-approved - '
+                            f'{execution.get("credited", 0)} members credited '
+                            f'${execution.get("total_amount", 0):.2f}'
+                        )
+                    else:
+                        # Create pending distribution for merchant review
+                        pending = pending_service.create_monthly_credit_pending(tenant.id)
+                        pending_service.send_approval_notification(pending)
+                        total_pending += 1
 
-                    logger.info(
-                        f'[Scheduler] Tenant {tenant.id}: '
-                        f'{result.get("credited", 0)} members credited '
-                        f'${float(result.get("total_amount", 0)):.2f}'
-                    )
+                        preview = pending.preview_data or {}
+                        logger.info(
+                            f'[Scheduler] Tenant {tenant.id}: Pending approval - '
+                            f'{preview.get("total_members", 0)} members, '
+                            f'${preview.get("total_amount", 0):.2f}'
+                        )
+
+                except ValueError as e:
+                    # Already exists for this month - skip
+                    total_skipped += 1
+                    logger.info(f'[Scheduler] Tenant {tenant.id}: Skipped - {e}')
 
                 except Exception as e:
                     logger.error(f'[Scheduler] Failed for tenant {tenant.id}: {e}')
 
             logger.info(
                 f'[Scheduler] Monthly credits complete: '
-                f'{total_credited}/{total_processed} members, ${total_amount:.2f} total'
+                f'{total_pending} pending approval, {total_auto_approved} auto-approved, '
+                f'{total_skipped} skipped'
             )
 
         except Exception as e:
@@ -252,6 +290,32 @@ def run_expiration_warnings():
 
         except Exception as e:
             logger.error(f'[Scheduler] Expiration warnings failed: {e}')
+
+
+def run_pending_expiration():
+    """
+    Expire old pending distributions that weren't approved in time.
+    Runs daily at 1 AM.
+    """
+    global _flask_app
+
+    if not _flask_app:
+        logger.error('[Scheduler] Flask app not initialized')
+        return
+
+    logger.info('[Scheduler] Processing pending distribution expirations...')
+
+    with _flask_app.app_context():
+        try:
+            from ..services.pending_distribution_service import PendingDistributionService
+
+            service = PendingDistributionService()
+            expired_count = service.expire_old_pending()
+
+            logger.info(f'[Scheduler] Pending expiration complete: {expired_count} expired')
+
+        except Exception as e:
+            logger.error(f'[Scheduler] Pending expiration failed: {e}')
 
 
 def get_next_run_times() -> dict:

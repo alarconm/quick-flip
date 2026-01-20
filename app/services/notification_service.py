@@ -989,6 +989,137 @@ Your Code: {referral_code}
             from_name=settings['from_name']
         )
 
+    def send_pending_distribution_notification(
+        self,
+        tenant_id: int,
+        to_email: str,
+        context: dict
+    ) -> Dict[str, Any]:
+        """
+        Send notification to merchant when a distribution is pending approval.
+
+        This notifies store owners/admins that monthly credits are ready
+        for review and approval before distribution.
+
+        Args:
+            tenant_id: Tenant ID
+            to_email: Merchant email address
+            context: Dict with distribution details:
+                - merchant_name: Store owner name
+                - total_members: Number of members eligible
+                - total_amount: Total amount to distribute
+                - largest_tier: Name of tier with highest amount
+                - largest_tier_count: Member count in largest tier
+                - largest_tier_amount: Total amount for largest tier
+                - expires_in_days: Days until expiration
+                - review_url: URL to review page
+                - distribution_name: Human-readable name (e.g., "January 2026 Monthly Credits")
+
+        Returns:
+            Dict with send result
+        """
+        if not self.sendgrid_client:
+            logger.warning('[NotificationService] SendGrid not configured, skipping pending distribution notification')
+            return {'success': False, 'skipped': True, 'reason': 'SendGrid not configured'}
+
+        settings = self._get_tenant_settings(tenant_id)
+
+        subject = f"Action Required: {context.get('distribution_name', 'Monthly Credits')} Ready for Review - {context.get('total_amount', '$0')}"
+
+        text_content = f"""
+Hi {context.get('merchant_name', 'Merchant')},
+
+Your {context.get('distribution_name', 'monthly store credit distribution')} is ready for review.
+
+DISTRIBUTION SUMMARY
+--------------------
+Members eligible: {context.get('total_members', 0)}
+Total amount: {context.get('total_amount', '$0')}
+Largest tier: {context.get('largest_tier', 'N/A')} ({context.get('largest_tier_count', 0)} members, {context.get('largest_tier_amount', '$0')})
+
+This distribution will expire if not reviewed within {context.get('expires_in_days', 7)} days.
+
+Review and approve at: {context.get('review_url', '')}
+
+--------------------
+To enable automatic approval for future distributions, approve this one and check "Auto-approve future monthly credits" in your settings.
+
+- TradeUp by Cardflow Labs
+"""
+
+        html_content = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; background-color: #f6f6f7;">
+    <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background: white; border-radius: 8px; padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+
+            <h1 style="margin: 0 0 8px 0; font-size: 20px; color: #202223;">
+                {context.get('distribution_name', 'Monthly Credits')} Ready for Review
+            </h1>
+            <p style="margin: 0 0 24px 0; color: #6d7175; font-size: 14px;">
+                Hi {context.get('merchant_name', 'Merchant')}, your distribution needs approval before credits are issued.
+            </p>
+
+            <div style="background: #f9fafb; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
+                <h2 style="margin: 0 0 16px 0; font-size: 14px; color: #6d7175; text-transform: uppercase; letter-spacing: 0.5px;">
+                    Distribution Summary
+                </h2>
+
+                <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+                    <span style="color: #6d7175;">Members eligible</span>
+                    <span style="color: #202223; font-weight: 600;">{context.get('total_members', 0)}</span>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+                    <span style="color: #6d7175;">Total amount</span>
+                    <span style="color: #202223; font-weight: 600; font-size: 18px;">{context.get('total_amount', '$0')}</span>
+                </div>
+
+                <div style="display: flex; justify-content: space-between;">
+                    <span style="color: #6d7175;">Largest tier</span>
+                    <span style="color: #202223;">{context.get('largest_tier', 'N/A')} ({context.get('largest_tier_count', 0)} members)</span>
+                </div>
+            </div>
+
+            <div style="background: #fef3cd; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
+                <p style="margin: 0; color: #856404; font-size: 14px;">
+                    ⏰ This distribution will expire if not reviewed within <strong>{context.get('expires_in_days', 7)} days</strong>.
+                </p>
+            </div>
+
+            <a href="{context.get('review_url', '#')}"
+               style="display: inline-block; background: #5c6ac4; color: white; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: 500; font-size: 14px;">
+                Review &amp; Approve
+            </a>
+
+            <p style="margin: 24px 0 0 0; color: #8c9196; font-size: 12px;">
+                To enable automatic approval for future distributions, approve this one and check "Auto-approve future monthly credits" in your settings.
+            </p>
+        </div>
+
+        <p style="text-align: center; color: #8c9196; font-size: 12px; margin-top: 16px;">
+            TradeUp by Cardflow Labs
+        </p>
+    </div>
+</body>
+</html>
+"""
+
+        return self._send_email(
+            to_email=to_email,
+            to_name=context.get('merchant_name', 'Merchant'),
+            subject=subject,
+            text_content=text_content,
+            html_content=html_content,
+            from_email=settings.get('from_email', self.default_from_email),
+            from_name=settings.get('from_name', 'TradeUp')
+        )
+
 
 # Singleton instance
 notification_service = NotificationService()

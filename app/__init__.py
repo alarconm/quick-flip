@@ -368,6 +368,9 @@ def register_blueprints(app: Flask) -> None:
     # Scheduled Tasks (monthly credits, expiration, etc.)
     from .api.scheduled_tasks import scheduled_tasks_bp
 
+    # Pending Distributions (approval workflow)
+    from .api.pending_distributions import pending_distributions_bp
+
     # Analytics
     from .api.analytics import analytics_bp
 
@@ -442,6 +445,9 @@ def register_blueprints(app: Flask) -> None:
 
     # Scheduled Tasks routes (monthly credits, expiration)
     app.register_blueprint(scheduled_tasks_bp, url_prefix='/api/scheduled-tasks')
+
+    # Pending Distributions routes (approval workflow)
+    app.register_blueprint(pending_distributions_bp, url_prefix='/api/pending-distributions')
 
     # Analytics routes
     app.register_blueprint(analytics_bp, url_prefix='/api/analytics')

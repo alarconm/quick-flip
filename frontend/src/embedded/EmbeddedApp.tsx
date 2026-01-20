@@ -41,6 +41,7 @@ const EmbeddedGamification = lazy(() => import('./pages/EmbeddedGamification').t
 const EmbeddedPageBuilder = lazy(() => import('./pages/EmbeddedPageBuilder').then(m => ({ default: m.EmbeddedPageBuilder })));
 const EmbeddedWidgetBuilder = lazy(() => import('./pages/EmbeddedWidgetBuilder').then(m => ({ default: m.EmbeddedWidgetBuilder })));
 const EmbeddedStoreCreditEvents = lazy(() => import('./pages/EmbeddedStoreCreditEvents').then(m => ({ default: m.EmbeddedStoreCreditEvents })));
+const EmbeddedPendingDistributions = lazy(() => import('./pages/EmbeddedPendingDistributions').then(m => ({ default: m.EmbeddedPendingDistributions })));
 
 // Components - SupportButton is small, can load sync
 import { SupportButton } from './components/SupportChatWidget';
@@ -133,6 +134,7 @@ export function EmbeddedApp({ shop }: EmbeddedAppProps) {
           <Route path="/onboarding" element={<EmbeddedOnboarding shop={shop} />} />
           <Route path="/products/wizard" element={<EmbeddedProductWizard shop={shop} />} />
           <Route path="/theme-blocks" element={<EmbeddedThemeBlocks shop={shop} />} />
+          <Route path="/pending-distributions" element={<EmbeddedPendingDistributions shop={shop} />} />
         </Routes>
       </Suspense>
 

@@ -825,3 +825,141 @@ class StoreCreditEvent(db.Model):
             result['error_message'] = self.error_message
 
         return result
+
+
+# ==================== Pending Distribution Approval ====================
+
+class PendingDistributionStatus(str, Enum):
+    """Status of a pending distribution."""
+    PENDING = 'pending'        # Awaiting merchant approval
+    APPROVED = 'approved'      # Approved and executed
+    REJECTED = 'rejected'      # Rejected by merchant
+    EXPIRED = 'expired'        # Auto-expired (not approved in time)
+
+
+class PendingDistribution(db.Model):
+    """
+    Pending distribution queue for merchant approval.
+
+    Monthly credits and bulk events are staged here first,
+    requiring merchant review before actual distribution.
+    This prevents accidental large credit distributions.
+    """
+    __tablename__ = 'pending_distributions'
+
+    id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey('tenants.id'), nullable=False, index=True)
+
+    # Type of distribution
+    distribution_type = db.Column(db.String(50), nullable=False)  # 'monthly_credit', 'bulk_event'
+
+    # Reference for idempotency (e.g., "monthly-2026-01")
+    reference_key = db.Column(db.String(100), nullable=False, unique=True)
+
+    # Status
+    status = db.Column(db.String(20), default='pending', index=True)  # PendingDistributionStatus
+
+    # Preview data (JSON) - calculated at creation time
+    preview_data = db.Column(db.JSON, nullable=False)
+    # {
+    #   "total_members": 145,
+    #   "total_amount": 2875.50,
+    #   "by_tier": [{"tier": "Gold", "count": 50, "amount": 1250.00}, ...],
+    #   "members": [{"id": 1, "name": "...", "tier": "Gold", "amount": 25.00}, ...],
+    #   "calculated_at": "2026-01-01T06:00:00Z"
+    # }
+
+    # Timestamps
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    expires_at = db.Column(db.DateTime)  # Auto-expire after 7 days if not approved
+
+    # Approval tracking
+    approved_at = db.Column(db.DateTime)
+    approved_by = db.Column(db.String(100))  # email or 'system:auto-approve'
+    rejected_at = db.Column(db.DateTime)
+    rejected_by = db.Column(db.String(100))
+    rejection_reason = db.Column(db.String(500))
+
+    # Execution tracking (populated after approval)
+    executed_at = db.Column(db.DateTime)
+    execution_result = db.Column(db.JSON)  # {"credited": 145, "errors": 0, "total_amount": 2875.50, ...}
+
+    # Notification tracking
+    notification_sent_at = db.Column(db.DateTime)
+    reminder_sent_at = db.Column(db.DateTime)
+
+    # Relationship
+    tenant = db.relationship('Tenant', backref='pending_distributions')
+
+    def __repr__(self):
+        return f'<PendingDistribution {self.id}: {self.distribution_type} - {self.status}>'
+
+    @property
+    def is_expired(self) -> bool:
+        """Check if this distribution has expired."""
+        if self.status == 'expired':
+            return True
+        if self.expires_at and datetime.utcnow() > self.expires_at:
+            return True
+        return False
+
+    @property
+    def days_until_expiry(self) -> Optional[int]:
+        """Days until this distribution expires."""
+        if not self.expires_at or self.status != 'pending':
+            return None
+        delta = self.expires_at - datetime.utcnow()
+        return max(0, delta.days)
+
+    @property
+    def display_name(self) -> str:
+        """Human-readable name for the distribution."""
+        if self.distribution_type == 'monthly_credit':
+            # Parse month from reference_key like "monthly-2026-01"
+            try:
+                parts = self.reference_key.split('-')
+                if len(parts) >= 3:
+                    year, month = parts[1], parts[2]
+                    from calendar import month_name
+                    return f"{month_name[int(month)]} {year} Monthly Credits"
+            except (ValueError, IndexError):
+                pass
+            return "Monthly Credits"
+        elif self.distribution_type == 'bulk_event':
+            return self.preview_data.get('name', 'Bulk Credit Event')
+        return self.distribution_type.replace('_', ' ').title()
+
+    def to_dict(self, include_members: bool = False) -> Dict[str, Any]:
+        """Serialize to dictionary."""
+        preview = self.preview_data or {}
+
+        result = {
+            'id': self.id,
+            'distribution_type': self.distribution_type,
+            'display_name': self.display_name,
+            'reference_key': self.reference_key,
+            'status': self.status,
+            'is_expired': self.is_expired,
+            'days_until_expiry': self.days_until_expiry,
+            # Summary from preview
+            'total_members': preview.get('total_members', 0),
+            'total_amount': preview.get('total_amount', 0),
+            'by_tier': preview.get('by_tier', []),
+            'calculated_at': preview.get('calculated_at'),
+            # Timestamps
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'expires_at': self.expires_at.isoformat() if self.expires_at else None,
+            'approved_at': self.approved_at.isoformat() if self.approved_at else None,
+            'approved_by': self.approved_by,
+            'rejected_at': self.rejected_at.isoformat() if self.rejected_at else None,
+            'rejected_by': self.rejected_by,
+            'rejection_reason': self.rejection_reason,
+            'executed_at': self.executed_at.isoformat() if self.executed_at else None,
+            'execution_result': self.execution_result,
+        }
+
+        # Include full member list only when requested (for detail view)
+        if include_members:
+            result['members'] = preview.get('members', [])
+
+        return result
