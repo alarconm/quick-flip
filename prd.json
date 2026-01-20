@@ -42,7 +42,7 @@
         "Alembic migration created for indexes"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "PO-004",
