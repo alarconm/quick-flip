@@ -8,6 +8,7 @@ Shopify-Native Member System:
 """
 from flask import Blueprint, request, jsonify, g
 from sqlalchemy.orm import joinedload
+from sqlalchemy import func
 from ..extensions import db
 from ..models import Member, MembershipTier
 from ..services.membership_service import MembershipService
@@ -1018,15 +1019,24 @@ def preview_tier_email():
 
     tier_ids = [t.id for t in tiers]
 
-    # Count active members in these tiers
+    # Count active members per tier using a single aggregated query (prevents N+1)
+    counts = db.session.query(
+        Member.tier_id,
+        func.count(Member.id)
+    ).filter(
+        Member.tenant_id == tenant_id,
+        Member.tier_id.in_(tier_ids),
+        Member.status == 'active'
+    ).group_by(Member.tier_id).all()
+
+    # Convert to dict for easy lookup
+    count_by_tier_id = {tier_id: count for tier_id, count in counts}
+
+    # Build member counts dict using tier names
     member_counts = {}
     total = 0
     for tier in tiers:
-        count = Member.query.filter(
-            Member.tenant_id == tenant_id,
-            Member.tier_id == tier.id,
-            Member.status == 'active'
-        ).count()
+        count = count_by_tier_id.get(tier.id, 0)
         member_counts[tier.name] = count
         total += count
 
