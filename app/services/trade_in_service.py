@@ -9,7 +9,7 @@ from decimal import Decimal
 from typing import Optional, List, Dict, Any
 from flask import current_app
 from ..extensions import db
-from ..models import Member, TradeInBatch, TradeInItem
+from ..models import Member, TradeInBatch, TradeInItem, Tenant
 
 
 class TradeInService:

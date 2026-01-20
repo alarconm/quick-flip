@@ -44,7 +44,7 @@
         "Tests cover tier benefits application"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "TC-004",
@@ -59,7 +59,7 @@
         "Tests cover credit issuance on approval"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "TC-005",
@@ -73,7 +73,7 @@
         "Tests cover credit expiration"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "TC-006",

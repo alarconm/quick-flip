@@ -51,7 +51,7 @@ def db_session(app):
 @pytest.fixture
 def sample_tenant(app):
     """Create a sample tenant for testing."""
-    from app.models import Tenant
+    from app.models import Tenant, MembershipTier
 
     with app.app_context():
         unique_id = str(uuid.uuid4())[:8]
@@ -70,9 +70,18 @@ def sample_tenant(app):
         tenant = Tenant.query.get(tenant_id)
         yield tenant
 
-        # Cleanup
-        db.session.delete(tenant)
-        db.session.commit()
+        # Cleanup - delete related tiers first to avoid constraint issues
+        try:
+            MembershipTier.query.filter_by(tenant_id=tenant_id).delete()
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+
+        try:
+            db.session.delete(tenant)
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
 
 
 @pytest.fixture
@@ -95,9 +104,13 @@ def sample_tier(app, sample_tenant):
         tier = MembershipTier.query.get(tier_id)
         yield tier
 
-        # Cleanup
-        db.session.delete(tier)
-        db.session.commit()
+        # Cleanup - wrap in try/except in case tenant cleanup already handled it
+        try:
+            if MembershipTier.query.get(tier_id):
+                db.session.delete(tier)
+                db.session.commit()
+        except Exception:
+            db.session.rollback()
 
 
 @pytest.fixture
@@ -146,18 +159,32 @@ def auth_headers(sample_tenant):
 
 
 @pytest.fixture
+def tier_api_headers(sample_tenant):
+    """
+    Create headers for tier management API (/api/tiers/*).
+
+    The tiers API uses X-Shop-Domain which the middleware resolves to g.tenant.
+    """
+    return {
+        'X-Shop-Domain': sample_tenant.shopify_domain,
+        'Content-Type': 'application/json'
+    }
+
+
+@pytest.fixture
 def sample_trade_in_batch(app, sample_tenant, sample_member):
     """Create a sample trade-in batch for testing."""
     from app.models import TradeInBatch
 
     with app.app_context():
+        unique_id = str(uuid.uuid4())[:8]
         batch = TradeInBatch(
             tenant_id=sample_tenant.id,
             member_id=sample_member.id,
-            batch_number='TB-TEST-001',
+            batch_reference=f'TB-TEST-{unique_id}',
             status='pending',
             total_items=0,
-            total_value=0
+            total_trade_value=0
         )
         db.session.add(batch)
         db.session.commit()

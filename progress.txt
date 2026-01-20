@@ -67,3 +67,120 @@ Date: 2026-01-20
 - [x] Tests cover member status transitions
 - [x] All 29 member API tests pass
 
+---
+
+## Story: TC-003 - Test Tier management logic
+Date: 2026-01-20
+
+### What I Did
+- Created comprehensive test suite for Tier API (20 tests)
+- Tests cover two API routes:
+  - `/api/members/tiers` - CRUD operations (X-Shop-Domain auth)
+  - `/api/tiers/*` - Assignment, promotions, eligibility (X-Tenant-ID auth)
+- Test coverage includes:
+  - Tier listing and retrieval (5 tests)
+  - Tier create with benefits (2 tests)
+  - Tier update (2 tests)
+  - Tier delete (1 test)
+  - Tier assignment to member (2 tests)
+  - Bulk tier assignment validation (2 tests)
+  - Eligibility processing endpoints (2 tests)
+  - Promotions CRUD (2 tests)
+  - Fixture validation (2 tests)
+- Fixed conftest.py fixture cleanup to prevent SQLAlchemy integrity errors
+
+### Files Changed
+- tests/test_api_tiers.py (new comprehensive test suite)
+- tests/conftest.py (improved fixture cleanup, added tier_api_headers)
+
+### Learnings
+- `/api/members/tiers` uses X-Shop-Domain header (standard app auth)
+- `/api/tiers/*` uses X-Tenant-ID header (different auth pattern)
+- Fixture cleanup order matters for foreign key constraints
+- SQLite in-memory DB requires careful session management
+
+### Verification
+- [x] Tests cover tier CRUD operations
+- [x] Tests cover tier eligibility calculation endpoints
+- [x] Tests cover tier assignment logic
+- [x] Tests cover tier promotions
+- [x] All 20 tier API tests pass
+
+---
+
+## Story: TC-004 - Test Trade-in workflows
+Date: 2026-01-20
+
+### What I Did
+- Created comprehensive test suite for Trade-in API (25 tests)
+- Fixed production bug: Added missing `Tenant` import to trade_in_service.py
+- Test coverage includes:
+  - Trade-in batch listing with filtering (5 tests)
+  - Batch CRUD operations (3 tests)
+  - Guest vs member trade-in creation (3 tests)
+  - Trade-in categories (1 test)
+  - Item management (add/update/delete) (3 tests)
+  - Status transitions and completion (2 tests)
+  - Auto-approval thresholds and bonus preview (2 tests)
+  - Timeline and member summary (2 tests)
+  - Batch by reference lookup (2 tests)
+  - Fixture validation (3 tests)
+- Fixed conftest.py batch_reference field name
+
+### Files Changed
+- tests/test_api_trade_ins.py (new comprehensive test suite)
+- tests/conftest.py (fixed batch_reference field name)
+- app/services/trade_in_service.py (BUGFIX: added Tenant import)
+
+### Learnings
+- TradeInItem uses `product_title`, not `name` field
+- TradeInBatch uses `batch_reference`, not `batch_number`
+- Tests helped catch missing import bug in production code
+- Coverage increased from 24% to 27%
+
+### Verification
+- [x] Tests cover trade-in batch CRUD
+- [x] Tests cover item add/edit/delete
+- [x] Tests cover approval workflow endpoints
+- [x] Tests cover auto-approval threshold logic
+- [x] Tests cover credit issuance endpoint (complete)
+- [x] All 25 trade-in API tests pass
+
+---
+
+## Story: TC-005 - Test Store credit operations
+Date: 2026-01-20
+
+### What I Did
+- Created comprehensive test suite for Store Credit API (23 tests)
+- Test coverage includes:
+  - Credit add validation and operations (4 tests)
+  - Credit deduct validation and operations (4 tests)
+  - Balance queries (2 tests)
+  - History queries with pagination (3 tests)
+  - Credit overview endpoints (2 tests)
+  - Store credit events (2 tests)
+  - Promotions credit endpoints (3 tests)
+  - Validation rules (3 tests)
+- Tests cover multiple API routes:
+  - `/api/membership/store-credit/*`
+  - `/api/store-credit-events`
+  - `/api/promotions/credit/*`
+
+### Files Changed
+- tests/test_api_store_credit.py (new comprehensive test suite)
+
+### Learnings
+- Store credit endpoints use both X-Shop-Domain and X-Tenant-ID headers
+- Some endpoints require customer auth (return 401 for admin-only auth)
+- Credit operations may fail if Shopify integration isn't configured
+- Coverage increased from 27% to 28%
+
+### Verification
+- [x] Tests cover credit add endpoint
+- [x] Tests cover credit deduct endpoint
+- [x] Tests cover balance query
+- [x] Tests cover ledger history
+- [x] Tests cover credit expiration (via endpoints)
+- [x] All 23 store credit API tests pass
+
