@@ -27,3 +27,43 @@ Date: 2026-01-20
 - [x] Coverage report shows per-file breakdown
 - [x] HTML coverage report generated in htmlcov/
 
+---
+
+## Story: TC-002 - Test Member CRUD operations
+Date: 2026-01-20
+
+### What I Did
+- Created comprehensive test suite for Member API (29 tests)
+- Updated conftest.py fixtures:
+  - Fixed auth header to use X-Shop-Domain
+  - Enabled SHOPIFY_AUTH_DEV_MODE for testing
+  - Added sample_trade_in_batch fixture
+- Test coverage includes:
+  - Authentication requirements (2 tests)
+  - Member listing with pagination, search, and filtering (8 tests)
+  - Get member by ID (3 tests)
+  - Get member by number (3 tests)
+  - Create member with Shopify ID (5 tests)
+  - Update member (4 tests)
+  - Status transitions (3 tests)
+  - Enrollment (1 test)
+  - Delete member (2 tests)
+
+### Files Changed
+- tests/conftest.py (fixed fixtures and auth)
+- tests/test_api_members.py (comprehensive test suite)
+
+### Learnings
+- Flask test client requires proper fixture context management
+- Shopify-embedded apps require shopify_customer_id for member creation
+- X-Shop-Domain header required for auth in dev mode
+- Tests need to use same tenant as auth_headers fixture
+
+### Verification
+- [x] Tests cover GET /api/members with pagination
+- [x] Tests cover POST /api/members/enroll
+- [x] Tests cover GET /api/members/{id}
+- [x] Tests cover PUT /api/members/{id}
+- [x] Tests cover member status transitions
+- [x] All 29 member API tests pass
+
