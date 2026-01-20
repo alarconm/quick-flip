@@ -9,6 +9,13 @@ from flask_cors import CORS
 from .extensions import db, migrate
 from .config import get_config
 
+# Optional compression (graceful fallback if not installed)
+try:
+    from flask_compress import Compress
+    compress = Compress()
+except ImportError:
+    compress = None
+
 
 def create_app(config_name: str = None) -> Flask:
     """
@@ -36,6 +43,16 @@ def create_app(config_name: str = None) -> Flask:
     # Initialize extensions
     db.init_app(app)
     migrate.init_app(app, db)
+
+    # Initialize compression (gzip/brotli for responses)
+    if compress:
+        compress.init_app(app)
+        app.config['COMPRESS_MIMETYPES'] = [
+            'text/html', 'text/css', 'text/xml', 'text/javascript',
+            'application/json', 'application/javascript', 'application/xml'
+        ]
+        app.config['COMPRESS_LEVEL'] = 6  # Balance between speed and compression
+        app.config['COMPRESS_MIN_SIZE'] = 500  # Only compress responses > 500 bytes
 
     # Configure CORS - allow frontend origins
     import re
@@ -179,8 +196,8 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
 <p>Looking for: {dist_path}</p>
 </body></html>'''
 
-    # Inject Shopify context and App Bridge CDN script before </head>
-    # This must load BEFORE the React bundle for window.shopify to be available
+    # Inject Shopify context before </head>
+    # App Bridge CDN is already in index.html, don't add it again
     # Only inject shop if present (otherwise let App Bridge provide it)
     shop_js = f'"{shop}"' if shop else 'null'
     host_js = f'"{host}"' if host else 'null'
@@ -192,11 +209,9 @@ def get_spa_html(shop: str, host: str, api_key: str, app_url: str) -> str:
         apiKey: "{api_key}",
         appUrl: "{app_url}"
       }};
-      console.log('[TradeUp] Server config:', window.__TRADEUP_CONFIG__);
-    </script>
-    <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js"></script>'''
+    </script>'''
 
-    # Insert scripts before </head>
+    # Insert config script before </head> (App Bridge is already in the HTML)
     html = html.replace('</head>', f'{context_script}\n  </head>')
 
     return html
@@ -210,8 +225,9 @@ def serve_frontend_assets(app: Flask) -> None:
     """
     Serve static assets from the React frontend build.
     This handles /assets/* requests for JS, CSS, and other static files.
+    Assets have content hashes in filenames, enabling aggressive caching.
     """
-    from flask import send_from_directory
+    from flask import send_from_directory, make_response
     import os
 
     app_dir = os.path.dirname(os.path.abspath(__file__))
@@ -221,15 +237,22 @@ def serve_frontend_assets(app: Flask) -> None:
 
     @app.route('/assets/<path:filename>')
     def frontend_assets(filename):
-        return send_from_directory(assets_dir, filename)
+        response = make_response(send_from_directory(assets_dir, filename))
+        # Assets have content hashes - cache for 1 year (immutable)
+        response.headers['Cache-Control'] = 'public, max-age=31536000, immutable'
+        return response
 
     @app.route('/vite.svg')
     def vite_svg():
-        return send_from_directory(dist_dir, 'vite.svg')
+        response = make_response(send_from_directory(dist_dir, 'vite.svg'))
+        response.headers['Cache-Control'] = 'public, max-age=86400'  # 1 day
+        return response
 
     @app.route('/tradeup-icon.svg')
     def tradeup_icon_svg():
-        return send_from_directory(dist_dir, 'tradeup-icon.svg')
+        response = make_response(send_from_directory(dist_dir, 'tradeup-icon.svg'))
+        response.headers['Cache-Control'] = 'public, max-age=86400'  # 1 day
+        return response
 
 
 
