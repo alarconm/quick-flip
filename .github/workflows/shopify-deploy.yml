@@ -1,7 +1,9 @@
-name: Deploy Shopify App
+name: Deploy Shopify Extensions
 
+# Only deploy on manual trigger or version tags
+# Extensions are versioned by Shopify - not every commit needs deployment
 on:
-  workflow_dispatch:  # Manual trigger
+  workflow_dispatch:
     inputs:
       release:
         description: 'Create release (publish to stores)'
@@ -9,14 +11,13 @@ on:
         default: 'false'
         type: boolean
   push:
-    branches: [main]
-    paths:
-      - 'extensions/**'
-      - 'shopify.app.toml'
+    tags:
+      - 'v*'  # Only deploy on version tags like v1.0.0
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 15  # Fail fast if something is stuck
 
     steps:
       - uses: actions/checkout@v4
@@ -30,14 +31,12 @@ jobs:
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
 
-      - name: Install extension dependencies
+      - name: Install UI extension dependencies
         run: |
           cd extensions/checkout-ui && npm ci
           cd ../customer-account-ui && npm ci
           cd ../post-purchase-ui && npm ci
           cd ../pos-ui && npm ci --legacy-peer-deps
-          cd ../checkout-validation && npm ci
-          cd ../tier-discount-function && npm ci
 
       - name: Deploy to Shopify (no release)
         if: ${{ github.event.inputs.release != 'true' }}

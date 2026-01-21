@@ -1,0 +1,129 @@
+{
+  "title": "TradeUp Full UI Verification",
+  "description": "Browser verification of all admin and customer-facing features",
+  "baseUrl": "https://app.cardflowlabs.com",
+  "testStore": "uy288y-nx.myshopify.com",
+  "userStories": [
+    {
+      "id": "UI-001",
+      "title": "Dashboard loads and displays stats",
+      "path": "/",
+      "passes": true,
+      "acceptanceCriteria": [
+        "Dashboard page loads without errors",
+        "Member count stat is displayed",
+        "Store credit issued stat is displayed",
+        "Trade-ins stat is displayed",
+        "Recent activity section is visible"
+      ]
+    },
+    {
+      "id": "UI-002",
+      "title": "Members list page works",
+      "path": "/members",
+      "passes": true,
+      "acceptanceCriteria": [
+        "Members page loads without errors",
+        "Member table displays with columns",
+        "Search input field is visible",
+        "Pagination controls work",
+        "Filter dropdown is accessible"
+      ]
+    },
+    {
+      "id": "UI-003",
+      "title": "Member enrollment works",
+      "path": "/members",
+      "passes": true,
+      "acceptanceCriteria": [
+        "Enroll Member button is visible",
+        "Clicking Enroll opens a modal or form",
+        "Form has email field",
+        "Form has tier selection"
+      ]
+    },
+    {
+      "id": "UI-004",
+      "title": "Tiers page displays correctly",
+      "path": "/tiers",
+      "passes": true,
+      "acceptanceCriteria": [
+        "Tiers page loads without errors",
+        "Existing tiers are displayed",
+        "Create Tier button is visible",
+        "Tier cards show benefits"
+      ]
+    },
+    {
+      "id": "UI-005",
+      "title": "Trade-ins list page works",
+      "path": "/trade-ins",
+      "passes": true,
+      "acceptanceCriteria": [
+        "Trade-ins page loads without errors",
+        "Trade-in batches are listed",
+        "Status column shows batch status",
+        "Search/filter options available"
+      ]
+    },
+    {
+      "id": "UI-006",
+      "title": "Settings page is accessible",
+      "path": "/settings",
+      "passes": true,
+      "acceptanceCriteria": [
+        "Settings page loads without errors",
+        "Multiple settings sections visible",
+        "Form fields are editable",
+        "Save button is present"
+      ]
+    },
+    {
+      "id": "UI-007",
+      "title": "Billing page shows plan info",
+      "path": "/billing",
+      "passes": true,
+      "acceptanceCriteria": [
+        "Billing page loads without errors",
+        "Current plan is displayed",
+        "Plan options are shown",
+        "Usage stats are visible"
+      ]
+    },
+    {
+      "id": "UI-008",
+      "title": "Rewards page displays catalog",
+      "path": "/rewards",
+      "passes": true,
+      "acceptanceCriteria": [
+        "Rewards page loads without errors",
+        "Reward items are displayed",
+        "Create Reward button visible",
+        "Points cost shown on rewards"
+      ]
+    },
+    {
+      "id": "UI-009",
+      "title": "Analytics page shows data",
+      "path": "/analytics",
+      "passes": true,
+      "acceptanceCriteria": [
+        "Analytics page loads without errors",
+        "Charts or graphs are displayed",
+        "Date range selector available",
+        "Key metrics are shown"
+      ]
+    },
+    {
+      "id": "UI-010",
+      "title": "App Proxy rewards page works",
+      "path": "/proxy/",
+      "passes": true,
+      "acceptanceCriteria": [
+        "Proxy page loads (may need auth)",
+        "Rewards information displayed",
+        "Tier benefits shown"
+      ]
+    }
+  ]
+}
