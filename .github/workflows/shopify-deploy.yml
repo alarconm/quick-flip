@@ -1,0 +1,54 @@
+name: Deploy Shopify App
+
+on:
+  workflow_dispatch:  # Manual trigger
+    inputs:
+      release:
+        description: 'Create release (publish to stores)'
+        required: false
+        default: 'false'
+        type: boolean
+  push:
+    branches: [main]
+    paths:
+      - 'extensions/**'
+      - 'shopify.app.toml'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Install extension dependencies
+        run: |
+          cd extensions/checkout-ui && npm ci
+          cd ../customer-account-ui && npm ci
+          cd ../post-purchase-ui && npm ci
+          cd ../pos-ui && npm ci
+          cd ../checkout-validation && npm ci
+          cd ../tier-discount-function && npm ci
+
+      - name: Deploy to Shopify (no release)
+        if: ${{ github.event.inputs.release != 'true' }}
+        run: npx shopify app deploy --force --no-release
+        env:
+          SHOPIFY_CLI_PARTNERS_TOKEN: ${{ secrets.SHOPIFY_CLI_PARTNERS_TOKEN }}
+          SHOPIFY_API_KEY: ${{ secrets.SHOPIFY_API_KEY }}
+
+      - name: Deploy to Shopify (with release)
+        if: ${{ github.event.inputs.release == 'true' }}
+        run: npx shopify app deploy --force
+        env:
+          SHOPIFY_CLI_PARTNERS_TOKEN: ${{ secrets.SHOPIFY_CLI_PARTNERS_TOKEN }}
+          SHOPIFY_API_KEY: ${{ secrets.SHOPIFY_API_KEY }}
