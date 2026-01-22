@@ -38,6 +38,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getApiUrl, authFetch } from '../../hooks/useShopifyBridge';
 import { PositionSelector, WidgetPosition } from '../components/PositionSelector';
 import { ColorPicker } from '../components/ColorPicker';
+import { WidgetPreview, type PreviewDevice } from '../components/WidgetPreview';
 
 interface EmbeddedWidgetBuilderProps {
   shop: string | null;
@@ -151,6 +152,7 @@ const ANIMATION_OPTIONS = [
 export function EmbeddedWidgetBuilder({ shop }: EmbeddedWidgetBuilderProps) {
   const [selectedTab, setSelectedTab] = useState(0);
   const [showEmbedCode, setShowEmbedCode] = useState(false);
+  const [previewDevice, setPreviewDevice] = useState<PreviewDevice>('desktop');
 
   const queryClient = useQueryClient();
 
@@ -237,7 +239,7 @@ export function EmbeddedWidgetBuilder({ shop }: EmbeddedWidgetBuilderProps) {
           <Card>
             <BlockStack gap="400">
               <InlineStack align="space-between">
-                <Text as="h3" variant="headingMd">Widget Preview</Text>
+                <Text as="h3" variant="headingMd">Live Preview</Text>
                 <Checkbox
                   label="Enable Widget"
                   checked={config?.enabled !== false}
@@ -245,59 +247,27 @@ export function EmbeddedWidgetBuilder({ shop }: EmbeddedWidgetBuilderProps) {
                 />
               </InlineStack>
 
-              {/* Widget Preview */}
-              <Box
-                padding="400"
-                background="bg-surface-secondary"
-                borderRadius="200"
-              >
-                <div style={{
-                  position: 'relative',
-                  height: 300,
-                  display: 'flex',
-                  alignItems: config?.position?.includes('top') ? 'flex-start' :
-                              config?.position === 'center' ? 'center' :
-                              config?.position?.includes('tab') ? 'center' : 'flex-end',
-                  justifyContent: config?.position?.includes('left') ? 'flex-start' :
-                                  config?.position === 'center' ? 'center' : 'flex-end',
-                }}>
-                  {/* Mock widget button */}
-                  <div
-                    style={{
-                      width: config?.position?.includes('tab') ? 24 :
-                             config?.launcher?.size === 'large' ? 70 :
-                             config?.launcher?.size === 'small' ? 50 : 60,
-                      height: config?.position?.includes('tab') ? 80 :
-                              config?.launcher?.size === 'large' ? 70 :
-                              config?.launcher?.size === 'small' ? 50 : 60,
-                      borderRadius: config?.position?.includes('tab')
-                        ? (config?.position === 'left-tab' ? '0 8px 8px 0' : '8px 0 0 8px')
-                        : config?.appearance?.border_radius || 16,
-                      background: config?.appearance?.primary_color || '#e85d27',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: config?.appearance?.text_color || '#fff',
-                      fontSize: config?.position?.includes('tab') ? 12 : 24,
-                      boxShadow: config?.appearance?.shadow ? '0 4px 12px rgba(0,0,0,0.15)' : 'none',
-                      cursor: 'pointer',
-                      writingMode: config?.position?.includes('tab') ? 'vertical-rl' : 'horizontal-tb',
-                      position: config?.position?.includes('tab') ? 'absolute' : 'relative',
-                      left: config?.position === 'left-tab' ? 0 : 'auto',
-                      right: config?.position === 'right-tab' ? 0 : 'auto',
-                      top: config?.position?.includes('tab') ? '50%' : 'auto',
-                      transform: config?.position?.includes('tab') ? 'translateY(-50%)' : 'none',
-                    }}
-                  >
-                    {config?.position?.includes('tab') ? 'Rewards' : (
-                      config?.launcher?.icon === 'gift' ? '🎁' :
-                      config?.launcher?.icon === 'star' ? '⭐' :
-                      config?.launcher?.icon === 'heart' ? '❤️' :
-                      config?.launcher?.icon === 'trophy' ? '🏆' : '🎁'
-                    )}
-                  </div>
-                </div>
-              </Box>
+              {/* Widget Preview - Real-time with mobile/desktop toggle */}
+              {config && (
+                <WidgetPreview
+                  config={{
+                    enabled: config.enabled,
+                    position: config.position,
+                    theme: config.theme,
+                    appearance: config.appearance,
+                    launcher: config.launcher,
+                    panel: config.panel,
+                    branding: config.branding,
+                    display_rules: config.display_rules,
+                  }}
+                  showDeviceToggle={true}
+                  defaultDevice={previewDevice}
+                  onDeviceChange={setPreviewDevice}
+                  showExpandedPanel={false}
+                  showPageContext={true}
+                  storeName={shop?.replace('.myshopify.com', '') || 'your-store'}
+                />
+              )}
             </BlockStack>
           </Card>
 

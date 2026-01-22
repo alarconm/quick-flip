@@ -104,3 +104,76 @@ Acceptance Criteria Met:
 Files Created/Modified:
 - frontend/src/embedded/pages/EmbeddedWidgets.tsx (NEW - 753 lines)
 - frontend/src/embedded/EmbeddedApp.tsx (UPDATED - added route and nav link)
+
+WB-006 - Create live preview component
+--------------------------------------
+Date: 2026-01-22
+Status: COMPLETE
+
+Implementation Summary:
+- Created WidgetPreview.tsx component at frontend/src/embedded/components/WidgetPreview.tsx
+- Comprehensive live preview component for real-time widget visualization
+
+Key Features:
+1. Real-time preview updates:
+   - Widget appearance updates instantly as settings change
+   - Reflects all configuration options (colors, position, size, etc.)
+   - Uses React useMemo for performance optimization
+
+2. Mobile/desktop toggle:
+   - ButtonGroup with segmented desktop/mobile buttons
+   - Desktop view: 480px wide mockup with full browser chrome
+   - Mobile view: 220px wide with phone-style rounded corners and bezel
+   - Smooth CSS transitions between device modes
+
+3. Mock store page context:
+   - Browser chrome with URL bar showing store domain
+   - Mock store header with logo placeholder and navigation
+   - Mock product grid that adapts to device size
+   - Realistic store layout for accurate preview
+
+4. Widget components:
+   - WidgetLauncherPreview: Floating button with position support
+     * Supports all 7 positions (corners, center, left/right tabs)
+     * Respects size settings (small/medium/large)
+     * Shows points badge when enabled
+     * Respects hide_on_mobile display rule
+   - WidgetPanelPreview: Expandable rewards panel
+     * Shows points balance with current config
+     * Shows tier progress bar
+     * Shows available rewards list
+     * Shows powered_by footer
+     * Panel position adapts to widget position
+
+5. Additional controls:
+   - Toggle button to show/hide expanded panel
+   - Device info text showing current preview dimensions
+   - Warning when widget is hidden on mobile
+   - Disabled state overlay when widget is disabled
+
+Component API:
+- config: WidgetConfig - Current widget configuration
+- showDeviceToggle: boolean - Show mobile/desktop toggle (default: true)
+- defaultDevice: PreviewDevice - Initial device mode (default: 'desktop')
+- onDeviceChange: callback - Notified when device changes
+- showExpandedPanel: boolean - Start with panel open (default: false)
+- height: number - Custom preview height
+- showPageContext: boolean - Show mock store elements (default: true)
+- storeName: string - Store name for URL bar
+
+Integration:
+- Integrated into EmbeddedWidgetBuilder.tsx
+- Replaced basic inline preview with full WidgetPreview component
+- Added previewDevice state for device toggle persistence
+- Passes shop domain for realistic URL bar display
+
+Acceptance Criteria Met:
+[x] Preview panel showing widget
+[x] Updates in real-time as settings change
+[x] Shows widget in context (mock store page)
+[x] Mobile/desktop toggle for responsive preview
+[x] Accurate representation of final output
+
+Files Created/Modified:
+- frontend/src/embedded/components/WidgetPreview.tsx (NEW - 580 lines)
+- frontend/src/embedded/pages/EmbeddedWidgetBuilder.tsx (UPDATED - integrated WidgetPreview)
