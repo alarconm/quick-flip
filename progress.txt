@@ -1202,3 +1202,67 @@ Response:
 - [x] Modal triggered when viewing page after earning badge
 - [x] Share to social option - not implemented (optional per story)
 
+---
+
+## Story: GS-009 - Add progress bars for tier advancement
+Date: 2026-01-22
+
+### What I Did
+- Enhanced TierProgressCard component with comprehensive TierProgressBar
+- New TierProgressBar component shows:
+  - Current tier and next tier labels with visual hierarchy
+  - Visual progress bar with percentage fill
+  - Percentage display (inside bar when >= 15%, outside when < 15%)
+  - Current points and threshold required for next tier
+  - Points remaining callout with badge
+  - Motivational messages based on progress level
+- Improved max tier state display with celebratory styling
+- Progress bar calculates current points from API's progress and pointsToNextTier values
+
+### Files Changed
+- extensions/customer-account-ui/src/TradeUpRewards.jsx:
+  - Enhanced TierProgressCard to use new TierProgressBar component
+  - Created TierProgressBar component (~100 lines) with:
+    - Progress percentage calculation (0-100%)
+    - Current points calculation from progress ratio
+    - Motivational messages at different progress levels (25%, 50%, 75%, 90%)
+    - Points needed badge with "pts to go" callout
+  - Improved max tier display with "MAX TIER ACHIEVED" styling
+
+### Component Features
+- **Progress Visualization**: Clean progress bar with percentage fill
+- **Points Display**: Shows current points / threshold needed
+- **Motivational Messages**: Dynamic messages based on progress:
+  - < 25%: "Start your journey to the next tier!"
+  - >= 25%: "Nice start! Keep earning points!"
+  - >= 50%: "Halfway there! Keep going!"
+  - >= 75%: "Great progress! You're so close!"
+  - >= 90%: "Almost there! Just a few more points!"
+- **Points Remaining Badge**: Prominent badge showing points to go
+- **Tier Labels**: Clear current/next tier indicators
+
+### API Data Used
+The component uses existing tier_progress data from the API:
+```json
+{
+  "tier_progress": {
+    "next_tier_name": "Gold",
+    "points_to_next_tier": 500,
+    "progress": 0.75
+  }
+}
+```
+
+### Learnings
+- Progress value from API is a decimal (0-1) representing percentage complete
+- Current points can be reverse-calculated: currentPoints = (progress * pointsToNextTier) / (1 - progress)
+- Shopify UI extensions have limited styling options, using View components with background colors
+- Motivational messages help gamify the tier progression experience
+
+### Verification
+- [x] Progress bar component shows points/spend toward next tier
+- [x] Percentage complete calculated correctly
+- [x] Displays requirement for next tier
+- [x] Integrated into customer account extension (OverviewTab via TierProgressCard)
+- [x] Updates in real-time after transactions (via API data refresh)
+

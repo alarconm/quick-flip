@@ -1269,22 +1269,149 @@ function TierProgressCard({ tier, pointsToNextTier, progress, nextTierName }) {
       </InlineStack>
 
       {pointsToNextTier > 0 && nextTierName && (
-        <BlockStack spacing="tight">
-          <View border="base" cornerRadius="base" padding="none">
-            <View background="interactive" padding="tight" blockSize={8} inlineSize={`${Math.round(progress * 100)}%`} />
-          </View>
-          <Text size="small" appearance="subdued">
-            {pointsToNextTier.toLocaleString()} points to reach {nextTierName}
-          </Text>
-        </BlockStack>
+        <TierProgressBar
+          currentTierName={tier.name}
+          nextTierName={nextTierName}
+          pointsToNextTier={pointsToNextTier}
+          progress={progress}
+        />
       )}
 
       {!nextTierName && (
-        <Text size="small" tone="success">
-          You're at the highest tier - enjoy all benefits!
-        </Text>
+        <View padding="base" background="subdued" borderRadius="base">
+          <BlockStack spacing="tight" inlineAlignment="center">
+            <Text size="large" tone="success">
+              MAX TIER ACHIEVED
+            </Text>
+            <Text size="small" appearance="subdued">
+              You're at the highest tier - enjoy all benefits!
+            </Text>
+          </BlockStack>
+        </View>
       )}
     </BlockStack>
+  );
+}
+
+// ============================================================================
+// Tier Progress Bar Component
+// ============================================================================
+
+/**
+ * TierProgressBar - Visual progress indicator for tier advancement
+ *
+ * Shows:
+ * - Current tier and next tier labels
+ * - Visual progress bar with percentage
+ * - Points needed to reach next tier
+ * - Motivational messaging based on progress
+ */
+function TierProgressBar({ currentTierName, nextTierName, pointsToNextTier, progress }) {
+  // Calculate percentage (progress is 0-1, convert to 0-100)
+  const progressPercent = Math.min(100, Math.max(0, Math.round(progress * 100)));
+
+  // Calculate current points (reverse engineer from progress and pointsToNextTier)
+  // If progress = currentPoints / threshold, and pointsToNextTier = threshold - currentPoints
+  // Then currentPoints = progress * threshold = progress * (currentPoints + pointsToNextTier)
+  // currentPoints = (progress * pointsToNextTier) / (1 - progress)
+  const currentPoints = progress < 1
+    ? Math.round((progress * pointsToNextTier) / (1 - progress))
+    : 0;
+
+  // Calculate the total threshold for next tier
+  const nextTierThreshold = currentPoints + pointsToNextTier;
+
+  // Determine motivational message based on progress
+  const getMotivationalMessage = () => {
+    if (progressPercent >= 90) {
+      return "Almost there! Just a few more points!";
+    } else if (progressPercent >= 75) {
+      return "Great progress! You're so close!";
+    } else if (progressPercent >= 50) {
+      return "Halfway there! Keep going!";
+    } else if (progressPercent >= 25) {
+      return "Nice start! Keep earning points!";
+    } else {
+      return "Start your journey to the next tier!";
+    }
+  };
+
+  return (
+    <View padding="base" background="subdued" borderRadius="base">
+      <BlockStack spacing="base">
+        {/* Header with tier names */}
+        <InlineStack spacing="loose" blockAlignment="center">
+          <BlockStack spacing="extraTight">
+            <Text size="small" appearance="subdued">CURRENT</Text>
+            <Text emphasis="bold">{currentTierName}</Text>
+          </BlockStack>
+          <View inlineSize="fill" />
+          <BlockStack spacing="extraTight" inlineAlignment="end">
+            <Text size="small" appearance="subdued">NEXT TIER</Text>
+            <Text emphasis="bold" tone="success">{nextTierName}</Text>
+          </BlockStack>
+        </InlineStack>
+
+        {/* Progress bar container */}
+        <BlockStack spacing="tight">
+          {/* Progress bar track */}
+          <View
+            border="base"
+            borderRadius="base"
+            padding="none"
+            background="base"
+            minBlockSize={16}
+          >
+            {/* Progress bar fill */}
+            <View
+              background="interactive"
+              borderRadius="base"
+              minBlockSize={16}
+              inlineSize={`${progressPercent}%`}
+            >
+              {/* Percentage label inside bar (only show if enough space) */}
+              {progressPercent >= 15 && (
+                <View padding="extraTight" inlineAlignment="center">
+                  <Text size="small" emphasis="bold">
+                    {progressPercent}%
+                  </Text>
+                </View>
+              )}
+            </View>
+          </View>
+
+          {/* Percentage label outside bar (show if not enough space inside) */}
+          {progressPercent < 15 && (
+            <Text size="small" emphasis="bold" appearance="subdued">
+              {progressPercent}% complete
+            </Text>
+          )}
+        </BlockStack>
+
+        {/* Points info */}
+        <InlineStack spacing="loose" blockAlignment="center">
+          <BlockStack spacing="extraTight">
+            <Text size="small" appearance="subdued">Current Points</Text>
+            <Text emphasis="bold">{currentPoints.toLocaleString()}</Text>
+          </BlockStack>
+          <View inlineSize="fill" />
+          <BlockStack spacing="extraTight" inlineAlignment="end">
+            <Text size="small" appearance="subdued">Need for {nextTierName}</Text>
+            <Text emphasis="bold" tone="success">{nextTierThreshold.toLocaleString()}</Text>
+          </BlockStack>
+        </InlineStack>
+
+        {/* Points remaining callout */}
+        <View padding="tight" background="base" borderRadius="base">
+          <InlineStack spacing="tight" blockAlignment="center" inlineAlignment="center">
+            <Badge tone="info">{pointsToNextTier.toLocaleString()} pts to go</Badge>
+            <Text size="small" appearance="subdued">
+              {getMotivationalMessage()}
+            </Text>
+          </InlineStack>
+        </View>
+      </BlockStack>
+    </View>
   );
 }
 
