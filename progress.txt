@@ -3735,3 +3735,123 @@ Date: 2026-01-22
 - [x] `pytest tests/test_api_store_credit.py tests/test_store_credit_service.py tests/test_scheduled_tasks_credit.py` - 59 passed
 
 ---
+
+## TC-002: Test Member CRUD Operations (January 22, 2026)
+
+### Summary
+Added comprehensive tests for member create, read, update, delete, enroll, suspend, reactivate, and cancel operations. The test file now contains 63 tests covering all member API endpoints.
+
+### Test Classes Created/Enhanced
+
+1. **TestMembersAuth** (2 tests)
+   - Test members endpoint requires shop domain header
+   - Test members endpoint responds with proper auth
+
+2. **TestMembersList** (7 tests)
+   - Test listing members when none exist
+   - Test listing members when one exists
+   - Test pagination parameters
+   - Test searching members by name
+   - Test searching members by email
+   - Test filtering members by status
+   - Test filtering members by tier
+
+3. **TestMemberGet** (3 tests)
+   - Test getting a member by ID
+   - Test getting a non-existent member (404)
+   - Test member response includes stats
+
+4. **TestMemberGetByNumber** (3 tests)
+   - Test getting member by member number
+   - Test getting member by number without TU prefix
+   - Test getting non-existent member number (404)
+
+5. **TestMemberCreate** (4 tests)
+   - Test creating a new member with Shopify customer ID
+   - Test that Shopify customer ID is required
+   - Test that email is required
+   - Test creating member with empty body
+
+6. **TestMemberUpdate** (4 tests)
+   - Test updating member name
+   - Test updating member email
+   - Test updating member status
+   - Test updating non-existent member (404)
+
+7. **TestMemberStatusTransitions** (3 tests)
+   - Test suspending an active member
+   - Test reactivating a suspended member
+   - Test cancelling a member
+
+8. **TestMemberEnroll** (1 test)
+   - Test that enrollment requires shopify_customer_id
+
+9. **TestMemberDelete** (2 tests)
+   - Test deleting a member
+   - Test deleting non-existent member (404)
+
+10. **TestMembersListEnhanced** (7 tests)
+    - Test pagination returns empty on page beyond data
+    - Test pagination with large per_page value
+    - Test default pagination (page=1, per_page=50)
+    - Test searching members by member number
+    - Test searching with non-matching query
+    - Test filtering by suspended status
+    - Test combining search and status filters
+
+11. **TestMemberEnrollEnhanced** (4 tests)
+    - Test empty shopify_customer_id is rejected
+    - Test null shopify_customer_id is rejected
+    - Test enrollment with optional tier_id parameter
+    - Test enrollment with optional notes parameter
+
+12. **TestMemberGetEnhanced** (4 tests)
+    - Test member response includes tier information
+    - Test member response includes status field
+    - Test member response includes email field
+    - Test getting member with invalid ID format (404)
+
+13. **TestMemberUpdateEnhanced** (4 tests)
+    - Test updating multiple member fields at once
+    - Test updating member with empty body (no changes)
+    - Test updating member tier assignment
+    - Test updating member notes field
+
+14. **TestMemberStatusTransitionsEnhanced** (12 tests)
+    - Test suspending active member with reason
+    - Test suspending already suspended member (400)
+    - Test suspending cancelled member fails (400)
+    - Test reactivating suspended member succeeds
+    - Test reactivating active member fails (400)
+    - Test cancelling member succeeds
+    - Test cancelling already cancelled member (400)
+    - Test suspending non-existent member (404)
+    - Test reactivating non-existent member (404)
+    - Test cancelling non-existent member (404)
+
+15. **TestMemberCreateEnhanced** (3 tests)
+    - Test creating member with all optional fields
+    - Test each member gets unique member number
+    - Test creating member with invalid email format
+
+16. **TestMemberDeleteEnhanced** (2 tests)
+    - Test delete returns success message
+    - Test member cannot be retrieved after deletion
+
+### Test Results
+- **Total Tests:** 63
+- **Passed:** 63
+- **Failed:** 0
+
+### Acceptance Criteria Verification
+- [x] Tests cover GET /api/members/ with pagination
+- [x] Tests cover POST /api/members/enroll
+- [x] Tests cover GET /api/members/{id}
+- [x] Tests cover PUT /api/members/{id}
+- [x] Tests cover member status transitions
+- [x] All member API tests pass
+
+### Files Modified
+- Modified: `tests/test_api_members.py` - 63 comprehensive member CRUD tests
+
+---
