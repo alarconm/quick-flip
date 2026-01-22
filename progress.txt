@@ -793,3 +793,35 @@ Date: 2026-01-21
 - [x] Remind Me Later schedules prompt for 7 days later (via API)
 - [x] Dismiss doesn't show again for 60 days (via API)
 
+---
+
+## Story: RC-005 - Add API endpoint for review prompt
+Date: 2026-01-21
+
+### What I Did
+- Created API endpoints in app/api/review_prompt.py:
+  - GET /api/review-prompt/check - Check if prompt should be shown
+  - POST /api/review-prompt/shown - Record prompt was displayed
+  - POST /api/review-prompt/response - Record merchant's response
+  - GET /api/review-prompt/history - Get prompt history (bonus endpoint)
+  - GET /api/review-prompt/stats - Get prompt statistics (bonus endpoint)
+- Registered review_prompt_bp blueprint in app/__init__.py
+- All endpoints use @require_shopify_auth decorator for security
+- Endpoints use ReviewPromptService for business logic
+
+### Files Changed
+- app/api/review_prompt.py (new - 156 lines)
+- app/__init__.py (registered blueprint)
+- progress.txt (updated)
+
+### Learnings
+- Followed existing API pattern from birthday.py and other endpoints
+- All endpoints return consistent JSON response format with success flag
+- Service layer handles all business logic, API layer handles HTTP concerns
+
+### Verification
+- [x] GET /api/review-prompt/check - check if should show prompt
+- [x] POST /api/review-prompt/shown - record prompt was shown
+- [x] POST /api/review-prompt/response - record user response
+- [x] Endpoints respect eligibility rules (via ReviewPromptService)
+

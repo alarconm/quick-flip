@@ -532,6 +532,10 @@ def register_blueprints(app: Flask) -> None:
     from .api.guest_points import guest_points_bp
     app.register_blueprint(guest_points_bp, url_prefix='/api/guest-points')
 
+    # Review Prompt (In-App Review Collection)
+    from .api.review_prompt import review_prompt_bp
+    app.register_blueprint(review_prompt_bp, url_prefix='/api/review-prompt')
+
 
 def register_error_handlers(app: Flask) -> None:
     """Register error handlers using standardized error format."""
