@@ -755,3 +755,41 @@ Date: 2026-01-21
 - [x] get_prompt_history(tenant_id) method - returns list of prompt dicts
 - [x] All 19 tests pass
 
+---
+
+## Story: RC-004 - Create review prompt UI component
+Date: 2026-01-21
+
+### What I Did
+- Created ReviewPromptModal React component in frontend/src/components/ReviewPromptModal.tsx
+- Uses Shopify Polaris components for consistency with the app (Modal, Button, TextContainer, etc.)
+- Implemented three response options:
+  - Rate Now: Opens Shopify App Store in new tab, records 'clicked' response
+  - Remind Me Later: Records 'reminded_later' response (schedules for 7 days)
+  - No Thanks (Dismiss): Records 'dismissed' response (won't show for 60 days)
+- Added visual star icons using Polaris StarFilledIcon
+- Friendly, appreciative message thanking merchants for using TradeUp
+- Added Review Prompt API functions to frontend/src/admin/api.ts:
+  - checkReviewPrompt() - GET /api/review-prompt/check
+  - recordReviewPromptShown() - POST /api/review-prompt/shown
+  - recordReviewPromptResponse() - POST /api/review-prompt/response
+
+### Files Changed
+- frontend/src/components/ReviewPromptModal.tsx (new - 134 lines)
+- frontend/src/admin/api.ts (added Review Prompt API section)
+- progress.txt (updated)
+
+### Learnings
+- Polaris Modal component provides consistent Shopify admin styling
+- Using window.open with 'noopener,noreferrer' for security when opening external links
+- Response recording is fire-and-forget to not block user actions
+- StarFilledIcon from @shopify/polaris-icons provides nice visual feedback
+
+### Verification
+- [x] ReviewPromptModal component in frontend/src/components/
+- [x] Friendly, appreciative message
+- [x] Three options: Rate Now, Remind Me Later, Dismiss
+- [x] Rate Now opens Shopify App Store in new tab
+- [x] Remind Me Later schedules prompt for 7 days later (via API)
+- [x] Dismiss doesn't show again for 60 days (via API)
+

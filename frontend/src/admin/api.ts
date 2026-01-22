@@ -723,3 +723,30 @@ export const completeOnboarding = () =>
 
 export const skipOnboarding = () =>
   api.post<{ success: boolean; message: string }>('/onboarding/skip').then(r => r.data)
+
+// ==================== Review Prompt API ====================
+
+export interface ReviewPromptCheck {
+  should_show: boolean
+  prompt_id?: number
+  reason?: string
+}
+
+export interface ReviewPromptResponse {
+  success: boolean
+  prompt_id?: number
+  response?: string
+  error?: string
+}
+
+export const checkReviewPrompt = () =>
+  api.get<ReviewPromptCheck>('/review-prompt/check').then(r => r.data)
+
+export const recordReviewPromptShown = () =>
+  api.post<{ prompt_id: number }>('/review-prompt/shown').then(r => r.data)
+
+export const recordReviewPromptResponse = (promptId: number, response: string) =>
+  api.post<ReviewPromptResponse>('/review-prompt/response', {
+    prompt_id: promptId,
+    response,
+  }).then(r => r.data)
