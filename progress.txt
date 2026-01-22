@@ -444,3 +444,28 @@ Date: 2026-01-21
 - [x] All files use standard import statements at top of file
 - [x] Code structure is cleaner and more maintainable
 
+---
+
+## Story: CQ-003 - Remove unused legacy dashboard template
+Date: 2026-01-21
+
+### What I Did
+- Deleted app/templates/dashboard.html (607 lines of unused legacy HTML)
+- Removed the entire app/templates/ directory since it was empty after deletion
+- Verified no Flask routes reference this template
+
+### Files Changed
+- app/templates/dashboard.html (deleted)
+- app/templates/ directory (deleted)
+
+### Learnings
+- This was an old prototype dashboard that was replaced by the React SPA
+- The template contained TODO comments indicating it was incomplete
+- React SPA in frontend/ now handles all UI
+
+### Verification
+- [x] app/templates/dashboard.html deleted
+- [x] No references to dashboard.html in Flask routes (verified with grep)
+- [x] App functions correctly without the template (React SPA handles UI)
+- [x] Templates folder cleaned up (entire directory removed)
+

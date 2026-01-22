@@ -40,7 +40,7 @@
         "Templates folder cleaned up if empty"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "CQ-004",
