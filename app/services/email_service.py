@@ -343,6 +343,64 @@ The {{shop_name}} Team
             ''',
             'category': 'anniversary',
         },
+        'points_expiring': {
+            'name': 'Points Expiring Reminder',
+            'subject': '{{expiring_points}} points expiring in {{days_until}} days!',
+            'body': '''
+Hi {{member_name}},
+
+This is a friendly reminder that you have **{{expiring_points}} points** expiring on **{{expiration_date}}**!
+
+That's only **{{days_until}} days** away.
+
+**Don't let your points go to waste!**
+
+{{#if rewards_available}}
+Here are some great ways to redeem your points:
+{{rewards_list}}
+{{/if}}
+
+Visit {{shop_name}} today to redeem your points before they expire.
+
+**[Redeem Points Now]({{shop_url}})**
+
+Your current points balance: **{{current_balance}} points**
+
+Best,
+The {{shop_name}} Team
+            ''',
+            'category': 'nudge',
+        },
+        'tier_progress': {
+            'name': 'Tier Progress Reminder',
+            'subject': "You're {{progress_percent}}% of the way to {{next_tier}}!",
+            'body': '''
+Hi {{member_name}},
+
+Great news! You're making excellent progress toward your next membership tier.
+
+**Your Progress:**
+- Current Tier: **{{current_tier}}**
+- Next Tier: **{{next_tier}}**
+- Progress: **{{progress_percent}}%**
+- Points Needed: **{{points_needed}} more points**
+
+You currently have **{{current_points}} points**. Just **{{points_needed}} more points** and you'll unlock **{{next_tier}}**!
+
+{{#if next_tier_benefits}}
+**Benefits you'll unlock with {{next_tier}}:**
+{{next_tier_benefits}}
+{{/if}}
+
+Keep earning points through purchases and trade-ins to reach your goal!
+
+**[Shop Now]({{shop_url}})**
+
+Best,
+The {{shop_name}} Team
+            ''',
+            'category': 'nudge',
+        },
     }
 
     def __init__(self):

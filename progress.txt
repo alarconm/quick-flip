@@ -2079,3 +2079,81 @@ Date: 2026-01-22
 - [x] Alembic migration created and ready to apply
 - [x] Default nudge configs created on tenant setup (via OnboardingService.apply_template)
 
+---
+
+## Story: NR-003 - Implement tier progress reminder
+Date: 2026-01-22
+
+### What I Did
+- Added comprehensive tier progress reminder functionality to NudgesService:
+  - get_tier_progress_config() - Get tier progress nudge configuration
+  - get_members_near_tier_progress() - Find members within threshold of next tier
+  - _format_tier_benefits() - Format tier benefits as human-readable list
+  - should_send_tier_progress_reminder() - Check if reminder should be sent
+  - send_tier_progress_reminder() - Send reminder to specific member
+  - process_tier_progress_reminders() - Batch process all eligible members
+  - get_tier_progress_nudge_history() - Get history of sent reminders
+  - update_tier_progress_config() - Update configuration settings
+- Added tier_progress email template to EmailService.DEFAULT_TEMPLATES:
+  - Shows current tier and next tier
+  - Displays progress percentage and points needed
+  - Lists benefits member will unlock at next tier
+  - Includes shop link for call-to-action
+- Added API endpoints to nudges.py:
+  - GET /api/nudges/tier-progress - Get members near tier upgrade
+  - GET /api/nudges/tier-progress/config - Get tier progress configuration
+  - PUT /api/nudges/tier-progress/config - Update configuration
+  - POST /api/nudges/tier-progress/send/<member_id> - Send reminder to specific member
+  - POST /api/nudges/tier-progress/process - Batch process all eligible members
+  - GET /api/nudges/tier-progress/history - Get nudge history
+
+### Files Changed
+- app/services/nudges_service.py (added ~350 lines for tier progress features)
+- app/services/email_service.py (added tier_progress email template)
+- app/api/nudges.py (added 6 new API endpoints)
+- progress.txt (updated)
+
+### Tier Progress Detection Logic
+- Tiers ordered by bonus_rate (lowest to highest)
+- Points thresholds calculated as: base_threshold (500) * tier_index
+- Progress calculated as: (current_points - current_tier_threshold) / (next_tier_threshold - current_tier_threshold)
+- Default threshold: 90% (members within 10% of next tier get notified)
+- Members at highest tier are excluded (no tier to progress to)
+
+### Email Template Variables
+| Variable | Description |
+|----------|-------------|
+| {{member_name}} | Member's name or email prefix |
+| {{current_tier}} | Name of current tier |
+| {{next_tier}} | Name of next tier |
+| {{progress_percent}} | Progress percentage (e.g., 92.5) |
+| {{current_points}} | Member's current points |
+| {{points_needed}} | Points needed to reach next tier |
+| {{next_tier_threshold}} | Total points required for next tier |
+| {{next_tier_benefits}} | Formatted list of benefits |
+| {{shop_name}} | Store name |
+| {{shop_url}} | Store URL |
+
+### API Endpoints
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| /api/nudges/tier-progress | GET | Get members near tier upgrade |
+| /api/nudges/tier-progress/config | GET | Get configuration |
+| /api/nudges/tier-progress/config | PUT | Update configuration |
+| /api/nudges/tier-progress/send/<id> | POST | Send to specific member |
+| /api/nudges/tier-progress/process | POST | Process all eligible members |
+| /api/nudges/tier-progress/history | GET | Get nudge history |
+
+### Learnings
+- Reused existing NudgeType.TIER_PROGRESS enum value
+- Reused NudgeSent model for tracking sent reminders (cooldown support)
+- Benefits formatting handles: bonus_rate, monthly_credit_amount, purchase_cashback_pct, and JSON benefits
+- Cooldown check prevents spamming members with reminders (default: 14 days)
+
+### Verification
+- [x] Detect members within 10% of next tier threshold (threshold_percent configurable, default 0.9)
+- [x] Send email with progress and remaining requirement (points_needed, progress_percent)
+- [x] Show tier benefits they'll unlock (next_tier_benefits in email template)
+- [x] Configurable percentage threshold (update_tier_progress_config method)
+- [x] Don't send if already at highest tier (highest tier members excluded from results)
+

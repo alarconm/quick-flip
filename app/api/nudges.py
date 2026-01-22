@@ -141,3 +141,124 @@ def get_member_nudges(member_id):
         'nudges': nudges,
         'count': len(nudges),
     })
+
+
+# ==================== Tier Progress Reminder Endpoints ====================
+
+
+@nudges_bp.route('/tier-progress', methods=['GET'])
+@require_shopify_auth
+def get_tier_progress_members():
+    """
+    Get members who are close to reaching the next tier.
+
+    Query params:
+        threshold: Minimum progress percentage (0.0-1.0, default: 0.9)
+    """
+    threshold = request.args.get('threshold', type=float)
+    service = get_service()
+    members = service.get_members_near_tier_progress(threshold_percent=threshold)
+
+    return jsonify({
+        'success': True,
+        'members': members,
+        'count': len(members),
+    })
+
+
+@nudges_bp.route('/tier-progress/config', methods=['GET'])
+@require_shopify_auth
+def get_tier_progress_config():
+    """Get tier progress nudge configuration."""
+    service = get_service()
+    config = service.get_tier_progress_config()
+
+    return jsonify({
+        'success': True,
+        'config': config,
+    })
+
+
+@nudges_bp.route('/tier-progress/config', methods=['PUT'])
+@require_shopify_auth
+def update_tier_progress_config():
+    """
+    Update tier progress nudge configuration.
+
+    Body:
+        enabled: bool - Enable/disable the nudge
+        threshold_percent: float - Minimum progress to trigger (0.0-1.0)
+        frequency_days: int - Cooldown days between reminders
+    """
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+
+    service = get_service()
+    result = service.update_tier_progress_config(
+        enabled=data.get('enabled'),
+        threshold_percent=data.get('threshold_percent'),
+        frequency_days=data.get('frequency_days'),
+    )
+
+    if not result.get('success'):
+        return jsonify(result), 400
+
+    return jsonify(result)
+
+
+@nudges_bp.route('/tier-progress/send/<int:member_id>', methods=['POST'])
+@require_shopify_auth
+def send_tier_progress_reminder(member_id):
+    """
+    Send tier progress reminder to a specific member.
+
+    Query params:
+        force: bool - Skip cooldown check (default: False)
+    """
+    force = request.args.get('force', 'false').lower() == 'true'
+    service = get_service()
+    result = service.send_tier_progress_reminder(member_id, force=force)
+
+    if not result.get('success'):
+        return jsonify(result), 400
+
+    return jsonify(result)
+
+
+@nudges_bp.route('/tier-progress/process', methods=['POST'])
+@require_shopify_auth
+def process_tier_progress_reminders():
+    """
+    Process and send tier progress reminders to all eligible members.
+
+    Query params:
+        threshold: float - Minimum progress to include (0.0-1.0)
+    """
+    threshold = request.args.get('threshold', type=float)
+    service = get_service()
+    result = service.process_tier_progress_reminders(threshold_percent=threshold)
+
+    return jsonify(result)
+
+
+@nudges_bp.route('/tier-progress/history', methods=['GET'])
+@require_shopify_auth
+def get_tier_progress_history():
+    """
+    Get tier progress nudge history.
+
+    Query params:
+        member_id: int - Filter to specific member (optional)
+        days: int - Days to look back (default: 30)
+    """
+    member_id = request.args.get('member_id', type=int)
+    days = request.args.get('days', 30, type=int)
+    service = get_service()
+    history = service.get_tier_progress_nudge_history(member_id=member_id, days=days)
+
+    return jsonify({
+        'success': True,
+        'history': history,
+        'count': len(history),
+    })
