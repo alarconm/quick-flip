@@ -1762,3 +1762,108 @@ Date: 2026-01-22
 - [x] Badges awarded when anniversary reward issued (via award_anniversary_badge)
 - [x] Integration with gamification system (uses GamificationService)
 
+---
+
+## Story: AR-008 - Track anniversary rewards in member history
+Date: 2026-01-22
+
+### What I Did
+- Created MemberActivity model in app/models/gamification.py for comprehensive member activity tracking
+- Added MemberActivity.log_anniversary_reward() class method for logging anniversary reward events
+- Added MemberActivity.get_member_anniversary_history() for querying anniversary-specific history
+- Added MemberActivity.get_member_activity_history() for querying all member activities
+- Updated AnniversaryService.issue_anniversary_reward() to log activities after reward issuance
+- Added API endpoints to query member activity history:
+  - GET /api/members/{id}/activity - Get all member activities (filterable by type)
+  - GET /api/members/{id}/anniversary-history - Get anniversary reward history specifically
+- Added CSV export types to analytics endpoint:
+  - export_type=anniversary_rewards - Export anniversary reward activities
+  - export_type=member_activities - Export all member activities
+- Created Alembic migration for member_activities table
+
+### Files Changed
+- app/models/gamification.py (added MemberActivity model, ~180 lines):
+  - id, tenant_id, member_id
+  - activity_type, activity_date, description
+  - anniversary_year (for anniversary rewards specifically)
+  - reward_type, reward_amount, reward_reference
+  - related_badge_id, related_milestone_id, related_tier_id
+  - metadata JSON field for flexible data storage
+  - to_dict() serialization method
+  - log_anniversary_reward() class method
+  - get_member_anniversary_history() class method
+  - get_member_activity_history() class method
+- app/models/__init__.py (added MemberActivity export)
+- app/services/anniversary_service.py (added activity logging to issue_anniversary_reward)
+- app/api/members.py (added /activity and /anniversary-history endpoints)
+- app/api/analytics.py (added anniversary_rewards and member_activities export types)
+- migrations/versions/a5b6c7d8e9f0_add_member_activities_table.py (new migration)
+
+### API Endpoints
+
+**GET /api/members/{id}/activity**
+Query params:
+- type: Filter by activity type (optional)
+- limit: Max records (default: 100, max: 500)
+
+Response:
+```json
+{
+  "activities": [
+    {
+      "id": 1,
+      "member_id": 123,
+      "activity_type": "anniversary_reward",
+      "activity_date": "2026-01-22T08:00:00",
+      "description": "1st Anniversary Reward: credit (10.00)",
+      "anniversary_year": 1,
+      "reward_type": "credit",
+      "reward_amount": 10.00,
+      "reward_reference": "ledger:456"
+    }
+  ],
+  "count": 1,
+  "member_id": 123,
+  "member_number": "ORB-001"
+}
+```
+
+**GET /api/members/{id}/anniversary-history**
+Returns anniversary-specific history with member enrollment info.
+
+### CSV Export Types
+- `anniversary_rewards`: Date, Member Number, Member Name, Email, Anniversary Year, Reward Type, Reward Amount, Reference, Description
+- `member_activities`: Date, Member Number, Member Name, Activity Type, Description, Reward Type, Reward Amount, Reference
+
+### MemberActivity Model
+| Field | Type | Description |
+|-------|------|-------------|
+| id | Integer | Primary key |
+| tenant_id | Integer | FK to tenants |
+| member_id | Integer | FK to members |
+| activity_type | String(50) | Type of activity (anniversary_reward, etc.) |
+| activity_date | DateTime | When activity occurred |
+| description | String(500) | Human-readable description |
+| anniversary_year | Integer | Which anniversary (1, 2, 3, etc.) |
+| reward_type | String(30) | points, credit, discount_code |
+| reward_amount | Numeric(10,2) | Amount of reward |
+| reward_reference | String(100) | Reference to related record |
+| related_badge_id | Integer | FK to badges if applicable |
+| related_milestone_id | Integer | FK to milestones if applicable |
+| related_tier_id | Integer | FK to membership_tiers if applicable |
+| metadata | JSON | Additional flexible data |
+| created_at | DateTime | Record creation timestamp |
+
+### Learnings
+- Activity logging is fire-and-forget - failures don't block reward issuance
+- Reward reference format: "ledger:{id}" for credits, "discount:{code}" for discount codes
+- MemberActivity model is flexible enough to track many activity types
+- Indexes on tenant_id, member_id, activity_type, and activity_date for query performance
+- Using JSON metadata column allows storing activity-specific data without schema changes
+
+### Verification
+- [x] Anniversary reward events visible in member activity (/activity endpoint)
+- [x] Shows date, anniversary year, reward type, and amount (all fields in MemberActivity)
+- [x] Included in member export CSV (anniversary_rewards and member_activities export types)
+- [x] Queryable via API (/activity and /anniversary-history endpoints)
+

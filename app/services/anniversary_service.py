@@ -223,6 +223,31 @@ class AnniversaryService:
             # Don't fail the reward if badge awarding fails
             current_app.logger.warning(f"Failed to award anniversary badge for member {member_id}: {e}")
 
+        # Log activity in member activity history
+        try:
+            from app.models.gamification import MemberActivity
+
+            # Get reward reference based on type
+            reward_reference = None
+            if result.get('ledger_entry_id'):
+                reward_reference = f"ledger:{result['ledger_entry_id']}"
+            elif result.get('discount_code'):
+                reward_reference = f"discount:{result['discount_code']}"
+
+            activity = MemberActivity.log_anniversary_reward(
+                tenant_id=self.tenant_id,
+                member_id=member.id,
+                anniversary_year=anniversary_year,
+                reward_type=reward_type,
+                reward_amount=reward_amount,
+                reward_reference=reward_reference,
+                badge_id=badge_awarded.badge_id if badge_awarded else None
+            )
+            result['activity_id'] = activity.id if activity else None
+        except Exception as e:
+            # Don't fail the reward if activity logging fails
+            current_app.logger.warning(f"Failed to log anniversary activity for member {member_id}: {e}")
+
         try:
             db.session.commit()
             current_app.logger.info(

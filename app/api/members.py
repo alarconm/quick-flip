@@ -1476,3 +1476,83 @@ The Team''',
     ]
 
     return jsonify({'templates': templates})
+
+
+# ==================== Member Activity History ====================
+
+@members_bp.route('/<int:member_id>/activity', methods=['GET'])
+@require_shopify_auth
+def get_member_activity(member_id):
+    """
+    Get activity history for a member.
+
+    Query params:
+        type: Filter by activity type (e.g., 'anniversary_reward', 'birthday_reward')
+        limit: Maximum number of activities to return (default: 100)
+
+    Returns:
+        List of member activities with full details.
+    """
+    from ..models.gamification import MemberActivity
+
+    tenant_id = g.tenant_id
+
+    # Verify member belongs to tenant
+    member = Member.query.filter_by(id=member_id, tenant_id=tenant_id).first()
+    if not member:
+        return jsonify({'error': 'Member not found'}), 404
+
+    activity_type = request.args.get('type')
+    limit = min(int(request.args.get('limit', 100)), 500)
+
+    activities = MemberActivity.get_member_activity_history(
+        member_id=member_id,
+        activity_type=activity_type,
+        limit=limit
+    )
+
+    return jsonify({
+        'activities': [a.to_dict() for a in activities],
+        'count': len(activities),
+        'member_id': member_id,
+        'member_number': member.member_number
+    })
+
+
+@members_bp.route('/<int:member_id>/anniversary-history', methods=['GET'])
+@require_shopify_auth
+def get_member_anniversary_history(member_id):
+    """
+    Get anniversary reward history for a member.
+
+    Query params:
+        limit: Maximum number of records to return (default: 50)
+
+    Returns:
+        List of anniversary reward activities with full details.
+    """
+    from ..models.gamification import MemberActivity
+
+    tenant_id = g.tenant_id
+
+    # Verify member belongs to tenant
+    member = Member.query.filter_by(id=member_id, tenant_id=tenant_id).first()
+    if not member:
+        return jsonify({'error': 'Member not found'}), 404
+
+    limit = min(int(request.args.get('limit', 50)), 100)
+
+    activities = MemberActivity.get_member_anniversary_history(
+        member_id=member_id,
+        limit=limit
+    )
+
+    return jsonify({
+        'anniversary_history': [a.to_dict() for a in activities],
+        'count': len(activities),
+        'member_id': member_id,
+        'member_number': member.member_number,
+        'member_name': member.name,
+        'enrollment_date': member.get_enrollment_date().isoformat() if hasattr(member, 'get_enrollment_date') else None,
+        'membership_years': member.membership_years() if hasattr(member, 'membership_years') else None
+    })
