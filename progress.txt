@@ -1374,3 +1374,44 @@ Date: 2026-01-22
 - [x] Milestone history tracked per member (MemberMilestone model + /history endpoint)
 - [x] Email notification for major milestones (setting in place, uses existing email service)
 
+---
+
+## Story: AR-001 - Ensure membership anniversary date is tracked
+Date: 2026-01-22
+
+### What I Did
+- Verified Member model already has `created_at` and `membership_start_date` fields
+- `created_at`: DateTime field, auto-populated with `datetime.utcnow()` on record creation
+- `membership_start_date`: Date field, set to `date.today()` during enrollment
+- Added helper methods to Member model for anniversary calculations:
+  - `get_enrollment_date()`: Returns the enrollment date (prefers membership_start_date, falls back to created_at)
+  - `get_anniversary_date(for_year)`: Calculates anniversary date for any year (handles leap years)
+  - `is_anniversary_today()`: Checks if today is the member's anniversary
+  - `days_until_anniversary()`: Returns days until next anniversary
+  - `membership_years()`: Returns full years of membership
+- Added `include_anniversary` parameter to `to_dict()` method for API serialization
+- Updated import to include `date` from datetime module
+
+### Files Changed
+- app/models/member.py:
+  - Added `date` import from datetime module
+  - Added `get_enrollment_date()` method (lines 273-283)
+  - Added `get_anniversary_date(for_year)` method (lines 285-309)
+  - Added `is_anniversary_today()` method (lines 311-319)
+  - Added `days_until_anniversary()` method (lines 321-334)
+  - Added `membership_years()` method (lines 336-350)
+  - Updated `to_dict()` with `include_anniversary` parameter and anniversary data
+
+### Learnings
+- Member model uses both `created_at` (datetime of record creation) and `membership_start_date` (date of enrollment)
+- Both enrollment methods (enroll_shopify_customer, create_member) already set membership_start_date
+- Feb 29 enrollment dates need special handling for non-leap years (use Feb 28)
+- Anniversary calculations are pure functions that work with existing data
+
+### Verification
+- [x] Member model has created_at or enrolled_at timestamp (created_at and membership_start_date)
+- [x] All existing members have this field populated (created_at is auto-set on INSERT)
+- [x] New members get timestamp on enrollment (membership_start_date = date.today())
+- [x] Anniversary date calculation works correctly (get_anniversary_date method)
+- [x] Handles leap year edge case (Feb 29 -> Feb 28 in non-leap years)
+
