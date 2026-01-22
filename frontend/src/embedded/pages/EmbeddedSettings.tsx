@@ -29,7 +29,7 @@ import {
   ResourceItem,
   Icon,
 } from '@shopify/polaris';
-import { RefreshIcon, PlusIcon, EmailIcon, ClockIcon, CalendarIcon, ViewIcon, ChatIcon, StarIcon } from '@shopify/polaris-icons';
+import { RefreshIcon, PlusIcon, EmailIcon, ClockIcon, CalendarIcon, ViewIcon, ChatIcon, StarIcon, GiftIcon } from '@shopify/polaris-icons';
 import { SaveBar, useAppBridge } from '@shopify/app-bridge-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getApiUrl, authFetch } from '../../hooks/useShopifyBridge';
@@ -104,6 +104,13 @@ interface SettingsResponse {
     general: {
       currency: string;
       timezone: string;
+    };
+    anniversary: {
+      enabled: boolean;
+      reward_type: string;
+      reward_amount: number;
+      email_days_before: number;
+      message: string;
     };
   };
   tenant: {
@@ -1203,6 +1210,91 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
                 helpText="Days to retry failed payments before downgrading tier"
                 autoComplete="off"
               />
+            </BlockStack>
+          </Card>
+        </Layout.AnnotatedSection>
+
+        {/* Anniversary Rewards */}
+        <Layout.AnnotatedSection
+          id="anniversary-rewards"
+          title="Anniversary Rewards"
+          description="Automatically reward members on their membership anniversary"
+        >
+          <Card>
+            <BlockStack gap="400">
+              <InlineStack gap="200" blockAlign="center">
+                <Icon source={GiftIcon} tone="base" />
+                <Text as="h3" variant="headingSm">
+                  Member Anniversary Rewards
+                </Text>
+              </InlineStack>
+
+              <Checkbox
+                label="Enable anniversary rewards"
+                checked={getValue('anniversary', 'enabled', false)}
+                onChange={(value) => handleChange('anniversary', 'enabled', value)}
+                helpText="Automatically send rewards to members on their membership anniversary"
+              />
+
+              <Divider />
+
+              <Select
+                label="Reward Type"
+                options={[
+                  { label: 'Points', value: 'points' },
+                  { label: 'Store Credit', value: 'credit' },
+                  { label: 'Discount Code', value: 'discount_code' },
+                ]}
+                value={getValue('anniversary', 'reward_type', 'points')}
+                onChange={(value) => handleChange('anniversary', 'reward_type', value)}
+                helpText="Choose how to reward members on their anniversary"
+                disabled={!getValue('anniversary', 'enabled', false)}
+              />
+
+              <TextField
+                label="Reward Amount"
+                type="number"
+                value={String(getValue('anniversary', 'reward_amount', 100))}
+                onChange={(value) =>
+                  handleChange('anniversary', 'reward_amount', parseFloat(value) || 0)
+                }
+                prefix={getValue('anniversary', 'reward_type', 'points') === 'points' ? '' : '$'}
+                suffix={getValue('anniversary', 'reward_type', 'points') === 'points' ? 'points' : ''}
+                helpText={
+                  getValue('anniversary', 'reward_type', 'points') === 'points'
+                    ? 'Number of bonus points to award'
+                    : getValue('anniversary', 'reward_type', 'points') === 'credit'
+                    ? 'Dollar amount of store credit to award'
+                    : 'Discount percentage for the code'
+                }
+                autoComplete="off"
+                disabled={!getValue('anniversary', 'enabled', false)}
+              />
+
+              <Select
+                label="Send Email"
+                options={[
+                  { label: 'On anniversary day', value: '0' },
+                  { label: '1 day before', value: '1' },
+                  { label: '3 days before', value: '3' },
+                  { label: '7 days before', value: '7' },
+                ]}
+                value={String(getValue('anniversary', 'email_days_before', 0))}
+                onChange={(value) => handleChange('anniversary', 'email_days_before', parseInt(value))}
+                helpText="When to send the anniversary reward email"
+                disabled={!getValue('anniversary', 'enabled', false)}
+              />
+
+              <Divider />
+
+              <BlockStack gap="200">
+                <Text as="h4" variant="headingSm">How Anniversary Rewards Work</Text>
+                <Text as="p" variant="bodySm" tone="subdued">
+                  When enabled, members will automatically receive their reward on the anniversary
+                  of their membership enrollment. The reward is delivered based on the reward type
+                  you select above. A celebratory email is sent according to your timing preference.
+                </Text>
+              </BlockStack>
             </BlockStack>
           </Card>
         </Layout.AnnotatedSection>

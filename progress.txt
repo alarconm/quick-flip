@@ -1468,3 +1468,49 @@ Date: 2026-01-22
 - [x] Add anniversary_email_days_before (0, 1, 3, 7)
 - [x] Settings saved and retrieved correctly (via PUT and GET endpoints)
 
+---
+
+## Story: AR-003 - Add anniversary settings UI to admin
+Date: 2026-01-22
+
+### What I Did
+- Added Anniversary Rewards section to EmbeddedSettings.tsx admin page
+- Added anniversary interface to SettingsResponse type definition
+- Added GiftIcon import from @shopify/polaris-icons
+- Created full settings UI with:
+  - Enable/disable toggle for anniversary rewards
+  - Dropdown for reward type selection (points, credit, discount_code)
+  - TextField for reward amount with dynamic prefix/suffix based on reward type
+  - Dropdown for advance email days (0, 1, 3, 7)
+- Form fields are disabled when anniversary rewards are disabled
+- Added helpful description section explaining how anniversary rewards work
+- Settings integrate with existing handleChange/getValue pattern for saving
+
+### Files Changed
+- frontend/src/embedded/pages/EmbeddedSettings.tsx:
+  - Added anniversary interface to SettingsResponse (~7 lines)
+  - Added GiftIcon to imports
+  - Added Anniversary Rewards Layout.AnnotatedSection (~80 lines)
+
+### Component Features
+- **Enable Toggle**: Checkbox to enable/disable anniversary rewards
+- **Reward Type Dropdown**: Points, Store Credit, or Discount Code
+- **Reward Amount**: Dynamic field that shows "points" suffix for points, "$" prefix for credit
+- **Email Timing**: Dropdown for when to send the anniversary email (0, 1, 3, 7 days before)
+- **Help Text**: Explanatory section describing how anniversary rewards work
+- **Disabled State**: All fields disabled when anniversary rewards are off
+
+### Learnings
+- Following existing Settings page patterns ensures consistency
+- Using getValue/handleChange hooks integrates with the existing save mechanism
+- Dynamic prefix/suffix based on reward_type provides better UX
+- Disabling fields when feature is off prevents confusion
+
+### Verification
+- [x] Anniversary rewards section in Settings page
+- [x] Toggle to enable/disable anniversary rewards (Checkbox)
+- [x] Dropdown for reward type selection (Select with 3 options)
+- [x] Input for reward amount (TextField with dynamic prefix/suffix)
+- [x] Dropdown for advance email days (Select with 4 options)
+- [x] Settings save successfully (uses existing handleChange/getValue pattern)
+
