@@ -2244,3 +2244,217 @@ class NudgesService:
             'success': True,
             'config': config.to_dict(),
         }
+
+    # ==================== Nudge Effectiveness Tracking Methods ====================
+
+    def get_effectiveness_metrics(
+        self,
+        nudge_type: Optional[str] = None,
+        days: int = 30
+    ) -> Dict[str, Any]:
+        """
+        Get comprehensive effectiveness metrics for nudges.
+
+        Args:
+            nudge_type: Optional filter by nudge type
+            days: Number of days to analyze
+
+        Returns:
+            Dict with open rate, click rate, conversion rate, and ROI metrics
+        """
+        return NudgeSent.get_effectiveness_metrics(
+            tenant_id=self.tenant_id,
+            nudge_type=nudge_type,
+            days=days
+        )
+
+    def get_metrics_by_type(self, days: int = 30) -> List[Dict[str, Any]]:
+        """
+        Get effectiveness metrics broken down by nudge type.
+
+        Args:
+            days: Number of days to analyze
+
+        Returns:
+            List of metrics dictionaries, one per nudge type
+        """
+        return NudgeSent.get_metrics_by_type(
+            tenant_id=self.tenant_id,
+            days=days
+        )
+
+    def get_daily_metrics(
+        self,
+        nudge_type: Optional[str] = None,
+        days: int = 30
+    ) -> List[Dict[str, Any]]:
+        """
+        Get daily breakdown of nudge metrics for trending.
+
+        Args:
+            nudge_type: Optional filter by nudge type
+            days: Number of days to include
+
+        Returns:
+            List of daily metrics dictionaries
+        """
+        return NudgeSent.get_daily_metrics(
+            tenant_id=self.tenant_id,
+            nudge_type=nudge_type,
+            days=days
+        )
+
+    def track_open(self, tracking_id: str) -> Dict[str, Any]:
+        """
+        Track that a nudge email was opened.
+
+        Args:
+            tracking_id: The unique tracking ID from the email
+
+        Returns:
+            Dict with success status
+        """
+        nudge = NudgeSent.get_by_tracking_id(tracking_id)
+        if not nudge:
+            return {'success': False, 'error': 'Nudge not found'}
+
+        if nudge.tenant_id != self.tenant_id:
+            return {'success': False, 'error': 'Nudge not found'}
+
+        if not nudge.opened_at:
+            nudge.mark_opened()
+
+        return {
+            'success': True,
+            'nudge_id': nudge.id,
+            'opened_at': nudge.opened_at.isoformat() if nudge.opened_at else None,
+        }
+
+    def track_click(self, tracking_id: str) -> Dict[str, Any]:
+        """
+        Track that a link in a nudge email was clicked.
+
+        Args:
+            tracking_id: The unique tracking ID from the email
+
+        Returns:
+            Dict with success status
+        """
+        nudge = NudgeSent.get_by_tracking_id(tracking_id)
+        if not nudge:
+            return {'success': False, 'error': 'Nudge not found'}
+
+        if nudge.tenant_id != self.tenant_id:
+            return {'success': False, 'error': 'Nudge not found'}
+
+        nudge.mark_clicked()
+
+        return {
+            'success': True,
+            'nudge_id': nudge.id,
+            'clicked_at': nudge.clicked_at.isoformat() if nudge.clicked_at else None,
+        }
+
+    def track_conversion(
+        self,
+        member_id: int,
+        order_id: Optional[str] = None,
+        order_total: Optional[float] = None,
+        tracking_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Track that a member made a purchase after receiving a nudge.
+
+        Args:
+            member_id: The member ID who converted
+            order_id: Shopify order ID (optional)
+            order_total: Order total for ROI calculation (optional)
+            tracking_id: Specific tracking ID to convert (optional)
+
+        Returns:
+            Dict with success status and conversion details
+        """
+        nudge = None
+
+        if tracking_id:
+            nudge = NudgeSent.get_by_tracking_id(tracking_id)
+        else:
+            # Find most recent nudge for this member within conversion window (7 days)
+            conversion_window = datetime.utcnow() - timedelta(days=7)
+            nudge = NudgeSent.query.filter(
+                NudgeSent.tenant_id == self.tenant_id,
+                NudgeSent.member_id == member_id,
+                NudgeSent.sent_at >= conversion_window,
+                NudgeSent.converted_at.is_(None)
+            ).order_by(NudgeSent.sent_at.desc()).first()
+
+        if not nudge:
+            return {
+                'success': False,
+                'error': 'No recent nudge found for this member'
+            }
+
+        if nudge.tenant_id != self.tenant_id:
+            return {'success': False, 'error': 'Nudge not found'}
+
+        nudge.mark_converted(order_id=order_id, order_total=order_total)
+
+        return {
+            'success': True,
+            'nudge_id': nudge.id,
+            'nudge_type': nudge.nudge_type,
+            'converted_at': nudge.converted_at.isoformat() if nudge.converted_at else None,
+            'order_id': nudge.order_id,
+            'order_total': float(nudge.order_total) if nudge.order_total else None,
+        }
+
+    def get_tracking_urls(self, tracking_id: str, base_url: str) -> Dict[str, str]:
+        """
+        Generate tracking URLs for a nudge email.
+
+        Args:
+            tracking_id: The unique tracking ID for this nudge
+            base_url: The base URL for the tracking endpoints (e.g., https://app.cardflowlabs.com)
+
+        Returns:
+            Dict with tracking pixel URL and click tracking URL template
+        """
+        return {
+            'open_pixel': f"{base_url}/api/nudges/track/open/{tracking_id}",
+            'click_url_template': f"{base_url}/api/nudges/track/click/{tracking_id}?url={{url}}",
+        }
+
+    def get_roi_summary(self, days: int = 30) -> Dict[str, Any]:
+        """
+        Get ROI summary for nudge campaigns.
+
+        Args:
+            days: Number of days to analyze
+
+        Returns:
+            Dict with ROI calculations
+        """
+        metrics_by_type = self.get_metrics_by_type(days=days)
+
+        total_revenue = sum(m['total_revenue'] for m in metrics_by_type)
+        total_conversions = sum(m['converted'] for m in metrics_by_type)
+        total_sent = sum(m['total_sent'] for m in metrics_by_type)
+
+        # Estimate cost at $0.01 per email
+        estimated_cost = total_sent * 0.01
+
+        # Calculate ROI percentage
+        roi_percentage = 0.0
+        if estimated_cost > 0:
+            roi_percentage = round((total_revenue - estimated_cost) / estimated_cost * 100, 2)
+
+        return {
+            'period_days': days,
+            'total_nudges_sent': total_sent,
+            'total_conversions': total_conversions,
+            'total_revenue': round(total_revenue, 2),
+            'estimated_cost': round(estimated_cost, 2),
+            'roi_percentage': roi_percentage,
+            'revenue_per_nudge': round(total_revenue / total_sent, 2) if total_sent > 0 else 0.0,
+            'conversion_rate': round(total_conversions / total_sent * 100, 2) if total_sent > 0 else 0.0,
+        }

@@ -2537,3 +2537,110 @@ Date: 2026-01-22
 - Preview without sending: `GET /api/scheduled-tasks/nudges/preview`
 - Check stats: `GET /api/scheduled-tasks/nudges/stats?days=30`
 - Check scheduler status: `GET /api/scheduled-tasks/scheduler/status`
+
+---
+
+
+## Story: NR-009 - Track nudge effectiveness
+Date: 2026-01-22
+
+### What I Did
+Implemented comprehensive nudge effectiveness tracking including open rates, click rates, conversion tracking, and ROI metrics.
+
+### Key Features Added:
+
+**1. Database Model Updates (nudge_sent.py)**
+- Added `converted_at` column for conversion timestamp
+- Added `order_id` column to link conversions to Shopify orders
+- Added `order_total` column for ROI calculations
+- Added `tracking_id` column (unique) for email tracking pixel/links
+- Added `mark_converted()` method for recording conversions
+- Added `get_by_tracking_id()` class method for tracking lookups
+- Added `get_effectiveness_metrics()` - comprehensive metrics (open rate, click rate, conversion rate, ROI)
+- Added `get_metrics_by_type()` - breakdown by nudge type
+- Added `get_daily_metrics()` - daily trends for charting
+
+**2. API Endpoints Added (nudges.py)**
+- `GET /api/nudges/track/open/<tracking_id>` - Track email opens via 1x1 pixel (no auth required)
+- `GET /api/nudges/track/click/<tracking_id>?url=<dest>` - Track link clicks with redirect (no auth required)
+- `POST /api/nudges/track/conversion` - Record purchase conversions
+- `GET /api/nudges/metrics` - Get overall effectiveness metrics
+- `GET /api/nudges/metrics/by-type` - Get metrics broken down by nudge type
+- `GET /api/nudges/metrics/daily` - Get daily metrics for trending charts
+- `GET /api/nudges/metrics/roi` - Get ROI calculations and best performers
+
+**3. Service Layer Updates (nudges_service.py)**
+- Added `get_effectiveness_metrics()` - wrapper for model method
+- Added `get_metrics_by_type()` - wrapper for model method
+- Added `get_daily_metrics()` - wrapper for model method
+- Added `track_open()` - track email opens by tracking ID
+- Added `track_click()` - track link clicks by tracking ID
+- Added `track_conversion()` - track purchases with 7-day attribution window
+- Added `get_tracking_urls()` - generate tracking URLs for emails
+- Added `get_roi_summary()` - calculate ROI with estimated costs
+
+**4. Database Migration**
+- Created `migrations/versions/d8e9f0a1b2c3_add_nudge_effectiveness_tracking.py`
+- Added columns to nudges_sent table
+- Created unique index on tracking_id
+
+**5. Fix-Schema Update (admin.py)**
+- Added nudges_sent columns to quick-fix schema endpoint
+
+### Metrics Tracked:
+- **Open Rate**: Percentage of delivered nudges that were opened
+- **Click Rate**: Percentage of delivered nudges with link clicks
+- **Conversion Rate**: Percentage of nudges that led to purchases
+- **Click-to-Open Rate**: Percentage of opens that led to clicks
+- **Total Revenue**: Sum of order totals from converted nudges
+- **Average Order Value**: Average revenue per conversion
+- **Revenue Per Send**: Average revenue per nudge sent
+- **ROI Percentage**: (Revenue - Estimated Cost) / Estimated Cost * 100
+
+### How Tracking Works:
+1. **Open Tracking**: Tracking pixel (1x1 transparent GIF) embedded in email, loads when email opened
+2. **Click Tracking**: CTA links route through tracking endpoint, then redirect to destination
+3. **Conversion Tracking**: Called when member makes purchase within 7-day attribution window
+
+### Files Changed:
+- `app/models/nudge_sent.py` - Added tracking columns and metrics methods
+- `app/api/nudges.py` - Added tracking and metrics endpoints
+- `app/services/nudges_service.py` - Added tracking and metrics service methods
+- `app/api/admin.py` - Added nudges_sent columns to fix-schema
+- `migrations/versions/d8e9f0a1b2c3_add_nudge_effectiveness_tracking.py` - New migration
+
+### Acceptance Criteria Verification:
+- [x] Track email opens via pixel
+- [x] Track link clicks
+- [x] Track conversion (purchase after nudge)
+- [x] Display metrics in admin dashboard (via API endpoints)
+- [x] Calculate ROI of nudge campaigns
+
+### Example API Response (metrics by type):
+```json
+{
+  "success": true,
+  "period_days": 30,
+  "by_type": [
+    {
+      "nudge_type": "points_expiring",
+      "total_sent": 150,
+      "delivered": 148,
+      "opened": 89,
+      "clicked": 42,
+      "converted": 18,
+      "open_rate": 60.14,
+      "click_rate": 28.38,
+      "conversion_rate": 12.16,
+      "total_revenue": 2340.50,
+      "average_order_value": 130.03,
+      "revenue_per_send": 15.60
+    }
+  ],
+  "totals": {
+    "total_sent": 450,
+    "total_revenue": 5680.25,
+    "overall_conversion_rate": 8.67
+  }
+}
+```

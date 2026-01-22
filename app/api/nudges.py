@@ -768,3 +768,305 @@ def send_test_nudge():
             'success': False,
             'error': str(e),
         }), 500
+
+
+# ==================== Nudge Effectiveness Tracking Endpoints ====================
+
+
+@nudges_bp.route('/track/open/<tracking_id>', methods=['GET'])
+def track_nudge_open(tracking_id):
+    """
+    Track email open via tracking pixel.
+
+    This endpoint is called when the tracking pixel in an email is loaded.
+    Returns a 1x1 transparent GIF.
+
+    No authentication required - tracking pixels are embedded in emails.
+    """
+    from app.models.nudge_sent import NudgeSent
+    import base64
+
+    # Find the nudge by tracking ID
+    nudge = NudgeSent.get_by_tracking_id(tracking_id)
+
+    if nudge and not nudge.opened_at:
+        nudge.mark_opened()
+
+    # Return a 1x1 transparent GIF
+    gif_data = base64.b64decode(
+        'R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
+    )
+
+    from flask import Response
+    return Response(gif_data, mimetype='image/gif')
+
+
+@nudges_bp.route('/track/click/<tracking_id>', methods=['GET'])
+def track_nudge_click(tracking_id):
+    """
+    Track link click and redirect to the destination URL.
+
+    Query params:
+        url: The destination URL to redirect to (required)
+
+    No authentication required - tracking links are embedded in emails.
+    """
+    from app.models.nudge_sent import NudgeSent
+    from flask import redirect, request
+
+    # Find the nudge by tracking ID
+    nudge = NudgeSent.get_by_tracking_id(tracking_id)
+
+    if nudge:
+        nudge.mark_clicked()
+
+    # Get the redirect URL from query params
+    redirect_url = request.args.get('url', '/')
+
+    return redirect(redirect_url)
+
+
+@nudges_bp.route('/track/conversion', methods=['POST'])
+@require_shopify_auth
+def track_nudge_conversion():
+    """
+    Track nudge conversion (purchase after nudge).
+
+    Body:
+        tracking_id: str - The nudge tracking ID (optional, will find most recent for member)
+        member_id: int - The member who converted (required if no tracking_id)
+        order_id: str - Shopify order ID (optional)
+        order_total: float - Order total amount (optional)
+
+    This can be called:
+    1. With tracking_id - directly track a specific nudge
+    2. With member_id - find the most recent nudge sent to member within conversion window
+    """
+    from app.models.nudge_sent import NudgeSent
+    from datetime import datetime, timedelta
+
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+
+    tracking_id = data.get('tracking_id')
+    member_id = data.get('member_id')
+    order_id = data.get('order_id')
+    order_total = data.get('order_total')
+
+    nudge = None
+
+    if tracking_id:
+        # Direct tracking by ID
+        nudge = NudgeSent.get_by_tracking_id(tracking_id)
+    elif member_id:
+        # Find most recent nudge for this member within conversion window (7 days)
+        conversion_window = datetime.utcnow() - timedelta(days=7)
+        nudge = NudgeSent.query.filter(
+            NudgeSent.tenant_id == g.tenant.id,
+            NudgeSent.member_id == member_id,
+            NudgeSent.sent_at >= conversion_window,
+            NudgeSent.converted_at.is_(None)  # Not already converted
+        ).order_by(NudgeSent.sent_at.desc()).first()
+    else:
+        return jsonify({'error': 'Either tracking_id or member_id is required'}), 400
+
+    if not nudge:
+        return jsonify({
+            'success': False,
+            'error': 'No nudge found for conversion tracking'
+        }), 404
+
+    # Mark as converted
+    nudge.mark_converted(order_id=order_id, order_total=order_total)
+
+    return jsonify({
+        'success': True,
+        'nudge_id': nudge.id,
+        'nudge_type': nudge.nudge_type,
+        'converted_at': nudge.converted_at.isoformat(),
+        'order_id': nudge.order_id,
+        'order_total': float(nudge.order_total) if nudge.order_total else None,
+    })
+
+
+@nudges_bp.route('/metrics', methods=['GET'])
+@require_shopify_auth
+def get_nudge_effectiveness_metrics():
+    """
+    Get comprehensive nudge effectiveness metrics.
+
+    Query params:
+        days: int - Number of days to analyze (default: 30)
+        nudge_type: str - Filter to specific nudge type (optional)
+
+    Returns overall metrics including open rate, click rate, conversion rate, and ROI.
+    """
+    from app.models.nudge_sent import NudgeSent
+
+    days = request.args.get('days', 30, type=int)
+    nudge_type = request.args.get('nudge_type')
+
+    metrics = NudgeSent.get_effectiveness_metrics(
+        tenant_id=g.tenant.id,
+        nudge_type=nudge_type,
+        days=days
+    )
+
+    return jsonify({
+        'success': True,
+        'metrics': metrics,
+    })
+
+
+@nudges_bp.route('/metrics/by-type', methods=['GET'])
+@require_shopify_auth
+def get_nudge_metrics_by_type():
+    """
+    Get nudge effectiveness metrics broken down by nudge type.
+
+    Query params:
+        days: int - Number of days to analyze (default: 30)
+
+    Returns metrics for each nudge type.
+    """
+    from app.models.nudge_sent import NudgeSent
+
+    days = request.args.get('days', 30, type=int)
+
+    metrics_by_type = NudgeSent.get_metrics_by_type(
+        tenant_id=g.tenant.id,
+        days=days
+    )
+
+    # Calculate totals across all types
+    totals = {
+        'total_sent': sum(m['total_sent'] for m in metrics_by_type),
+        'total_opened': sum(m['opened'] for m in metrics_by_type),
+        'total_clicked': sum(m['clicked'] for m in metrics_by_type),
+        'total_converted': sum(m['converted'] for m in metrics_by_type),
+        'total_revenue': sum(m['total_revenue'] for m in metrics_by_type),
+    }
+
+    if totals['total_sent'] > 0:
+        totals['overall_open_rate'] = round(totals['total_opened'] / totals['total_sent'] * 100, 2)
+        totals['overall_click_rate'] = round(totals['total_clicked'] / totals['total_sent'] * 100, 2)
+        totals['overall_conversion_rate'] = round(totals['total_converted'] / totals['total_sent'] * 100, 2)
+        totals['overall_revenue_per_send'] = round(totals['total_revenue'] / totals['total_sent'], 2)
+    else:
+        totals['overall_open_rate'] = 0.0
+        totals['overall_click_rate'] = 0.0
+        totals['overall_conversion_rate'] = 0.0
+        totals['overall_revenue_per_send'] = 0.0
+
+    return jsonify({
+        'success': True,
+        'period_days': days,
+        'by_type': metrics_by_type,
+        'totals': totals,
+    })
+
+
+@nudges_bp.route('/metrics/daily', methods=['GET'])
+@require_shopify_auth
+def get_nudge_daily_metrics():
+    """
+    Get daily breakdown of nudge metrics for trending charts.
+
+    Query params:
+        days: int - Number of days to include (default: 30)
+        nudge_type: str - Filter to specific nudge type (optional)
+
+    Returns daily metrics for charting trends.
+    """
+    from app.models.nudge_sent import NudgeSent
+
+    days = request.args.get('days', 30, type=int)
+    nudge_type = request.args.get('nudge_type')
+
+    daily_metrics = NudgeSent.get_daily_metrics(
+        tenant_id=g.tenant.id,
+        nudge_type=nudge_type,
+        days=days
+    )
+
+    return jsonify({
+        'success': True,
+        'period_days': days,
+        'nudge_type': nudge_type,
+        'daily': daily_metrics,
+    })
+
+
+@nudges_bp.route('/metrics/roi', methods=['GET'])
+@require_shopify_auth
+def get_nudge_roi_metrics():
+    """
+    Get ROI metrics for nudge campaigns.
+
+    Query params:
+        days: int - Number of days to analyze (default: 30)
+
+    Returns ROI calculations including revenue, conversions, and value metrics.
+    """
+    from app.models.nudge_sent import NudgeSent
+    from app.models.nudge_config import NudgeType
+
+    days = request.args.get('days', 30, type=int)
+
+    # Get metrics by type
+    metrics_by_type = NudgeSent.get_metrics_by_type(
+        tenant_id=g.tenant.id,
+        days=days
+    )
+
+    # Calculate ROI metrics
+    total_revenue = sum(m['total_revenue'] for m in metrics_by_type)
+    total_conversions = sum(m['converted'] for m in metrics_by_type)
+    total_sent = sum(m['total_sent'] for m in metrics_by_type)
+
+    # Estimate cost (can be customized per tenant)
+    # For now, assume $0.01 per email sent (typical email service cost)
+    estimated_cost_per_email = 0.01
+    total_cost = total_sent * estimated_cost_per_email
+
+    # Calculate ROI
+    roi_percentage = 0.0
+    if total_cost > 0:
+        roi_percentage = round((total_revenue - total_cost) / total_cost * 100, 2)
+
+    # Best performing nudge type by conversion rate
+    best_by_conversion = None
+    best_by_revenue = None
+
+    if metrics_by_type:
+        # Filter to types with at least some conversions
+        with_conversions = [m for m in metrics_by_type if m['converted'] > 0]
+        if with_conversions:
+            best_by_conversion = max(with_conversions, key=lambda x: x['conversion_rate'])
+            best_by_revenue = max(with_conversions, key=lambda x: x['total_revenue'])
+
+    return jsonify({
+        'success': True,
+        'period_days': days,
+        'roi_metrics': {
+            'total_revenue': round(total_revenue, 2),
+            'total_conversions': total_conversions,
+            'total_nudges_sent': total_sent,
+            'estimated_cost': round(total_cost, 2),
+            'roi_percentage': roi_percentage,
+            'revenue_per_nudge': round(total_revenue / total_sent, 2) if total_sent > 0 else 0.0,
+            'cost_per_conversion': round(total_cost / total_conversions, 2) if total_conversions > 0 else 0.0,
+        },
+        'best_performers': {
+            'by_conversion_rate': {
+                'nudge_type': best_by_conversion['nudge_type'] if best_by_conversion else None,
+                'conversion_rate': best_by_conversion['conversion_rate'] if best_by_conversion else 0.0,
+            } if best_by_conversion else None,
+            'by_revenue': {
+                'nudge_type': best_by_revenue['nudge_type'] if best_by_revenue else None,
+                'total_revenue': best_by_revenue['total_revenue'] if best_by_revenue else 0.0,
+            } if best_by_revenue else None,
+        },
+        'by_type': metrics_by_type,
+    })
