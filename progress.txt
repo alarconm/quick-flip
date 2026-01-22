@@ -3696,3 +3696,42 @@ Added comprehensive tests for trade-in workflows including batch CRUD, item mana
 - Modified: `tests/test_api_trade_ins.py` - 55 comprehensive trade-in workflow tests
 
 ---
+
+## Story: TC-005 - Test Store credit operations
+Date: 2026-01-22
+
+### What I Did
+- Created comprehensive test suite for store credit operations (59 tests total)
+- Created `tests/test_store_credit_service.py` (23 tests) covering:
+  - Credit add operations (with/without Shopify sync, validation, expiration)
+  - Credit deduct operations (with mocked Shopify client)
+  - Balance queries and member stats
+  - Credit history retrieval and pagination
+  - Credit expiration tracking and queries
+  - Different credit event types (trade-in, cashback, promo bonus)
+  - StoreCreditLedger and MemberCreditBalance model serialization
+- Created `tests/test_scheduled_tasks_credit.py` (15 tests) covering:
+  - Monthly credit distribution (dry run and actual)
+  - Credit expiration processing
+  - Expiring credits preview
+  - Balance recalculation from ledger
+  - Edge cases (zero balance, multiple members)
+- Existing `tests/test_api_store_credit.py` already had 21 API-level tests
+
+### Files Created/Modified
+- Created: `tests/test_store_credit_service.py` - 23 service-level tests with mocked Shopify
+- Created: `tests/test_scheduled_tasks_credit.py` - 15 scheduled tasks tests for credit expiration
+
+### Test Coverage
+- All 59 store credit tests passing
+- Tests cover all acceptance criteria:
+  - [x] Tests cover credit add endpoint
+  - [x] Tests cover credit deduct endpoint
+  - [x] Tests cover balance query
+  - [x] Tests cover ledger history
+  - [x] Tests cover credit expiration
+
+### Verification
+- [x] `pytest tests/test_api_store_credit.py tests/test_store_credit_service.py tests/test_scheduled_tasks_credit.py` - 59 passed
+
+---
