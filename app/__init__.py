@@ -560,6 +560,10 @@ def register_blueprints(app: Flask) -> None:
     from .api.loyalty_page_analytics import loyalty_page_analytics_bp
     app.register_blueprint(loyalty_page_analytics_bp, url_prefix='/api/loyalty-page/analytics')
 
+    # Widget Settings API (WB-002)
+    from .api.widgets import widgets_bp
+    app.register_blueprint(widgets_bp, url_prefix='/api/widgets')
+
 
 def register_error_handlers(app: Flask) -> None:
     """Register error handlers using standardized error format."""

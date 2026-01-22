@@ -2832,3 +2832,76 @@ CREATE INDEX ix_widgets_widget_type ON widgets(widget_type);
 - [x] Widget types: points_balance, tier_badge, rewards_launcher, referral_prompt
 - [x] Alembic migration created and applied
 - [x] Config stores position, styling, and content options (nested JSON structure)
+
+---
+
+## WB-002: Widget Settings API
+**Date**: January 22, 2026
+**Status**: Complete
+
+### Summary
+Created REST API endpoints for managing widget configurations per tenant.
+
+### Endpoints Implemented
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/widgets` | List all widgets for tenant (creates defaults if none exist) |
+| GET | `/api/widgets/{type}` | Get specific widget config |
+| PUT | `/api/widgets/{type}` | Update widget config |
+| POST | `/api/widgets/{type}/enable` | Enable widget |
+| POST | `/api/widgets/{type}/disable` | Disable widget |
+| POST | `/api/widgets/{type}/reset` | Reset widget to default config |
+| GET | `/api/widgets/enabled` | List only enabled widgets |
+| PUT | `/api/widgets/bulk` | Bulk update multiple widgets |
+
+### API Features
+- **Authentication**: All endpoints use `@require_shopify_auth` decorator
+- **Auto-creation**: Widgets are created with defaults on first access
+- **Validation**: Widget type validation against `WidgetType` enum
+- **Bulk operations**: Support for updating multiple widgets in one request
+- **Reset functionality**: Ability to restore widget to default configuration
+
+### Request/Response Examples
+
+**GET /api/widgets**
+```json
+{
+    "success": true,
+    "widgets": [
+        {
+            "id": 1,
+            "tenant_id": 1,
+            "widget_type": "points_balance",
+            "config": {...},
+            "is_enabled": false,
+            "created_at": "2026-01-22T10:00:00",
+            "updated_at": "2026-01-22T10:00:00"
+        }
+    ],
+    "available_types": ["points_balance", "tier_badge", "rewards_launcher", "referral_prompt"]
+}
+```
+
+**PUT /api/widgets/points_balance**
+```json
+{
+    "config": {
+        "styling": {
+            "background_color": "#1a1a2e",
+            "text_color": "#ffffff"
+        }
+    },
+    "is_enabled": true
+}
+```
+
+### Files Changed
+- `app/api/widgets.py` - New API file (~260 lines)
+- `app/__init__.py` - Registered `widgets_bp` blueprint at `/api/widgets`
+
+### Acceptance Criteria Verification
+- [x] GET /api/widgets - list all widgets for tenant
+- [x] GET /api/widgets/{type} - get specific widget config
+- [x] PUT /api/widgets/{type} - update widget config
+- [x] POST /api/widgets/{type}/enable - enable widget
+- [x] POST /api/widgets/{type}/disable - disable widget
