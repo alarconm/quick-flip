@@ -48,6 +48,45 @@ api.interceptors.request.use((config) => {
   return config
 })
 
+// API Error type for standardized error responses
+export interface ApiError {
+  message: string
+  code: string
+}
+
+// Extract user-friendly error message from API response
+export function getErrorMessage(error: unknown): string {
+  if (error && typeof error === 'object' && 'response' in error) {
+    const response = (error as { response?: { data?: { error?: ApiError | string } } }).response
+    if (response?.data?.error) {
+      // New standardized format: { error: { message: '...', code: '...' } }
+      if (typeof response.data.error === 'object' && 'message' in response.data.error) {
+        return response.data.error.message
+      }
+      // Legacy format: { error: '...' }
+      if (typeof response.data.error === 'string') {
+        return response.data.error
+      }
+    }
+  }
+  // Fallback for network errors or unknown errors
+  if (error instanceof Error) {
+    return error.message
+  }
+  return 'An unexpected error occurred'
+}
+
+// Get error code from API response (for programmatic handling)
+export function getErrorCode(error: unknown): string | null {
+  if (error && typeof error === 'object' && 'response' in error) {
+    const response = (error as { response?: { data?: { error?: ApiError } } }).response
+    if (response?.data?.error && typeof response.data.error === 'object') {
+      return response.data.error.code || null
+    }
+  }
+  return null
+}
+
 // Types
 export interface Member {
   id: number

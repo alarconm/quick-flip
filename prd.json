@@ -54,7 +54,7 @@
         "Error messages are user-friendly, technical details logged only"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "CQ-005",

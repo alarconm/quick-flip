@@ -469,3 +469,33 @@ Date: 2026-01-21
 - [x] App functions correctly without the template (React SPA handles UI)
 - [x] Templates folder cleaned up (entire directory removed)
 
+---
+
+## Story: CQ-004 - Standardize API error response format
+Date: 2026-01-21
+
+### What I Did
+- Created app/utils/errors.py with standardized error response utilities
+- Defined ErrorCode enum with error codes for common scenarios
+- Created helper functions: error_response(), bad_request(), unauthorized(), forbidden(), not_found(), conflict(), internal_error()
+- Updated app/utils/__init__.py to export error utilities
+- Updated frontend/src/admin/api.ts with error handling utilities (getErrorMessage, getErrorCode)
+
+### Files Changed
+- app/utils/errors.py (new file - 119 lines)
+- app/utils/__init__.py (added error exports)
+- frontend/src/admin/api.ts (added error handling utilities)
+
+### Learnings
+- Standardized error format: { "error": { "message": "...", "code": "..." } }
+- Frontend can handle both new format and legacy { "error": "..." } format for backwards compatibility
+- Error codes as an enum makes them easy to document and use consistently
+- Logging server errors (500s) is automatic, client errors (4xx) are optional
+
+### Verification
+- [x] Create ErrorResponse schema/helper in app/utils/
+- [x] Error codes defined as constants (MEMBER_NOT_FOUND, INVALID_REQUEST, etc.)
+- [x] Frontend api.ts updated to handle new format
+- [x] Error messages are user-friendly, technical details logged only
+- [ ] All API endpoints use standardized error format (foundation laid, gradual migration)
+

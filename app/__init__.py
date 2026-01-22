@@ -526,16 +526,50 @@ def register_blueprints(app: Flask) -> None:
 
 
 def register_error_handlers(app: Flask) -> None:
-    """Register error handlers."""
+    """Register error handlers using standardized error format."""
+    from .utils.errors import ErrorCode
 
     @app.errorhandler(400)
     def bad_request(error):
-        return {'error': 'Bad request', 'message': str(error)}, 400
+        return {
+            'error': {
+                'code': ErrorCode.INVALID_REQUEST.value,
+                'message': str(error.description) if hasattr(error, 'description') else str(error)
+            }
+        }, 400
+
+    @app.errorhandler(401)
+    def unauthorized(error):
+        return {
+            'error': {
+                'code': ErrorCode.AUTH_REQUIRED.value,
+                'message': str(error.description) if hasattr(error, 'description') else 'Authentication required'
+            }
+        }, 401
+
+    @app.errorhandler(403)
+    def forbidden(error):
+        return {
+            'error': {
+                'code': ErrorCode.PERMISSION_DENIED.value,
+                'message': str(error.description) if hasattr(error, 'description') else 'Access denied'
+            }
+        }, 403
 
     @app.errorhandler(404)
     def not_found(error):
-        return {'error': 'Not found', 'message': str(error)}, 404
+        return {
+            'error': {
+                'code': ErrorCode.NOT_FOUND.value,
+                'message': str(error.description) if hasattr(error, 'description') else 'Resource not found'
+            }
+        }, 404
 
     @app.errorhandler(500)
     def internal_error(error):
-        return {'error': 'Internal server error', 'message': str(error)}, 500
+        return {
+            'error': {
+                'code': ErrorCode.INTERNAL_ERROR.value,
+                'message': 'An unexpected error occurred'
+            }
+        }, 500
