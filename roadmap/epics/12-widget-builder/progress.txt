@@ -39,3 +39,68 @@ Acceptance Criteria Met:
 Files Modified:
 - frontend/src/embedded/components/ColorPicker.tsx (NEW)
 - frontend/src/embedded/pages/EmbeddedWidgetBuilder.tsx (UPDATED)
+
+WB-005 - Create widget builder admin page
+-----------------------------------------
+Date: 2026-01-22
+Status: COMPLETE
+
+Implementation Summary:
+- Created EmbeddedWidgets.tsx at frontend/src/embedded/pages/EmbeddedWidgets.tsx
+- Comprehensive admin page for managing all 4 widget types:
+  * Points Balance - floating points display
+  * Tier Badge - membership tier indicator
+  * Rewards Launcher - button to open rewards panel
+  * Referral Prompt - referral banner/prompt
+
+Key Features:
+- Widget list with enable/disable toggle for each type
+- Configuration modal for detailed settings per widget
+- Live preview showing widget appearance with current settings
+- Position settings:
+  * Fixed position selector (visual and dropdown)
+  * Offset controls (X/Y)
+  * CSS selector for inline widgets (tier badge)
+- Styling settings:
+  * Background color picker (using ColorPicker component)
+  * Text color picker
+  * Accent/icon color picker
+  * Border radius, font size, shadow toggle
+  * Badge style (pill/square/rounded for tier badge)
+- Content settings (widget-type specific):
+  * Points Balance: icon, label, tier indicator
+  * Tier Badge: name, icon, progress bar
+  * Rewards Launcher: icon selection, tooltip, notification badge
+  * Referral Prompt: title, description, CTA text, reward amount
+- Behavior settings:
+  * Mobile visibility
+  * Animation settings
+  * Trigger options (scroll, delay, exit intent)
+  * Panel position for rewards launcher
+- Save and reset to defaults functionality
+- Integrated PositionSelector component for visual position selection
+
+Route & Navigation:
+- Added route at /app/widgets
+- Added "Widgets" link to NavMenu (advanced features)
+- Lazy-loaded for optimal performance
+
+API Integration:
+- Uses existing /api/widgets endpoints
+- GET /api/widgets - list all widgets
+- PUT /api/widgets/{type} - update widget config
+- POST /api/widgets/{type}/enable - enable widget
+- POST /api/widgets/{type}/disable - disable widget
+- POST /api/widgets/{type}/reset - reset to defaults
+
+Acceptance Criteria Met:
+[x] EmbeddedWidgets.tsx page component
+[x] List of all widget types with toggle
+[x] Click to configure each widget
+[x] Position and color settings per widget
+[x] Save and preview functionality
+[x] Route added to admin navigation
+
+Files Created/Modified:
+- frontend/src/embedded/pages/EmbeddedWidgets.tsx (NEW - 753 lines)
+- frontend/src/embedded/EmbeddedApp.tsx (UPDATED - added route and nav link)
