@@ -105,6 +105,15 @@ DEFAULT_SETTINGS = {
     'general': {
         'currency': 'USD',
         'timezone': 'America/Los_Angeles',
+    },
+    'milestones': {
+        'enabled': True,  # Master toggle for milestone celebrations
+        'point_milestones': [100, 500, 1000, 2500, 5000, 10000],  # Point thresholds to celebrate
+        'trade_in_milestones': [5, 10, 25, 50, 100],  # Trade-in count thresholds
+        'email_on_major_milestones': True,  # Send email for 1000+ points, 25+ trade-ins
+        'major_point_threshold': 1000,  # Points threshold considered "major"
+        'major_trade_in_threshold': 25,  # Trade-in threshold considered "major"
+        'celebration_duration_ms': 5000,  # How long to show celebration (milliseconds)
     }
 }
 

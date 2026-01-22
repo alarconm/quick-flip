@@ -1248,3 +1248,280 @@ def mark_badges_notified():
         db.session.rollback()
         current_app.logger.error(f"Error marking badges notified: {e}")
         return jsonify({'error': f'Failed to mark badges: {str(e)}'}), 500
+
+
+# ==================== Milestone Celebration Endpoints ====================
+
+@customer_account_bp.route('/extension/milestones', methods=['POST'])
+def get_extension_milestones():
+    """
+    Get milestones data for Customer Account Extension.
+
+    Request body:
+        customer_id: Shopify customer ID
+        shop: Shop domain
+
+    Returns:
+        All milestones with achieved status and progress for the customer
+    """
+    data = request.json or {}
+    customer_id = data.get('customer_id')
+
+    if not customer_id:
+        return jsonify({'error': 'Missing customer_id'}), 400
+
+    # Find member
+    member = Member.query.filter_by(
+        shopify_customer_id=str(customer_id)
+    ).first()
+
+    if not member:
+        return jsonify({
+            'is_member': False,
+            'milestones': [],
+            'message': 'Not enrolled in rewards program'
+        })
+
+    # Import gamification models and service
+    from ..models.gamification import Milestone, MemberMilestone
+    from ..services.gamification_service import GamificationService
+
+    # Get gamification service
+    service = GamificationService(member.tenant_id)
+
+    # Get all active milestones
+    all_milestones = Milestone.query.filter_by(
+        tenant_id=member.tenant_id,
+        is_active=True
+    ).order_by(Milestone.threshold).all()
+
+    # Get member's achieved milestones
+    achieved_milestone_ids = {
+        mm.milestone_id for mm in MemberMilestone.query.filter_by(member_id=member.id).all()
+    }
+
+    # Get achieved milestones with dates
+    achieved_milestones_info = {
+        mm.milestone_id: mm.achieved_at
+        for mm in MemberMilestone.query.filter_by(member_id=member.id).all()
+    }
+
+    # Get member stats for progress calculation
+    member_stats = service._get_member_stats(member)
+
+    # Build milestone list with progress
+    milestones_data = []
+    for milestone in all_milestones:
+        is_achieved = milestone.id in achieved_milestone_ids
+        achieved_at = achieved_milestones_info.get(milestone.id)
+
+        # Calculate progress
+        current_progress = service._get_milestone_value(milestone.milestone_type, member_stats)
+        progress_max = milestone.threshold
+        progress_percentage = min(100, int((current_progress / progress_max) * 100)) if progress_max > 0 else 0
+
+        milestones_data.append({
+            'id': milestone.id,
+            'name': milestone.name,
+            'description': milestone.description,
+            'milestone_type': milestone.milestone_type,
+            'threshold': milestone.threshold,
+            'points_reward': milestone.points_reward,
+            'credit_reward': float(milestone.credit_reward) if milestone.credit_reward else 0,
+            'celebration_message': milestone.celebration_message,
+            'is_achieved': is_achieved,
+            'achieved_at': achieved_at.isoformat() if achieved_at else None,
+            'progress': current_progress if not is_achieved else progress_max,
+            'progress_max': progress_max,
+            'progress_percentage': 100 if is_achieved else progress_percentage,
+        })
+
+    # Separate achieved and upcoming milestones
+    achieved_milestones = [m for m in milestones_data if m['is_achieved']]
+    upcoming_milestones = [m for m in milestones_data if not m['is_achieved']]
+
+    return jsonify({
+        'is_member': True,
+        'total_milestones': len(milestones_data),
+        'achieved_count': len(achieved_milestones),
+        'achieved_milestones': achieved_milestones,
+        'upcoming_milestones': upcoming_milestones,
+    })
+
+
+@customer_account_bp.route('/extension/milestones/newly-achieved', methods=['POST'])
+def get_newly_achieved_milestones():
+    """
+    Get milestones that have been achieved but not yet shown to the customer.
+    Used to trigger the milestone celebration modal.
+
+    Request body:
+        customer_id: Shopify customer ID
+        shop: Shop domain
+
+    Returns:
+        List of newly achieved milestones that haven't been shown yet
+    """
+    data = request.json or {}
+    customer_id = data.get('customer_id')
+
+    if not customer_id:
+        return jsonify({'error': 'Missing customer_id'}), 400
+
+    # Find member
+    member = Member.query.filter_by(
+        shopify_customer_id=str(customer_id)
+    ).first()
+
+    if not member:
+        return jsonify({
+            'is_member': False,
+            'newly_achieved_milestones': [],
+            'message': 'Not enrolled in rewards program'
+        })
+
+    # Import gamification models
+    from ..models.gamification import Milestone, MemberMilestone
+
+    # Get unnotified milestones (achieved but not yet shown)
+    unnotified_member_milestones = MemberMilestone.query.filter_by(
+        member_id=member.id,
+        notified=False
+    ).all()
+
+    newly_achieved = []
+    for mm in unnotified_member_milestones:
+        milestone = Milestone.query.get(mm.milestone_id)
+        if milestone:
+            newly_achieved.append({
+                'id': milestone.id,
+                'member_milestone_id': mm.id,
+                'name': milestone.name,
+                'description': milestone.description,
+                'milestone_type': milestone.milestone_type,
+                'threshold': milestone.threshold,
+                'points_reward': milestone.points_reward,
+                'credit_reward': float(milestone.credit_reward) if milestone.credit_reward else 0,
+                'celebration_message': milestone.celebration_message,
+                'achieved_at': mm.achieved_at.isoformat() if mm.achieved_at else None,
+            })
+
+    return jsonify({
+        'is_member': True,
+        'newly_achieved_milestones': newly_achieved,
+        'count': len(newly_achieved),
+    })
+
+
+@customer_account_bp.route('/extension/milestones/mark-notified', methods=['POST'])
+def mark_milestones_notified():
+    """
+    Mark milestones as notified after showing the celebration modal.
+
+    Request body:
+        customer_id: Shopify customer ID
+        milestone_ids: List of milestone IDs to mark as notified (optional, marks all if not provided)
+
+    Returns:
+        Success status
+    """
+    data = request.json or {}
+    customer_id = data.get('customer_id')
+    milestone_ids = data.get('milestone_ids')  # Optional list of specific milestone IDs
+
+    if not customer_id:
+        return jsonify({'error': 'Missing customer_id'}), 400
+
+    # Find member
+    member = Member.query.filter_by(
+        shopify_customer_id=str(customer_id)
+    ).first()
+
+    if not member:
+        return jsonify({'error': 'Not enrolled in rewards program'}), 404
+
+    # Import gamification model
+    from ..models.gamification import MemberMilestone
+
+    try:
+        # Mark specified milestones or all unnotified milestones as notified
+        query = MemberMilestone.query.filter_by(
+            member_id=member.id,
+            notified=False
+        )
+
+        if milestone_ids:
+            query = query.filter(MemberMilestone.milestone_id.in_(milestone_ids))
+
+        updated_count = query.update({'notified': True}, synchronize_session='fetch')
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'milestones_marked': updated_count,
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error marking milestones notified: {e}")
+        return jsonify({'error': f'Failed to mark milestones: {str(e)}'}), 500
+
+
+@customer_account_bp.route('/extension/milestones/history', methods=['POST'])
+def get_milestone_history():
+    """
+    Get member's milestone achievement history.
+
+    Request body:
+        customer_id: Shopify customer ID
+
+    Returns:
+        List of achieved milestones with dates
+    """
+    data = request.json or {}
+    customer_id = data.get('customer_id')
+
+    if not customer_id:
+        return jsonify({'error': 'Missing customer_id'}), 400
+
+    # Find member
+    member = Member.query.filter_by(
+        shopify_customer_id=str(customer_id)
+    ).first()
+
+    if not member:
+        return jsonify({
+            'is_member': False,
+            'history': [],
+            'message': 'Not enrolled in rewards program'
+        })
+
+    # Import gamification models
+    from ..models.gamification import Milestone, MemberMilestone
+
+    # Get all achieved milestones for this member
+    achieved = MemberMilestone.query.filter_by(
+        member_id=member.id
+    ).order_by(MemberMilestone.achieved_at.desc()).all()
+
+    history = []
+    for mm in achieved:
+        milestone = Milestone.query.get(mm.milestone_id)
+        if milestone:
+            history.append({
+                'id': milestone.id,
+                'name': milestone.name,
+                'description': milestone.description,
+                'milestone_type': milestone.milestone_type,
+                'threshold': milestone.threshold,
+                'points_reward': milestone.points_reward,
+                'credit_reward': float(milestone.credit_reward) if milestone.credit_reward else 0,
+                'celebration_message': milestone.celebration_message,
+                'achieved_at': mm.achieved_at.isoformat() if mm.achieved_at else None,
+            })
+
+    return jsonify({
+        'is_member': True,
+        'history': history,
+        'total_achieved': len(history),
+    })

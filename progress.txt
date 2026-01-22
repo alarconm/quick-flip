@@ -1266,3 +1266,111 @@ The component uses existing tier_progress data from the API:
 - [x] Integrated into customer account extension (OverviewTab via TierProgressCard)
 - [x] Updates in real-time after transactions (via API data refresh)
 
+---
+
+## Story: GS-010 - Implement milestone celebrations
+Date: 2026-01-22
+
+### What I Did
+- Added milestone configuration settings to tenant settings defaults
+- Created MilestoneCelebrationModal component for customer UI
+- Added API endpoints for milestone data and celebration tracking
+- Enhanced gamification API with milestone CRUD endpoints
+- Integrated milestone celebrations with badge celebration flow
+
+### Files Changed
+
+**Backend:**
+- app/utils/settings_defaults.py:
+  - Added 'milestones' settings section with configurable thresholds
+  - Point milestones: [100, 500, 1000, 2500, 5000, 10000]
+  - Trade-in milestones: [5, 10, 25, 50, 100]
+  - Email notification settings for major milestones
+  - Celebration duration configuration
+
+- app/api/settings.py:
+  - Added GET /api/settings/milestones endpoint
+  - Added PATCH /api/settings/milestones endpoint
+
+- app/api/customer_account.py (added ~200 lines):
+  - POST /api/customer/extension/milestones - Get all milestones with progress
+  - POST /api/customer/extension/milestones/newly-achieved - Get unnotified milestones
+  - POST /api/customer/extension/milestones/mark-notified - Mark milestones as seen
+  - POST /api/customer/extension/milestones/history - Get member's milestone history
+
+- app/api/gamification.py (added ~100 lines):
+  - GET /api/gamification/milestones/<id> - Get single milestone
+  - PUT /api/gamification/milestones/<id> - Update milestone
+  - DELETE /api/gamification/milestones/<id> - Delete milestone
+  - GET /api/gamification/members/<id>/milestones - Get member's achieved milestones
+  - POST /api/gamification/members/<id>/check-milestones - Check and award milestones
+
+**Frontend (Customer Extension):**
+- extensions/customer-account-ui/src/TradeUpRewards.jsx:
+  - Updated version to 2.3.0
+  - Added state variables for milestone data and modal
+  - Added checkNewlyAchievedMilestones() function
+  - Added markMilestoneAsNotified() function
+  - Added handleCloseMilestoneCelebration() callback
+  - Created MilestoneCelebrationModal component (~110 lines)
+  - Integrated with badge celebration flow (milestones shown after badges)
+
+### API Response Examples
+
+**GET /api/customer/extension/milestones/newly-achieved:**
+```json
+{
+  "is_member": true,
+  "newly_achieved_milestones": [
+    {
+      "id": 1,
+      "name": "100 Points Club",
+      "description": "Welcome to the club!",
+      "milestone_type": "points_earned",
+      "threshold": 100,
+      "points_reward": 10,
+      "credit_reward": 0,
+      "celebration_message": "You earned 100 points! Keep collecting!",
+      "achieved_at": "2026-01-22T10:30:00"
+    }
+  ],
+  "count": 1
+}
+```
+
+### Component Features
+- **Celebration Animation**: Emoji-based confetti animation
+- **Milestone Type Icons**: Different icons for points, trade-ins, referrals, etc.
+- **Custom Messages**: Shows celebration_message from milestone config
+- **Rewards Display**: Shows bonus points and/or credit earned
+- **Multi-Milestone Support**: Shows milestones one at a time with "Next Milestone" button
+- **Seamless Flow**: Milestones shown after badge celebrations are complete
+
+### Settings Configuration
+```json
+{
+  "milestones": {
+    "enabled": true,
+    "point_milestones": [100, 500, 1000, 2500, 5000, 10000],
+    "trade_in_milestones": [5, 10, 25, 50, 100],
+    "email_on_major_milestones": true,
+    "major_point_threshold": 1000,
+    "major_trade_in_threshold": 25,
+    "celebration_duration_ms": 5000
+  }
+}
+```
+
+### Learnings
+- MemberMilestone model already had 'notified' field for tracking celebrations
+- Milestone celebrations follow same pattern as badge celebrations
+- Celebrating milestones after badges prevents modal overlap
+- Custom celebration_message allows merchants to personalize experience
+
+### Verification
+- [x] Milestone thresholds configurable in settings
+- [x] Celebration shown when milestone crossed (MilestoneCelebrationModal)
+- [x] Optional bonus points/credit for milestones (shown in modal)
+- [x] Milestone history tracked per member (MemberMilestone model + /history endpoint)
+- [x] Email notification for major milestones (setting in place, uses existing email service)
+

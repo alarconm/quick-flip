@@ -9,8 +9,9 @@
  * - Referral program integration
  * - Badge showcase with progress
  * - Achievement unlocked celebrations
+ * - Milestone celebrations
  *
- * @version 2.2.0
+ * @version 2.3.0
  */
 import {
   reactExtension,
@@ -86,6 +87,9 @@ function TradeUpRewards() {
   const [newlyEarnedBadges, setNewlyEarnedBadges] = useState([]);
   const [showAchievementModal, setShowAchievementModal] = useState(false);
   const [currentCelebrationBadge, setCurrentCelebrationBadge] = useState(null);
+  const [newlyAchievedMilestones, setNewlyAchievedMilestones] = useState([]);
+  const [showMilestoneModal, setShowMilestoneModal] = useState(false);
+  const [currentCelebrationMilestone, setCurrentCelebrationMilestone] = useState(null);
 
   // Fetch initial data
   useEffect(() => {
@@ -154,6 +158,13 @@ function TradeUpRewards() {
   useEffect(() => {
     if (data?.is_member && customer?.id) {
       checkNewlyEarnedBadges();
+    }
+  }, [data?.is_member, customer?.id]);
+
+  // Check for newly achieved milestones when page loads
+  useEffect(() => {
+    if (data?.is_member && customer?.id) {
+      checkNewlyAchievedMilestones();
     }
   }, [data?.is_member, customer?.id]);
 
@@ -268,6 +279,42 @@ function TradeUpRewards() {
     }
   };
 
+  const checkNewlyAchievedMilestones = async () => {
+    if (!customer?.id) return;
+
+    try {
+      const token = await sessionToken.get();
+      const customerId = customer.id.replace('gid://shopify/Customer/', '');
+
+      const response = await fetch(`${API_BASE}/customer/extension/milestones/newly-achieved`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'X-Shop-Domain': shop.domain,
+        },
+        body: JSON.stringify({
+          customer_id: customerId,
+          shop: shop.domain,
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.newly_achieved_milestones && result.newly_achieved_milestones.length > 0) {
+          setNewlyAchievedMilestones(result.newly_achieved_milestones);
+          // Show the first milestone celebration (after badges are done)
+          if (!showAchievementModal) {
+            setCurrentCelebrationMilestone(result.newly_achieved_milestones[0]);
+            setShowMilestoneModal(true);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error checking newly achieved milestones:', err);
+    }
+  };
+
   const markBadgeAsNotified = async (badgeId) => {
     if (!customer?.id) return;
 
@@ -292,6 +339,30 @@ function TradeUpRewards() {
     }
   };
 
+  const markMilestoneAsNotified = async (milestoneId) => {
+    if (!customer?.id) return;
+
+    try {
+      const token = await sessionToken.get();
+      const customerId = customer.id.replace('gid://shopify/Customer/', '');
+
+      await fetch(`${API_BASE}/customer/extension/milestones/mark-notified`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'X-Shop-Domain': shop.domain,
+        },
+        body: JSON.stringify({
+          customer_id: customerId,
+          milestone_ids: [milestoneId],
+        }),
+      });
+    } catch (err) {
+      console.error('Error marking milestone as notified:', err);
+    }
+  };
+
   const handleCloseCelebration = useCallback(() => {
     if (currentCelebrationBadge) {
       // Mark the current badge as notified
@@ -308,9 +379,35 @@ function TradeUpRewards() {
         setShowAchievementModal(false);
         setCurrentCelebrationBadge(null);
         setNewlyEarnedBadges([]);
+
+        // Check if there are milestones to celebrate next
+        if (newlyAchievedMilestones.length > 0) {
+          setCurrentCelebrationMilestone(newlyAchievedMilestones[0]);
+          setShowMilestoneModal(true);
+        }
       }
     }
-  }, [currentCelebrationBadge, newlyEarnedBadges]);
+  }, [currentCelebrationBadge, newlyEarnedBadges, newlyAchievedMilestones]);
+
+  const handleCloseMilestoneCelebration = useCallback(() => {
+    if (currentCelebrationMilestone) {
+      // Mark the current milestone as notified
+      markMilestoneAsNotified(currentCelebrationMilestone.id);
+
+      // Find next milestone to show
+      const currentIndex = newlyAchievedMilestones.findIndex(m => m.id === currentCelebrationMilestone.id);
+      const nextMilestone = newlyAchievedMilestones[currentIndex + 1];
+
+      if (nextMilestone) {
+        setCurrentCelebrationMilestone(nextMilestone);
+      } else {
+        // No more milestones, close the modal
+        setShowMilestoneModal(false);
+        setCurrentCelebrationMilestone(null);
+        setNewlyAchievedMilestones([]);
+      }
+    }
+  }, [currentCelebrationMilestone, newlyAchievedMilestones]);
 
   const handleRedeemReward = async (reward) => {
     if (!customer?.id || !data?.member?.member_number) return;
@@ -535,6 +632,15 @@ function TradeUpRewards() {
             badge={currentCelebrationBadge}
             onClose={handleCloseCelebration}
             remainingCount={newlyEarnedBadges.length - 1 - newlyEarnedBadges.findIndex(b => b.id === currentCelebrationBadge.id)}
+          />
+        )}
+
+        {/* Milestone Celebration Modal */}
+        {showMilestoneModal && currentCelebrationMilestone && (
+          <MilestoneCelebrationModal
+            milestone={currentCelebrationMilestone}
+            onClose={handleCloseMilestoneCelebration}
+            remainingCount={newlyAchievedMilestones.length - 1 - newlyAchievedMilestones.findIndex(m => m.id === currentCelebrationMilestone.id)}
           />
         )}
       </BlockStack>
@@ -1662,6 +1768,132 @@ function AchievementUnlockedModal({ badge, onClose, remainingCount }) {
         {/* Close Button */}
         <Button kind="primary" onPress={onClose}>
           {remainingCount > 0 ? 'Next Badge' : 'Awesome!'}
+        </Button>
+      </BlockStack>
+    </Modal>
+  );
+}
+
+// ============================================================================
+// Milestone Celebration Modal
+// ============================================================================
+
+function MilestoneCelebrationModal({ milestone, onClose, remainingCount }) {
+  // Map milestone types to celebratory emojis
+  const typeIconMap = {
+    'points_earned': '\uD83C\uDFC6',
+    'trade_ins_completed': '\uD83D\uDCE6',
+    'referrals_made': '\uD83D\uDC65',
+    'total_spent': '\uD83D\uDCB0',
+    'member_days': '\uD83D\uDCC5',
+  };
+
+  const typeIcon = typeIconMap[milestone.milestone_type] || '\uD83C\uDF1F';
+
+  // Celebration emojis
+  const celebrationEmojis = ['\uD83C\uDF89', '\uD83C\uDF8A', '\uD83C\uDF1F', '\u2728', '\uD83C\uDF86'];
+
+  // Get custom celebration message or generate default
+  const celebrationMessage = milestone.celebration_message || `You reached ${milestone.threshold} ${milestone.milestone_type.replace(/_/g, ' ')}!`;
+
+  return (
+    <Modal
+      id="milestone-celebration"
+      title="Milestone Reached!"
+      open={true}
+      onClose={onClose}
+    >
+      <BlockStack spacing="loose" padding="loose">
+        {/* Celebration Header */}
+        <View padding="base" background="subdued" borderRadius="base">
+          <BlockStack spacing="base" inlineAlignment="center">
+            {/* Celebration Emojis Row */}
+            <InlineStack spacing="tight" inlineAlignment="center">
+              <Text size="large">{celebrationEmojis[0]}</Text>
+              <Text size="large">{celebrationEmojis[1]}</Text>
+              <Text size="large">{celebrationEmojis[2]}</Text>
+            </InlineStack>
+
+            {/* Milestone Icon - Large and Centered */}
+            <View padding="base">
+              <Text size="extraLarge">{typeIcon}</Text>
+            </View>
+
+            {/* More Celebration */}
+            <InlineStack spacing="tight" inlineAlignment="center">
+              <Text size="large">{celebrationEmojis[3]}</Text>
+              <Text size="large">{celebrationEmojis[4]}</Text>
+              <Text size="large">{celebrationEmojis[0]}</Text>
+            </InlineStack>
+          </BlockStack>
+        </View>
+
+        {/* Milestone Name */}
+        <BlockStack spacing="extraTight" inlineAlignment="center">
+          <Text emphasis="bold" size="large">
+            {milestone.name}
+          </Text>
+          {milestone.description && (
+            <Text appearance="subdued" size="medium">
+              {milestone.description}
+            </Text>
+          )}
+        </BlockStack>
+
+        {/* Celebration Message */}
+        <View padding="tight" background="subdued" borderRadius="base">
+          <BlockStack spacing="tight" inlineAlignment="center">
+            <Text size="medium">
+              {celebrationMessage}
+            </Text>
+          </BlockStack>
+        </View>
+
+        {/* Rewards Earned */}
+        {(milestone.points_reward > 0 || milestone.credit_reward > 0) && (
+          <>
+            <Divider />
+            <BlockStack spacing="tight" inlineAlignment="center">
+              <Text appearance="subdued" size="small">YOU EARNED</Text>
+              <InlineStack spacing="loose" inlineAlignment="center">
+                {milestone.points_reward > 0 && (
+                  <BlockStack spacing="extraTight" inlineAlignment="center">
+                    <Text emphasis="bold" size="large" tone="success">
+                      +{milestone.points_reward.toLocaleString()}
+                    </Text>
+                    <Text appearance="subdued" size="small">bonus points</Text>
+                  </BlockStack>
+                )}
+                {milestone.credit_reward > 0 && (
+                  <BlockStack spacing="extraTight" inlineAlignment="center">
+                    <Text emphasis="bold" size="large" tone="success">
+                      +${milestone.credit_reward.toFixed(2)}
+                    </Text>
+                    <Text appearance="subdued" size="small">store credit</Text>
+                  </BlockStack>
+                )}
+              </InlineStack>
+            </BlockStack>
+          </>
+        )}
+
+        {/* Motivational Message */}
+        <View padding="base" background="subdued" borderRadius="base">
+          <BlockStack spacing="tight" inlineAlignment="center">
+            <Text size="medium">
+              Amazing achievement! Keep going!
+            </Text>
+            {remainingCount > 0 && (
+              <Text appearance="subdued" size="small">
+                {remainingCount} more milestone{remainingCount > 1 ? 's' : ''} to celebrate!
+              </Text>
+            )}
+          </BlockStack>
+        </View>
+
+        {/* Close Button */}
+        <Button kind="primary" onPress={onClose}>
+          {remainingCount > 0 ? 'Next Milestone' : 'Awesome!'}
         </Button>
       </BlockStack>
     </Modal>
