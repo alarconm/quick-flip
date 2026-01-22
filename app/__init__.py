@@ -540,6 +540,10 @@ def register_blueprints(app: Flask) -> None:
     from .api.support_review import support_review_bp
     app.register_blueprint(support_review_bp, url_prefix='/api/support-review')
 
+    # Review Dashboard (Aggregated Review Metrics)
+    from .api.review_dashboard import review_dashboard_bp
+    app.register_blueprint(review_dashboard_bp, url_prefix='/api/review-dashboard')
+
 
 def register_error_handlers(app: Flask) -> None:
     """Register error handlers using standardized error format."""

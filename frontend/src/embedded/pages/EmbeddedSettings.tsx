@@ -2248,6 +2248,13 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
                       {reviewMetricsData.metrics.summary}
                     </Text>
                   </Box>
+
+                  {/* Link to Full Dashboard */}
+                  <InlineStack align="end">
+                    <Button url="/app/review-dashboard" variant="plain">
+                      View Full Review Dashboard
+                    </Button>
+                  </InlineStack>
                 </BlockStack>
               ) : (
                 <Text as="p" variant="bodySm" tone="subdued">
