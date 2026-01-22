@@ -30,9 +30,10 @@ def tenant(app):
     """Create a test tenant."""
     with app.app_context():
         tenant = Tenant(
-            shop_domain='test-shop.myshopify.com',
+            shopify_domain='test-shop.myshopify.com',
             shop_name='Test Shop',
-            access_token='test-token',
+            shop_slug='test-shop',
+            shopify_access_token='shpat_test_token_12345',
             settings={'notifications': {'enabled': True}}
         )
         db.session.add(tenant)
@@ -50,6 +51,7 @@ def member(app, tenant):
         tier = MembershipTier(
             tenant_id=tenant.id,
             name='Gold',
+            monthly_price=29.99,
             bonus_rate=0.1
         )
         db.session.add(tier)
@@ -60,6 +62,7 @@ def member(app, tenant):
             email='customer@example.com',
             name='Test Customer',
             member_number='MEM001',
+            shopify_customer_id='1234567890',
             tier_id=tier.id
         )
         db.session.add(member)

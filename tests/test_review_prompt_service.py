@@ -37,24 +37,27 @@ class TestReviewPromptService:
         """Test should_show_prompt returns True for eligible tenant."""
         from app.models import TradeInBatch, Tenant
         with app.app_context():
-            # Make tenant 30+ days old
+            # Make tenant 30+ days old and onboarding complete
             tenant = Tenant.query.get(sample_tenant.id)
             tenant.created_at = datetime.utcnow() - timedelta(days=35)
+            tenant.settings = {'onboarding_complete': True}
 
-            # Add 10+ trade-ins to meet activity threshold
+            # Add 10+ trade-ins to meet activity threshold, spread across 5+ days
             for i in range(12):
                 batch = TradeInBatch(
                     tenant_id=sample_tenant.id,
                     batch_reference=f'TB-TEST-{i}',
-                    status='completed',
+                    status='complete',  # Use 'complete' not 'completed'
                     total_items=1,
-                    total_trade_value=100
+                    total_trade_value=100,
+                    updated_at=datetime.utcnow() - timedelta(days=i % 6)  # Spread across 6 days
                 )
                 db.session.add(batch)
             db.session.commit()
 
             service = ReviewPromptService(sample_tenant.id)
-            result = service.should_show_prompt()
+            # Use 'trade_in_approved' context which bypasses session count requirement
+            result = service.should_show_prompt(context='trade_in_approved')
             assert result is True
 
     def test_get_eligibility_details(self, app, sample_tenant):
@@ -255,28 +258,30 @@ class TestPromptCooldown:
         """Test that showing a prompt prevents showing another immediately."""
         from app.models import Tenant, TradeInBatch
         with app.app_context():
-            # Make tenant eligible
+            # Make tenant eligible with onboarding complete
             tenant = Tenant.query.get(sample_tenant.id)
             tenant.created_at = datetime.utcnow() - timedelta(days=35)
+            tenant.settings = {'onboarding_complete': True}
 
             for i in range(12):
                 batch = TradeInBatch(
                     tenant_id=sample_tenant.id,
                     batch_reference=f'TB-COOL-{i}',
-                    status='completed',
+                    status='complete',  # Use 'complete' not 'completed'
                     total_items=1,
-                    total_trade_value=100
+                    total_trade_value=100,
+                    updated_at=datetime.utcnow() - timedelta(days=i % 6)  # Spread across 6 days
                 )
                 db.session.add(batch)
             db.session.commit()
 
             service = ReviewPromptService(sample_tenant.id)
 
-            # First check - should be eligible
-            assert service.should_show_prompt() is True
+            # First check - should be eligible (use 'trade_in_approved' context)
+            assert service.should_show_prompt(context='trade_in_approved') is True
 
             # Record a prompt
             service.record_prompt_shown()
 
             # Now should not be eligible (cooldown active)
-            assert service.should_show_prompt() is False
+            assert service.should_show_prompt(context='trade_in_approved') is False
