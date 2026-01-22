@@ -282,6 +282,38 @@ Your Code: {referral_code}
     <p>{shop_name}</p>
 </div>
 '''
+        },
+        'anniversary_reward': {
+            'subject': 'Happy {anniversary_year} Anniversary, {member_name}!',
+            'text': '''Hi {member_name},
+
+Happy {anniversary_year} Anniversary with {shop_name}!
+
+Thank you for being a loyal member for {years_number} year(s). We truly appreciate your continued support.
+
+To celebrate, we've added a special reward to your account:
+{reward_description}
+
+{custom_message}
+
+Here's to many more years together!
+
+{shop_name}
+''',
+            'html': '''
+<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+    <h2>🎉 Happy {anniversary_year} Anniversary!</h2>
+    <p>Hi {member_name},</p>
+    <p>Thank you for being a loyal member of <strong>{shop_name}</strong> for <strong>{years_number} year(s)</strong>!</p>
+    <div style="background: #e8f5e9; padding: 20px; border-radius: 8px; margin: 20px 0;">
+        <h3 style="margin-top: 0; color: #2e7d32;">Your Anniversary Reward</h3>
+        <p style="font-size: 18px; font-weight: bold; color: #2e7d32;">{reward_description}</p>
+    </div>
+    <p style="font-style: italic;">{custom_message}</p>
+    <p>Here's to many more years together!</p>
+    <p>{shop_name}</p>
+</div>
+'''
         }
     }
 
@@ -988,6 +1020,87 @@ Your Code: {referral_code}
             from_email=settings['from_email'],
             from_name=settings['from_name']
         )
+
+    def send_anniversary_reward(
+        self,
+        tenant_id: int,
+        member_id: int,
+        anniversary_year: int,
+        reward_type: str,
+        reward_amount: float,
+        custom_message: str = ''
+    ) -> Dict[str, Any]:
+        """
+        Send notification when anniversary reward is issued.
+
+        Args:
+            tenant_id: Tenant ID
+            member_id: Member ID
+            anniversary_year: Which anniversary year (1, 2, 3, etc.)
+            reward_type: Type of reward ('points', 'credit', 'discount_code')
+            reward_amount: Amount of the reward
+            custom_message: Optional custom message from tenant settings
+
+        Returns:
+            Dict with send result
+        """
+        from ..models import Member
+        settings = self._get_tenant_settings(tenant_id)
+
+        # Check if anniversary notifications are enabled
+        if not settings.get('enabled'):
+            return {'success': False, 'skipped': True, 'reason': 'Email disabled'}
+
+        # Check tenant's anniversary notification setting
+        anniversary_email_enabled = settings.get('anniversary_email', True)
+        if not anniversary_email_enabled:
+            return {'success': False, 'skipped': True, 'reason': 'Anniversary email disabled'}
+
+        member = Member.query.get(member_id)
+        if not member:
+            return {'success': False, 'error': 'Member not found'}
+
+        # Format reward description based on type
+        if reward_type == 'points':
+            reward_description = f"{int(reward_amount)} bonus points"
+        elif reward_type == 'credit':
+            reward_description = f"${reward_amount:.2f} store credit"
+        elif reward_type == 'discount_code':
+            reward_description = f"${reward_amount:.2f} discount code"
+        else:
+            reward_description = f"{reward_amount} reward"
+
+        # Format anniversary year as ordinal (1st, 2nd, 3rd, etc.)
+        ordinal_year = self._ordinal(anniversary_year)
+
+        variables = {
+            'member_name': member.name or member.email.split('@')[0],
+            'anniversary_year': ordinal_year,
+            'years_number': anniversary_year,
+            'reward_description': reward_description,
+            'custom_message': custom_message or 'Thank you for being a loyal member!'
+        }
+
+        rendered = self._render_template('anniversary_reward', variables, settings)
+
+        return self._send_email(
+            to_email=member.email,
+            to_name=member.name,
+            subject=rendered['subject'],
+            text_content=rendered['text'],
+            html_content=rendered['html'],
+            from_email=settings['from_email'],
+            from_name=settings['from_name']
+        )
+
+    @staticmethod
+    def _ordinal(n: int) -> str:
+        """Convert a number to its ordinal representation (1st, 2nd, 3rd, etc.)."""
+        if 11 <= (n % 100) <= 13:
+            suffix = 'th'
+        else:
+            suffix = {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')
+        return f"{n}{suffix}"
 
     def send_pending_distribution_notification(
         self,

@@ -97,14 +97,24 @@ def init_scheduler(app):
             replace_existing=True
         )
 
+        # Anniversary rewards - Daily at 8 AM UTC
+        _scheduler.add_job(
+            run_anniversary_rewards,
+            trigger=CronTrigger(hour=8, minute=0),
+            id='anniversary_rewards',
+            name='Process anniversary rewards',
+            replace_existing=True
+        )
+
         _scheduler.start()
         os.environ['SCHEDULER_RUNNING'] = 'true'
 
         # Use print during init to avoid app context issues
-        print('[Scheduler] Started with 4 scheduled jobs:')
+        print('[Scheduler] Started with 5 scheduled jobs:')
         print('  - Monthly credits: 1st of month at 6:00 UTC (creates pending for approval)')
         print('  - Credit expiration: Daily at 0:00 UTC')
         print('  - Pending expiration: Daily at 1:00 UTC')
+        print('  - Anniversary rewards: Daily at 8:00 UTC')
         print('  - Expiration warnings: Daily at 9:00 UTC')
 
         # Register shutdown
@@ -316,6 +326,94 @@ def run_pending_expiration():
 
         except Exception as e:
             logger.error(f'[Scheduler] Pending expiration failed: {e}')
+
+
+def run_anniversary_rewards():
+    """
+    Process anniversary rewards for all tenants.
+    Runs daily at 8 AM UTC to issue rewards and send emails to members with anniversaries today.
+    """
+    global _flask_app
+
+    if not _flask_app:
+        logger.error('[Scheduler] Flask app not initialized')
+        return
+
+    logger.info('[Scheduler] Processing anniversary rewards...')
+
+    with _flask_app.app_context():
+        try:
+            from ..extensions import db
+            from ..models.tenant import Tenant
+            from ..services.anniversary_service import AnniversaryService
+            from ..services.notification_service import notification_service
+
+            # Get all active tenants
+            tenants = Tenant.query.filter_by(subscription_active=True).all()
+
+            total_rewarded = 0
+            total_emails_sent = 0
+            total_failed = 0
+
+            for tenant in tenants:
+                try:
+                    # Create service instance for this tenant
+                    service = AnniversaryService(tenant.id)
+                    settings = service.get_anniversary_settings()
+
+                    # Skip if anniversary rewards are disabled
+                    if not settings.get('enabled'):
+                        continue
+
+                    # Process anniversary rewards for this tenant
+                    result = service.process_anniversary_rewards()
+
+                    if result.get('success'):
+                        successful = result.get('successful', 0)
+                        total_rewarded += successful
+
+                        # Send anniversary emails for each successfully rewarded member
+                        for detail in result.get('details', []):
+                            if detail.get('success'):
+                                try:
+                                    email_result = notification_service.send_anniversary_reward(
+                                        tenant_id=tenant.id,
+                                        member_id=detail.get('member_id'),
+                                        anniversary_year=detail.get('anniversary_year', 1),
+                                        reward_type=detail.get('reward_type', 'points'),
+                                        reward_amount=detail.get('reward_amount', 0),
+                                        custom_message=settings.get('message', '')
+                                    )
+                                    if email_result.get('success'):
+                                        total_emails_sent += 1
+                                    elif not email_result.get('skipped'):
+                                        logger.warning(
+                                            f'[Scheduler] Anniversary email failed for member {detail.get("member_id")}: '
+                                            f'{email_result.get("error", "Unknown error")}'
+                                        )
+                                except Exception as e:
+                                    logger.error(f'[Scheduler] Anniversary email error for member {detail.get("member_id")}: {e}')
+
+                        logger.info(
+                            f'[Scheduler] Tenant {tenant.id}: {successful} anniversary rewards issued, '
+                            f'{result.get("already_rewarded", 0)} already rewarded'
+                        )
+                    else:
+                        if result.get('error') != 'Anniversary rewards not enabled':
+                            logger.warning(f'[Scheduler] Tenant {tenant.id}: {result.get("error", "Unknown error")}')
+
+                except Exception as e:
+                    total_failed += 1
+                    logger.error(f'[Scheduler] Anniversary rewards failed for tenant {tenant.id}: {e}')
+
+            logger.info(
+                f'[Scheduler] Anniversary rewards complete: '
+                f'{total_rewarded} rewards issued, {total_emails_sent} emails sent, '
+                f'{total_failed} tenant failures'
+            )
+
+        except Exception as e:
+            logger.error(f'[Scheduler] Anniversary rewards failed: {e}')
 
 
 def get_next_run_times() -> dict:

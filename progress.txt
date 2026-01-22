@@ -1569,3 +1569,61 @@ Date: 2026-01-22
 - [x] Track anniversary rewards issued (prevent duplicates for same year)
 - [x] Support all three reward types (points, credit, discount)
 
+---
+
+## Story: AR-005 - Create anniversary rewards scheduled job
+Date: 2026-01-22
+
+### What I Did
+- Added run_anniversary_rewards() function to app/utils/scheduler.py
+- Scheduled job runs daily at 8 AM UTC (between credit expiration at midnight and expiration warnings at 9 AM)
+- Job processes all active tenants with anniversary rewards enabled
+- For each tenant, calls AnniversaryService.process_anniversary_rewards()
+- Sends anniversary email to each member who receives a reward
+- Added anniversary_reward email template to NotificationService
+- Added send_anniversary_reward() method to NotificationService
+- Job logs execution results including:
+  - Total rewards issued across all tenants
+  - Total emails sent
+  - Any tenant-level failures
+- Handles errors gracefully - failures for one tenant don't stop processing of others
+
+### Files Changed
+- app/utils/scheduler.py:
+  - Added run_anniversary_rewards() function (~80 lines)
+  - Added job to scheduler init (daily at 8:00 UTC)
+  - Updated startup message to show 5 scheduled jobs
+- app/services/notification_service.py:
+  - Added 'anniversary_reward' email template with text and HTML versions
+  - Added send_anniversary_reward() method (~80 lines)
+  - Added _ordinal() static method for "1st", "2nd", "3rd" formatting
+
+### Email Template Features
+- Personalized with member name and anniversary year (1st, 2nd, 3rd, etc.)
+- Shows reward description based on type (points, credit, discount code)
+- Includes custom message from tenant settings
+- Celebratory styling with green accent color
+- Works with both text and HTML email clients
+
+### Scheduler Job Features
+- Runs at 8 AM UTC - good timing for most US/EU timezones
+- Only processes tenants with anniversary rewards enabled
+- Calls existing AnniversaryService.process_anniversary_rewards()
+- Sends email after successful reward issuance
+- Graceful error handling - continues processing other tenants on failure
+- Comprehensive logging for monitoring and debugging
+
+### Learnings
+- Scheduler already had a pattern for tenant-iteration jobs (monthly credits, etc.)
+- Notification service has consistent template pattern to follow
+- Email sending is fire-and-forget - failures are logged but don't fail the reward
+- Ordinal formatting (_ordinal) was already in AnniversaryService, added to NotificationService too
+
+### Verification
+- [x] Scheduled job runs daily at configured time (8:00 UTC)
+- [x] Processes all tenants with anniversary rewards enabled
+- [x] Issues rewards to all members with anniversary today (via AnniversaryService)
+- [x] Sends anniversary email to members (via NotificationService)
+- [x] Job logs execution results (rewards issued, emails sent, failures)
+- [x] Job handles errors gracefully without stopping (try/except per tenant)
+
