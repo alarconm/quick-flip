@@ -825,3 +825,55 @@ Date: 2026-01-21
 - [x] POST /api/review-prompt/response - record user response
 - [x] Endpoints respect eligibility rules (via ReviewPromptService)
 
+---
+
+## Story: RC-006 - Implement prompt timing logic
+Date: 2026-01-21
+
+### What I Did
+- Enhanced ReviewPromptService with comprehensive timing logic
+- Added timing parameters to should_show_prompt():
+  - context: 'dashboard', 'trade_in_approved', 'member_enrolled', 'onboarding'
+  - timezone_offset_hours: User's timezone offset from UTC
+  - has_recent_error: Boolean to block prompt after errors
+- Implemented acceptance criteria:
+  - Don't show after error messages (has_recent_error flag)
+  - Don't show during onboarding (_is_in_onboarding() check)
+  - Show after successful actions (context parameter)
+  - Show on dashboard after 5+ successful sessions (get_successful_session_count())
+  - Respect user's timezone for optimal timing (9am-5pm local time)
+- Added new service methods:
+  - get_successful_session_count(): Counts distinct days with activity
+  - record_successful_action(): Hook for tracking actions
+  - get_timing_context(): Returns detailed timing info for debugging
+- Updated API endpoints:
+  - GET /check: Added context, timezone_offset, has_error query params
+  - GET /session-count: New endpoint for session count
+  - POST /action: New endpoint to record successful actions
+- Updated frontend API client:
+  - checkReviewPrompt() now accepts timing options
+  - Added checkReviewPromptWithTiming() with auto timezone
+  - Added getUserTimezoneOffset() helper
+  - Added getReviewPromptSessionCount()
+  - Added recordSuccessfulAction()
+- Created useReviewPrompt React hook for easy integration
+
+### Files Changed
+- app/services/review_prompt_service.py (added timing logic, ~150 new lines)
+- app/api/review_prompt.py (updated check endpoint, added 2 new endpoints)
+- frontend/src/admin/api.ts (expanded Review Prompt API section)
+- frontend/src/hooks/useReviewPrompt.ts (new hook, 140 lines)
+
+### Learnings
+- Session tracking uses existing data models (TradeInBatch, Member) instead of new tables
+- JavaScript's getTimezoneOffset() is inverted from what you'd expect
+- Optimal hours (9am-5pm) are configurable via constants
+- The hook prevents showing the prompt twice in the same session
+
+### Verification
+- [x] Don't show after error messages (has_recent_error parameter)
+- [x] Don't show during onboarding (_is_in_onboarding() check)
+- [x] Show after successful actions (trade_in_approved, member_enrolled context)
+- [x] Show on dashboard after 5+ successful sessions (MIN_SESSIONS_FOR_PROMPT = 5)
+- [x] Respect user's time zone for optimal timing (OPTIMAL_HOURS_START/END)
+

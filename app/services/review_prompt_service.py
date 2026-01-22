@@ -5,9 +5,10 @@ Manages the lifecycle of in-app review prompts: determining eligibility,
 recording when prompts are shown, and tracking merchant responses.
 
 Story: RC-003 - Create review prompt service
+Story: RC-006 - Implement prompt timing logic
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, List
 import logging
 
@@ -18,6 +19,13 @@ from app.services.review_eligibility_service import ReviewEligibilityService
 logger = logging.getLogger(__name__)
 
 
+# Timing constants for optimal prompt display
+MIN_SESSIONS_FOR_PROMPT = 5  # Show after 5+ successful sessions
+OPTIMAL_HOURS_START = 9  # Don't show before 9am local time
+OPTIMAL_HOURS_END = 17  # Don't show after 5pm local time
+SESSION_TRACKING_DAYS = 30  # Track sessions within last 30 days
+
+
 class ReviewPromptService:
     """
     Service for managing review prompt lifecycle.
@@ -25,6 +33,13 @@ class ReviewPromptService:
     Integrates eligibility checking (ReviewEligibilityService) with
     prompt tracking (ReviewPrompt model) to provide a complete
     review collection workflow.
+
+    Story RC-006 adds timing logic:
+    - Don't show after error messages
+    - Don't show during onboarding
+    - Show after successful actions (trade-in approved, member enrolled)
+    - Show on dashboard after 5+ successful sessions
+    - Respect user's time zone for optimal timing
 
     Usage:
         service = ReviewPromptService(tenant_id)
@@ -50,6 +65,15 @@ class ReviewPromptService:
         """
         self.tenant_id = tenant_id
         self._eligibility_service: Optional[ReviewEligibilityService] = None
+        self._tenant = None
+
+    @property
+    def tenant(self):
+        """Lazy load the tenant."""
+        if self._tenant is None:
+            from app.models.tenant import Tenant
+            self._tenant = Tenant.query.get(self.tenant_id)
+        return self._tenant
 
     @property
     def eligibility_service(self) -> ReviewEligibilityService:
@@ -58,18 +82,229 @@ class ReviewPromptService:
             self._eligibility_service = ReviewEligibilityService(self.tenant_id)
         return self._eligibility_service
 
-    def should_show_prompt(self) -> bool:
+    def should_show_prompt(
+        self,
+        context: Optional[str] = None,
+        timezone_offset_hours: Optional[int] = None,
+        has_recent_error: bool = False
+    ) -> bool:
         """
         Determine if a review prompt should be shown to this tenant.
 
         This combines eligibility criteria (activity metrics, support tickets, errors)
-        with prompt cooldown logic (no recent prompts) to make a final decision.
+        with prompt cooldown logic and timing considerations.
+
+        Args:
+            context: The current context where the prompt would be shown.
+                     Valid values: 'dashboard', 'trade_in_approved', 'member_enrolled',
+                     'onboarding', 'error'. Defaults to 'dashboard'.
+            timezone_offset_hours: User's timezone offset from UTC (e.g., -5 for EST).
+                                   Used to determine if it's an optimal time to show prompt.
+            has_recent_error: If True, indicates an error just occurred and prompt
+                              should not be shown.
 
         Returns:
             True if a review prompt should be shown, False otherwise
         """
+        # RC-006: Don't show after error messages
+        if has_recent_error:
+            logger.debug(f"Skipping review prompt for tenant {self.tenant_id}: recent error")
+            return False
+
+        # RC-006: Don't show during onboarding
+        if context == 'onboarding' or self._is_in_onboarding():
+            logger.debug(f"Skipping review prompt for tenant {self.tenant_id}: in onboarding")
+            return False
+
+        # Check basic eligibility (30+ days, activity thresholds, cooldown, etc.)
         eligibility_result = self.eligibility_service.check_eligibility()
-        return eligibility_result['eligible']
+        if not eligibility_result['eligible']:
+            return False
+
+        # RC-006: Show on dashboard only after 5+ successful sessions
+        if context == 'dashboard' or context is None:
+            if not self._has_sufficient_sessions():
+                logger.debug(
+                    f"Skipping review prompt for tenant {self.tenant_id}: "
+                    f"insufficient sessions"
+                )
+                return False
+
+        # RC-006: Respect user's timezone for optimal timing
+        if not self._is_optimal_time(timezone_offset_hours):
+            logger.debug(
+                f"Skipping review prompt for tenant {self.tenant_id}: "
+                f"not optimal time (offset={timezone_offset_hours})"
+            )
+            return False
+
+        return True
+
+    def _is_in_onboarding(self) -> bool:
+        """
+        Check if the tenant is still in onboarding.
+
+        Returns:
+            True if onboarding is not complete, False otherwise
+        """
+        if not self.tenant:
+            return True  # Assume onboarding if tenant not found
+
+        settings = self.tenant.settings or {}
+        return not settings.get('onboarding_complete', False)
+
+    def _has_sufficient_sessions(self) -> bool:
+        """
+        Check if tenant has had at least MIN_SESSIONS_FOR_PROMPT successful sessions.
+
+        A "session" is tracked by recording successful actions. We count sessions
+        where positive actions occurred (trade-ins completed, members enrolled, etc.)
+
+        Returns:
+            True if tenant has enough successful sessions, False otherwise
+        """
+        session_count = self.get_successful_session_count()
+        return session_count >= MIN_SESSIONS_FOR_PROMPT
+
+    def _is_optimal_time(self, timezone_offset_hours: Optional[int] = None) -> bool:
+        """
+        Check if the current time is within optimal hours for showing a prompt.
+
+        Optimal times are business hours (9am-5pm) in the user's local timezone.
+        If no timezone is provided, always returns True (don't block the prompt).
+
+        Args:
+            timezone_offset_hours: User's timezone offset from UTC (e.g., -5 for EST)
+
+        Returns:
+            True if it's an optimal time, False otherwise
+        """
+        if timezone_offset_hours is None:
+            # If we don't know the timezone, don't block the prompt
+            return True
+
+        # Calculate local hour
+        utc_now = datetime.utcnow()
+        local_time = utc_now + timedelta(hours=timezone_offset_hours)
+        local_hour = local_time.hour
+
+        # Check if within optimal hours (9am-5pm)
+        return OPTIMAL_HOURS_START <= local_hour < OPTIMAL_HOURS_END
+
+    def get_successful_session_count(self) -> int:
+        """
+        Get the count of successful sessions for this tenant in the last 30 days.
+
+        A session is considered successful if it includes positive actions like:
+        - Trade-in batches completed
+        - Members enrolled
+        - Store credit issued
+
+        This counts distinct dates with activity, not total actions.
+
+        Returns:
+            Number of days with successful activity in the tracking period
+        """
+        from app.models.trade_in import TradeInBatch
+        from app.models.member import Member
+
+        cutoff_date = datetime.utcnow() - timedelta(days=SESSION_TRACKING_DAYS)
+
+        # Count distinct days with completed trade-ins
+        trade_in_dates = db.session.query(
+            db.func.date(TradeInBatch.updated_at)
+        ).filter(
+            TradeInBatch.tenant_id == self.tenant_id,
+            TradeInBatch.status == 'complete',
+            TradeInBatch.updated_at >= cutoff_date
+        ).distinct().count()
+
+        # Count distinct days with new member enrollments
+        member_dates = db.session.query(
+            db.func.date(Member.created_at)
+        ).filter(
+            Member.tenant_id == self.tenant_id,
+            Member.status == 'active',
+            Member.created_at >= cutoff_date
+        ).distinct().count()
+
+        # Return the higher count as a proxy for successful sessions
+        # Each day with activity counts as a "session"
+        return max(trade_in_dates, member_dates)
+
+    def record_successful_action(self, action_type: str) -> None:
+        """
+        Record a successful action for session tracking purposes.
+
+        This can be called after successful operations to track merchant engagement.
+        The actual session counting is done by get_successful_session_count() which
+        queries the database for completed actions.
+
+        Args:
+            action_type: Type of action ('trade_in_approved', 'member_enrolled',
+                        'credit_issued', etc.)
+        """
+        # For now, we rely on the existing data models to track sessions.
+        # The get_successful_session_count() method queries TradeInBatch and Member
+        # tables to determine session count.
+        #
+        # This method is provided as a hook for future enhancements where we might
+        # want to track additional session-related data.
+        logger.debug(
+            f"Successful action recorded for tenant {self.tenant_id}: {action_type}"
+        )
+
+    def get_timing_context(
+        self,
+        timezone_offset_hours: Optional[int] = None,
+        context: Optional[str] = None,
+        has_recent_error: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Get detailed timing context for debugging and frontend display.
+
+        Returns information about why a prompt can or cannot be shown at this time.
+
+        Args:
+            timezone_offset_hours: User's timezone offset from UTC
+            context: Current context ('dashboard', 'trade_in_approved', etc.)
+            has_recent_error: Whether a recent error occurred
+
+        Returns:
+            Dict with timing details
+        """
+        eligibility = self.eligibility_service.check_eligibility()
+        session_count = self.get_successful_session_count()
+        is_in_onboarding = self._is_in_onboarding()
+        is_optimal_time = self._is_optimal_time(timezone_offset_hours)
+
+        # Determine blocking reasons
+        blocking_reasons = []
+        if has_recent_error:
+            blocking_reasons.append('Recent error occurred')
+        if is_in_onboarding:
+            blocking_reasons.append('Still in onboarding')
+        if not eligibility['eligible']:
+            blocking_reasons.append(eligibility.get('reason', 'Eligibility check failed'))
+        if context == 'dashboard' and session_count < MIN_SESSIONS_FOR_PROMPT:
+            blocking_reasons.append(
+                f'Insufficient sessions ({session_count}/{MIN_SESSIONS_FOR_PROMPT})'
+            )
+        if not is_optimal_time:
+            blocking_reasons.append('Not optimal time of day')
+
+        return {
+            'can_show': len(blocking_reasons) == 0,
+            'blocking_reasons': blocking_reasons,
+            'context': context or 'dashboard',
+            'session_count': session_count,
+            'min_sessions_required': MIN_SESSIONS_FOR_PROMPT,
+            'is_in_onboarding': is_in_onboarding,
+            'is_optimal_time': is_optimal_time,
+            'timezone_offset_hours': timezone_offset_hours,
+            'optimal_hours': f'{OPTIMAL_HOURS_START}:00 - {OPTIMAL_HOURS_END}:00',
+            'eligibility': eligibility
+        }
 
     def get_eligibility_details(self) -> Dict[str, Any]:
         """

@@ -726,8 +726,31 @@ export const skipOnboarding = () =>
 
 // ==================== Review Prompt API ====================
 
+export interface ReviewPromptTimingContext {
+  can_show: boolean
+  blocking_reasons: string[]
+  context: string
+  session_count: number
+  min_sessions_required: number
+  is_in_onboarding: boolean
+  is_optimal_time: boolean
+  timezone_offset_hours: number | null
+  optimal_hours: string
+  eligibility: {
+    eligible: boolean
+    reason: string
+    criteria: Record<string, unknown>
+  }
+}
+
 export interface ReviewPromptCheck {
   should_show: boolean
+  timing_context?: ReviewPromptTimingContext
+  eligibility?: {
+    eligible: boolean
+    criteria: Record<string, unknown>
+    reason: string
+  }
   prompt_id?: number
   reason?: string
 }
@@ -739,8 +762,70 @@ export interface ReviewPromptResponse {
   error?: string
 }
 
-export const checkReviewPrompt = () =>
-  api.get<ReviewPromptCheck>('/review-prompt/check').then(r => r.data)
+export interface ReviewPromptCheckOptions {
+  context?: 'dashboard' | 'trade_in_approved' | 'member_enrolled' | 'onboarding'
+  timezoneOffset?: number
+  hasError?: boolean
+}
+
+export interface SessionCountResponse {
+  success: boolean
+  session_count: number
+  min_sessions_required: number
+  has_sufficient_sessions: boolean
+}
+
+/**
+ * Check if a review prompt should be shown to the merchant.
+ *
+ * Story RC-006: Implements timing logic to show prompts at optimal times:
+ * - Not during onboarding
+ * - Not after errors
+ * - After 5+ successful sessions on dashboard
+ * - During optimal hours (9am-5pm local time)
+ *
+ * @param options - Optional timing parameters
+ * @returns ReviewPromptCheck with should_show and timing_context
+ */
+export const checkReviewPrompt = (options?: ReviewPromptCheckOptions) => {
+  const params = new URLSearchParams()
+  if (options?.context) params.append('context', options.context)
+  if (options?.timezoneOffset !== undefined) {
+    params.append('timezone_offset', options.timezoneOffset.toString())
+  }
+  if (options?.hasError) params.append('has_error', 'true')
+
+  const queryString = params.toString()
+  const url = queryString ? `/review-prompt/check?${queryString}` : '/review-prompt/check'
+
+  return api.get<ReviewPromptCheck>(url).then(r => r.data)
+}
+
+/**
+ * Get the user's timezone offset in hours from UTC.
+ * Positive values are ahead of UTC (e.g., +5 for IST), negative are behind (e.g., -5 for EST).
+ */
+export const getUserTimezoneOffset = (): number => {
+  // JavaScript's getTimezoneOffset returns minutes, and is inverted
+  // (negative for timezones ahead of UTC, positive for behind)
+  const offsetMinutes = new Date().getTimezoneOffset()
+  return -offsetMinutes / 60
+}
+
+/**
+ * Check review prompt with automatic timezone detection.
+ * Convenience wrapper around checkReviewPrompt.
+ */
+export const checkReviewPromptWithTiming = (
+  context?: ReviewPromptCheckOptions['context'],
+  hasError?: boolean
+) => {
+  return checkReviewPrompt({
+    context,
+    timezoneOffset: getUserTimezoneOffset(),
+    hasError,
+  })
+}
 
 export const recordReviewPromptShown = () =>
   api.post<{ prompt_id: number }>('/review-prompt/shown').then(r => r.data)
@@ -749,4 +834,21 @@ export const recordReviewPromptResponse = (promptId: number, response: string) =
   api.post<ReviewPromptResponse>('/review-prompt/response', {
     prompt_id: promptId,
     response,
+  }).then(r => r.data)
+
+/**
+ * Get the successful session count for the current tenant.
+ */
+export const getReviewPromptSessionCount = () =>
+  api.get<SessionCountResponse>('/review-prompt/session-count').then(r => r.data)
+
+/**
+ * Record a successful action for session tracking.
+ * Call this after trade-in approval, member enrollment, or credit issuance.
+ */
+export const recordSuccessfulAction = (
+  actionType: 'trade_in_approved' | 'member_enrolled' | 'credit_issued'
+) =>
+  api.post<{ success: boolean; action_type: string }>('/review-prompt/action', {
+    action_type: actionType,
   }).then(r => r.data)
