@@ -1125,3 +1125,80 @@ Response:
 - [x] Badges displayed with icons and descriptions
 - [x] Responsive grid layout (2-column)
 
+---
+
+## Story: GS-008 - Create achievement unlocked celebration modal
+Date: 2026-01-22
+
+### What I Did
+- Created AchievementUnlockedModal component in TradeUpRewards.jsx
+- Implemented celebration animation using emoji confetti characters
+- Added API endpoints in customer_account.py:
+  - POST /api/customer/extension/badges/newly-earned - Get unnotified badges
+  - POST /api/customer/extension/badges/mark-notified - Mark badges as seen
+- Modal automatically triggers when page loads if user has newly earned badges
+- Supports multiple badges - shows one at a time with "Next Badge" button
+- Shows badge icon, name, description, and points/credit rewards earned
+
+### Files Changed
+- app/api/customer_account.py (added 2 new endpoints, ~90 lines)
+- extensions/customer-account-ui/src/TradeUpRewards.jsx:
+  - Updated version to 2.2.0
+  - Added state for newlyEarnedBadges, showAchievementModal, currentCelebrationBadge
+  - Added checkNewlyEarnedBadges() function
+  - Added markBadgeAsNotified() function
+  - Added handleCloseCelebration() callback
+  - Created AchievementUnlockedModal component (~110 lines)
+
+### API Endpoint: POST /api/customer/extension/badges/newly-earned
+Request body:
+```json
+{
+  "customer_id": "12345",
+  "shop": "shop.myshopify.com"
+}
+```
+
+Response:
+```json
+{
+  "is_member": true,
+  "newly_earned_badges": [
+    {
+      "id": 1,
+      "member_badge_id": 42,
+      "name": "First Purchase",
+      "description": "Made your first purchase",
+      "icon": "cart",
+      "color": "#e85d27",
+      "points_reward": 50,
+      "credit_reward": 0,
+      "earned_at": "2026-01-22T10:30:00"
+    }
+  ],
+  "count": 1
+}
+```
+
+### Modal Features
+- Confetti/celebration emoji animation at top
+- Large badge icon with emoji mapping
+- Badge name and description
+- Points and/or credit rewards earned
+- Congratulations message
+- "Next Badge" button for multiple badges, "Awesome!" for last/only badge
+- Remaining badge count indicator
+
+### Learnings
+- Shopify UI extensions don't support CSS animations, so emoji-based "confetti" is used
+- MemberBadge model has `notified` boolean field for tracking shown celebrations
+- Modal queue system shows badges one at a time for better UX
+- Backend marks badges as notified only after user dismisses modal
+
+### Verification
+- [x] AchievementUnlockedModal component with animation (emoji confetti)
+- [x] Shows badge icon, name, and points earned
+- [x] Confetti/particle effect animation (emoji-based)
+- [x] Modal triggered when viewing page after earning badge
+- [x] Share to social option - not implemented (optional per story)
+

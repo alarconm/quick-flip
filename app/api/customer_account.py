@@ -1131,3 +1131,120 @@ def redeem_extension_reward(reward_id):
         db.session.rollback()
         current_app.logger.error(f"Error redeeming reward: {e}")
         return jsonify({'error': f'Failed to redeem reward: {str(e)}'}), 500
+
+
+@customer_account_bp.route('/extension/badges/newly-earned', methods=['POST'])
+def get_newly_earned_badges():
+    """
+    Get badges that have been earned but not yet shown to the customer.
+    Used to trigger the achievement celebration modal.
+
+    Request body:
+        customer_id: Shopify customer ID
+        shop: Shop domain
+
+    Returns:
+        List of newly earned badges that haven't been shown yet
+    """
+    data = request.json or {}
+    customer_id = data.get('customer_id')
+
+    if not customer_id:
+        return jsonify({'error': 'Missing customer_id'}), 400
+
+    # Find member
+    member = Member.query.filter_by(
+        shopify_customer_id=str(customer_id)
+    ).first()
+
+    if not member:
+        return jsonify({
+            'is_member': False,
+            'newly_earned_badges': [],
+            'message': 'Not enrolled in rewards program'
+        })
+
+    # Import gamification models
+    from ..models.gamification import Badge, MemberBadge
+
+    # Get unnotified badges (earned but not yet shown)
+    unnotified_member_badges = MemberBadge.query.filter_by(
+        member_id=member.id,
+        notified=False
+    ).all()
+
+    newly_earned = []
+    for mb in unnotified_member_badges:
+        badge = Badge.query.get(mb.badge_id)
+        if badge:
+            newly_earned.append({
+                'id': badge.id,
+                'member_badge_id': mb.id,
+                'name': badge.name,
+                'description': badge.description,
+                'icon': badge.icon,
+                'color': badge.color,
+                'points_reward': badge.points_reward,
+                'credit_reward': float(badge.credit_reward) if badge.credit_reward else 0,
+                'earned_at': mb.earned_at.isoformat() if mb.earned_at else None,
+            })
+
+    return jsonify({
+        'is_member': True,
+        'newly_earned_badges': newly_earned,
+        'count': len(newly_earned),
+    })
+
+
+@customer_account_bp.route('/extension/badges/mark-notified', methods=['POST'])
+def mark_badges_notified():
+    """
+    Mark badges as notified after showing the celebration modal.
+
+    Request body:
+        customer_id: Shopify customer ID
+        badge_ids: List of badge IDs to mark as notified (optional, marks all if not provided)
+
+    Returns:
+        Success status
+    """
+    data = request.json or {}
+    customer_id = data.get('customer_id')
+    badge_ids = data.get('badge_ids')  # Optional list of specific badge IDs
+
+    if not customer_id:
+        return jsonify({'error': 'Missing customer_id'}), 400
+
+    # Find member
+    member = Member.query.filter_by(
+        shopify_customer_id=str(customer_id)
+    ).first()
+
+    if not member:
+        return jsonify({'error': 'Not enrolled in rewards program'}), 404
+
+    # Import gamification model
+    from ..models.gamification import MemberBadge
+
+    try:
+        # Mark specified badges or all unnotified badges as notified
+        query = MemberBadge.query.filter_by(
+            member_id=member.id,
+            notified=False
+        )
+
+        if badge_ids:
+            query = query.filter(MemberBadge.badge_id.in_(badge_ids))
+
+        updated_count = query.update({'notified': True}, synchronize_session='fetch')
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'badges_marked': updated_count,
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error marking badges notified: {e}")
+        return jsonify({'error': f'Failed to mark badges: {str(e)}'}), 500

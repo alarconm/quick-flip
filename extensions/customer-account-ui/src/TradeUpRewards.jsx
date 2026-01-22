@@ -8,8 +8,9 @@
  * - Tier status and progress
  * - Referral program integration
  * - Badge showcase with progress
+ * - Achievement unlocked celebrations
  *
- * @version 2.1.0
+ * @version 2.2.0
  */
 import {
   reactExtension,
@@ -82,6 +83,9 @@ function TradeUpRewards() {
   const [copied, setCopied] = useState(false);
   const [badgesData, setBadgesData] = useState(null);
   const [badgesLoading, setBadgesLoading] = useState(false);
+  const [newlyEarnedBadges, setNewlyEarnedBadges] = useState([]);
+  const [showAchievementModal, setShowAchievementModal] = useState(false);
+  const [currentCelebrationBadge, setCurrentCelebrationBadge] = useState(null);
 
   // Fetch initial data
   useEffect(() => {
@@ -145,6 +149,13 @@ function TradeUpRewards() {
       fetchBadges();
     }
   }, [activeTab, data]);
+
+  // Check for newly earned badges when page loads
+  useEffect(() => {
+    if (data?.is_member && customer?.id) {
+      checkNewlyEarnedBadges();
+    }
+  }, [data?.is_member, customer?.id]);
 
   const fetchRewards = async () => {
     if (!customer?.id) return;
@@ -222,6 +233,84 @@ function TradeUpRewards() {
       setBadgesLoading(false);
     }
   };
+
+  const checkNewlyEarnedBadges = async () => {
+    if (!customer?.id) return;
+
+    try {
+      const token = await sessionToken.get();
+      const customerId = customer.id.replace('gid://shopify/Customer/', '');
+
+      const response = await fetch(`${API_BASE}/customer/extension/badges/newly-earned`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'X-Shop-Domain': shop.domain,
+        },
+        body: JSON.stringify({
+          customer_id: customerId,
+          shop: shop.domain,
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.newly_earned_badges && result.newly_earned_badges.length > 0) {
+          setNewlyEarnedBadges(result.newly_earned_badges);
+          // Show the first badge celebration
+          setCurrentCelebrationBadge(result.newly_earned_badges[0]);
+          setShowAchievementModal(true);
+        }
+      }
+    } catch (err) {
+      console.error('Error checking newly earned badges:', err);
+    }
+  };
+
+  const markBadgeAsNotified = async (badgeId) => {
+    if (!customer?.id) return;
+
+    try {
+      const token = await sessionToken.get();
+      const customerId = customer.id.replace('gid://shopify/Customer/', '');
+
+      await fetch(`${API_BASE}/customer/extension/badges/mark-notified`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'X-Shop-Domain': shop.domain,
+        },
+        body: JSON.stringify({
+          customer_id: customerId,
+          badge_ids: [badgeId],
+        }),
+      });
+    } catch (err) {
+      console.error('Error marking badge as notified:', err);
+    }
+  };
+
+  const handleCloseCelebration = useCallback(() => {
+    if (currentCelebrationBadge) {
+      // Mark the current badge as notified
+      markBadgeAsNotified(currentCelebrationBadge.id);
+
+      // Find next badge to show
+      const currentIndex = newlyEarnedBadges.findIndex(b => b.id === currentCelebrationBadge.id);
+      const nextBadge = newlyEarnedBadges[currentIndex + 1];
+
+      if (nextBadge) {
+        setCurrentCelebrationBadge(nextBadge);
+      } else {
+        // No more badges, close the modal
+        setShowAchievementModal(false);
+        setCurrentCelebrationBadge(null);
+        setNewlyEarnedBadges([]);
+      }
+    }
+  }, [currentCelebrationBadge, newlyEarnedBadges]);
 
   const handleRedeemReward = async (reward) => {
     if (!customer?.id || !data?.member?.member_number) return;
@@ -437,6 +526,15 @@ function TradeUpRewards() {
             redeeming={redeeming}
             onConfirm={() => handleRedeemReward(selectedReward)}
             onCancel={() => setSelectedReward(null)}
+          />
+        )}
+
+        {/* Achievement Unlocked Celebration Modal */}
+        {showAchievementModal && currentCelebrationBadge && (
+          <AchievementUnlockedModal
+            badge={currentCelebrationBadge}
+            onClose={handleCloseCelebration}
+            remainingCount={newlyEarnedBadges.length - 1 - newlyEarnedBadges.findIndex(b => b.id === currentCelebrationBadge.id)}
           />
         )}
       </BlockStack>
@@ -1315,6 +1413,129 @@ function RedemptionModal({ reward, pointsBalance, redeeming, onConfirm, onCancel
             {redeeming ? 'Redeeming...' : 'Confirm Redemption'}
           </Button>
         </InlineStack>
+      </BlockStack>
+    </Modal>
+  );
+}
+
+// ============================================================================
+// Achievement Unlocked Celebration Modal
+// ============================================================================
+
+function AchievementUnlockedModal({ badge, onClose, remainingCount }) {
+  // Map icon names to celebratory emojis
+  const iconMap = {
+    'trophy': '\uD83C\uDFC6',
+    'star': '\u2B50',
+    'medal': '\uD83C\uDFC5',
+    'cart': '\uD83D\uDED2',
+    'exchange': '\uD83D\uDD04',
+    'users': '\uD83D\uDC65',
+    'coins': '\uD83E\uDE99',
+    'gem': '\uD83D\uDC8E',
+    'calendar': '\uD83D\uDCC5',
+    'flame': '\uD83D\uDD25',
+    'fire': '\uD83D\uDD25',
+    'wallet': '\uD83D\uDCB0',
+    'crown': '\uD83D\uDC51',
+    'gift': '\uD83C\uDF81',
+  };
+
+  const iconEmoji = iconMap[badge.icon] || '\uD83C\uDFC6';
+
+  // Confetti characters for simple animation
+  const confettiChars = ['\uD83C\uDF89', '\uD83C\uDF8A', '\u2728', '\uD83C\uDF1F', '\uD83C\uDF8A'];
+
+  return (
+    <Modal
+      id="achievement-unlocked"
+      title="Achievement Unlocked!"
+      open={true}
+      onClose={onClose}
+    >
+      <BlockStack spacing="loose" padding="loose">
+        {/* Celebration Header with Confetti */}
+        <View padding="base" background="subdued" borderRadius="base">
+          <BlockStack spacing="base" inlineAlignment="center">
+            {/* Confetti Animation Row */}
+            <InlineStack spacing="tight" inlineAlignment="center">
+              <Text size="large">{confettiChars[0]}</Text>
+              <Text size="large">{confettiChars[1]}</Text>
+              <Text size="large">{confettiChars[2]}</Text>
+            </InlineStack>
+
+            {/* Badge Icon - Large and Centered */}
+            <View padding="base">
+              <Text size="extraLarge">{iconEmoji}</Text>
+            </View>
+
+            {/* More Confetti */}
+            <InlineStack spacing="tight" inlineAlignment="center">
+              <Text size="large">{confettiChars[3]}</Text>
+              <Text size="large">{confettiChars[4]}</Text>
+              <Text size="large">{confettiChars[0]}</Text>
+            </InlineStack>
+          </BlockStack>
+        </View>
+
+        {/* Badge Name */}
+        <BlockStack spacing="extraTight" inlineAlignment="center">
+          <Text emphasis="bold" size="large">
+            {badge.name}
+          </Text>
+          {badge.description && (
+            <Text appearance="subdued" size="medium">
+              {badge.description}
+            </Text>
+          )}
+        </BlockStack>
+
+        {/* Rewards Earned */}
+        {(badge.points_reward > 0 || badge.credit_reward > 0) && (
+          <>
+            <Divider />
+            <BlockStack spacing="tight" inlineAlignment="center">
+              <Text appearance="subdued" size="small">YOU EARNED</Text>
+              <InlineStack spacing="loose" inlineAlignment="center">
+                {badge.points_reward > 0 && (
+                  <BlockStack spacing="extraTight" inlineAlignment="center">
+                    <Text emphasis="bold" size="large" tone="success">
+                      +{badge.points_reward.toLocaleString()}
+                    </Text>
+                    <Text appearance="subdued" size="small">points</Text>
+                  </BlockStack>
+                )}
+                {badge.credit_reward > 0 && (
+                  <BlockStack spacing="extraTight" inlineAlignment="center">
+                    <Text emphasis="bold" size="large" tone="success">
+                      +${badge.credit_reward.toFixed(2)}
+                    </Text>
+                    <Text appearance="subdued" size="small">store credit</Text>
+                  </BlockStack>
+                )}
+              </InlineStack>
+            </BlockStack>
+          </>
+        )}
+
+        {/* Celebration Message */}
+        <View padding="base" background="subdued" borderRadius="base">
+          <BlockStack spacing="tight" inlineAlignment="center">
+            <Text size="medium">
+              Congratulations! Keep up the great work!
+            </Text>
+            {remainingCount > 0 && (
+              <Text appearance="subdued" size="small">
+                {remainingCount} more badge{remainingCount > 1 ? 's' : ''} to celebrate!
+              </Text>
+            )}
+          </BlockStack>
+        </View>
+
+        {/* Close Button */}
+        <Button kind="primary" onPress={onClose}>
+          {remainingCount > 0 ? 'Next Badge' : 'Awesome!'}
+        </Button>
       </BlockStack>
     </Modal>
   );
