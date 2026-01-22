@@ -3277,3 +3277,187 @@ Created comprehensive tests for TierService in `tests/test_tier_service.py` cove
 - Created: `tests/test_tier_service.py` - 40 comprehensive tier service tests
 
 ---
+
+## Story: TC-007 - Test Points system
+Date: 2026-01-22
+
+### What I Did
+- Created comprehensive test suite for Points Service (tests/test_points_service.py)
+- 35 new tests covering all acceptance criteria:
+  - Points award (earn_points): 7 tests
+    - Basic earning, transaction creation, member validation
+    - Negative/zero amount rejection, inactive member rejection
+    - Balance updates after earning
+  - Points deduct (redeem_points): 5 tests
+    - Basic redemption, insufficient balance handling
+    - Member not found, negative transaction creation
+    - Validation for required parameters
+  - Points balance: 4 tests
+    - Balance retrieval, member not found handling
+    - Balance calculation from transactions
+    - Handling of reversed transactions
+  - Points history: 3 tests
+    - History retrieval, pagination
+    - Filtering by transaction type
+  - Points to credit conversion: 3 tests
+    - Order points calculation
+    - Inactive member handling
+    - Gift card exclusion
+  - Additional coverage:
+    - Manual adjustments (4 tests)
+    - Points expiration (2 tests)
+    - Transaction reversal (3 tests)
+    - Lifetime statistics (2 tests)
+    - FIFO consumption (2 tests)
+
+### Bug Fix Applied
+- Fixed SQLAlchemy reserved attribute name issue in app/models/gamification.py
+  - Renamed 'metadata' column to 'activity_data' (metadata is reserved in Declarative API)
+
+### Files Changed
+- tests/test_points_service.py (new - 35 comprehensive tests)
+- app/models/gamification.py (fixed reserved attribute name)
+
+### Test Results
+- All 35 new tests pass
+- All 33 existing API points tests pass (test_api_points.py)
+- Total: 68 points-related tests passing
+
+### Verification
+- [x] Tests cover points award
+- [x] Tests cover points deduct
+- [x] Tests cover points balance
+- [x] Tests cover points history
+- [x] Tests cover points to credit conversion
+
+---
+
+
+
+## TC-006: Test Webhook handlers with mocks
+**Date:** January 22, 2026
+**Status:** Complete
+
+### Summary
+Added comprehensive tests for webhook handlers using realistic Shopify mock payloads. The test suite covers all required webhook endpoints including order lifecycle, customer lifecycle, refund processing, and HMAC signature validation.
+
+### Implementation Details
+
+Rewrote `tests/test_webhooks_mocked.py` with 62 comprehensive tests organized into 12 test classes:
+
+1. **TestHMACSignatureValidation** (6 tests)
+   - Test webhook without signature returns 401
+   - Test webhook with invalid signature returns 401
+   - Test webhook with valid signature processes
+   - Test HMAC signature generation matches Shopify format
+   - Test HMAC signature is deterministic
+   - Test HMAC signature changes with payload
+
+2. **TestOrdersCreateWebhook** (7 tests)
+   - Test orders/create endpoint exists
+   - Test unknown shop returns 404
+   - Test guest checkout (no customer)
+   - Test with existing member
+   - Test payload structure validation
+   - Test discount codes payload
+   - Test multiple line items payload
+
+3. **TestOrdersPaidWebhook** (5 tests)
+   - Test orders/paid endpoint exists
+   - Test unknown shop returns 404
+   - Test default behavior (points at order creation)
+   - Test with award_points_on_paid setting
+   - Test payload format validation
+
+4. **TestRefundsCreateWebhook** (6 tests)
+   - Test refunds/create endpoint exists
+   - Test unknown shop returns 404
+   - Test refund with transaction
+   - Test zero amount payload
+   - Test payload format
+   - Test partial refund payload
+
+5. **TestCustomersCreateWebhook** (5 tests)
+   - Test customers/create endpoint exists
+   - Test unknown shop returns 404
+   - Test new customer enrollment
+   - Test existing customer handling
+   - Test payload format
+
+6. **TestCustomersUpdateWebhook** (5 tests)
+   - Test customers/update endpoint exists
+   - Test unknown shop returns 404
+   - Test existing member sync
+   - Test nonexistent customer handling
+   - Test payload format
+
+7. **TestWebhookEndpointsCoverage** (10 tests)
+   - Verify all 10 webhook endpoints exist:
+     - orders/create, orders/paid, orders/cancelled, orders/fulfilled
+     - refunds/create
+     - customers/create, customers/update, customers/delete
+     - app/uninstalled, shop/update
+
+8. **TestRealisticPayloadValidation** (5 tests)
+   - Test order with membership product payload
+   - Test order with referral code payload
+   - Test order from POS payload
+   - Test customer with marketing consent payload
+   - Test refund with restocking payload
+
+9. **TestWebhookErrorHandling** (4 tests)
+   - Test empty payload handling
+   - Test malformed JSON handling
+   - Test missing required fields handling
+   - Test missing shop domain header
+
+10. **TestGDPRWebhooks** (4 tests)
+    - Test shop/redact endpoint
+    - Test customers/redact endpoint
+    - Test customers/data_request endpoint
+    - Test customer data request with payload
+
+11. **TestBillingWebhooks** (1 test)
+    - Test subscription update endpoint
+
+12. **TestProductsCreateWebhook** (4 tests)
+    - Test products/create endpoint exists
+    - Test membership product handling
+    - Test non-membership product handling
+    - Test membership product payload detection
+
+### Realistic Mock Payloads
+
+Created comprehensive Shopify-compatible webhook payloads:
+- `SAMPLE_ORDER_CREATED` - Full order with customer, line items, addresses (140+ fields)
+- `SAMPLE_ORDER_PAID` - Order with financial_status='paid'
+- `SAMPLE_CUSTOMER_CREATED` - New customer with default address
+- `SAMPLE_CUSTOMER_UPDATE` - Updated customer with changed fields
+- `SAMPLE_REFUND_CREATED` - Refund with line items and transactions
+
+### HMAC Signature Validation
+
+Implemented `generate_hmac_signature()` helper function that:
+- Uses HMAC-SHA256 algorithm
+- Matches Shopify's signature format
+- Base64 encodes the digest
+- Is deterministic and secure
+
+### Test Results
+- **Total Tests:** 62
+- **Passed:** 62
+- **Failed:** 0
+
+### Acceptance Criteria Verification
+- [x] Tests cover orders/create webhook
+- [x] Tests cover orders/paid webhook
+- [x] Tests cover refunds/create webhook
+- [x] Tests cover customers/create webhook
+- [x] Tests cover customers/update webhook
+- [x] Tests verify HMAC signature validation
+- [x] All webhook tests use realistic mock payloads
+
+### Files Created/Modified
+- Modified: `tests/test_webhooks_mocked.py` - 62 comprehensive webhook tests
+
+---
