@@ -101,3 +101,39 @@
   - Templates query with React Query
   - Apply template mutation with success/error handling
   - Template cards with visual color preview
+
+## LP-006 - Add style customization options
+- Status: COMPLETE
+- Date: January 22, 2026
+- Added comprehensive style customization panel to the Design tab in EmbeddedPageBuilder.tsx:
+  - **Color Pickers**: Primary, secondary, accent, and background colors with native HTML5 color picker inputs and hex value text fields. Color swatches update in real-time.
+  - **Typography Selection**:
+    - Body font dropdown (System Default, Inter, Roboto, Open Sans, Lato, Poppins, Montserrat, Source Sans Pro, Nunito)
+    - Heading font dropdown (same options plus Playfair Display and Oswald for display fonts)
+    - Live font preview showing heading and body text with selected fonts
+  - **Button Style Customization**:
+    - Button shape: Square, Rounded, or Pill
+    - Button size: Small, Medium, or Large
+    - Live button preview showing primary and secondary button styles
+  - **Spacing & Layout Options**:
+    - Section spacing: Compact, Normal, or Relaxed
+    - Corner radius: None, Small, Medium, or Large
+    - Visual preview with colored blocks showing spacing and radius
+- Updated PageConfig interface to include `styles` object with:
+  - fontFamily, headingFontFamily, buttonStyle, buttonSize, sectionSpacing, borderRadius
+- Backend changes in app/services/page_builder_service.py:
+  - Added DEFAULT_STYLES constant with default style values
+  - Updated get_page_config() to include default styles and backward compatibility
+  - Updated apply_template() to apply template styles
+  - Updated get_available_templates() to include styles in template response
+  - Enhanced render_page_html() to:
+    - Use CSS custom properties for all style values
+    - Dynamically import Google Fonts based on selected fonts
+    - Apply button styles, section spacing, and border radius throughout
+    - Support all font families with proper fallback stacks
+- Added styles configuration to all 3 templates:
+  - Classic: System fonts, rounded buttons, medium spacing
+  - Modern: Inter font, pill buttons, relaxed spacing, large radius
+  - Gamified: Poppins/Montserrat fonts, large buttons, medium spacing
+- All style changes apply to sections in real-time via the preview panel
+- Styles are persisted in the page configuration and rendered in the published page

@@ -101,6 +101,16 @@ DEFAULT_SECTIONS = [
     },
 ]
 
+# Default styles configuration
+DEFAULT_STYLES = {
+    'fontFamily': 'system-ui',
+    'headingFontFamily': '',
+    'buttonStyle': 'rounded',
+    'buttonSize': 'medium',
+    'sectionSpacing': 'normal',
+    'borderRadius': 'medium',
+}
+
 # Pre-built templates - stored as JSON configs
 # Each template includes all section types with appropriate enabled states
 TEMPLATES = {
@@ -109,6 +119,14 @@ TEMPLATES = {
         'description': 'Traditional loyalty page layout with all essential sections',
         'preview_image': '/static/templates/classic-preview.png',
         'sections': ['hero', 'how_it_works', 'tiers', 'rewards', 'earning_rules', 'faq', 'referrals'],
+        'styles': {
+            'fontFamily': 'system-ui',
+            'headingFontFamily': '',
+            'buttonStyle': 'rounded',
+            'buttonSize': 'medium',
+            'sectionSpacing': 'normal',
+            'borderRadius': 'medium',
+        },
         'section_settings': {
             'hero': {
                 'title': 'Welcome to Our Rewards Program',
@@ -170,6 +188,14 @@ TEMPLATES = {
         'description': 'Clean, minimal design with contemporary aesthetics',
         'preview_image': '/static/templates/modern-preview.png',
         'sections': ['hero', 'how_it_works', 'tiers', 'rewards', 'earning_rules', 'faq', 'referrals'],
+        'styles': {
+            'fontFamily': 'Inter',
+            'headingFontFamily': 'Inter',
+            'buttonStyle': 'pill',
+            'buttonSize': 'medium',
+            'sectionSpacing': 'relaxed',
+            'borderRadius': 'large',
+        },
         'section_settings': {
             'hero': {
                 'title': 'Earn While You Shop',
@@ -229,6 +255,14 @@ TEMPLATES = {
         'description': 'Badges and achievements focused with engaging visuals',
         'preview_image': '/static/templates/gamified-preview.png',
         'sections': ['hero', 'how_it_works', 'tiers', 'rewards', 'earning_rules', 'faq', 'referrals'],
+        'styles': {
+            'fontFamily': 'Poppins',
+            'headingFontFamily': 'Montserrat',
+            'buttonStyle': 'rounded',
+            'buttonSize': 'large',
+            'sectionSpacing': 'normal',
+            'borderRadius': 'medium',
+        },
         'section_settings': {
             'hero': {
                 'title': 'Level Up Your Shopping!',
@@ -303,9 +337,10 @@ class PageBuilderService:
             # Return default config
             return {
                 'enabled': True,
-                'template': 'minimal',
+                'template': 'classic',
                 'sections': DEFAULT_SECTIONS.copy(),
-                'colors': TEMPLATES['minimal']['colors'].copy(),
+                'colors': TEMPLATES['classic']['colors'].copy(),
+                'styles': DEFAULT_STYLES.copy(),
                 'custom_css': '',
                 'meta': {
                     'title': 'Rewards Program',
@@ -313,6 +348,10 @@ class PageBuilderService:
                 },
                 'last_updated': None,
             }
+
+        # Ensure styles exist in config (for backward compatibility)
+        if 'styles' not in page_config:
+            page_config['styles'] = DEFAULT_STYLES.copy()
 
         return page_config
 
@@ -379,6 +418,7 @@ class PageBuilderService:
             'template': template_name,
             'sections': sections,
             'colors': template['colors'].copy(),
+            'styles': template.get('styles', DEFAULT_STYLES).copy(),
         }
 
         return self.update_page_config(config)
@@ -429,6 +469,7 @@ class PageBuilderService:
                 'name': val['name'],
                 'description': val['description'],
                 'colors': val['colors'],
+                'styles': val.get('styles', DEFAULT_STYLES),
                 'preview_image': val.get('preview_image'),
                 'sections': val['sections'],
             }
@@ -449,8 +490,73 @@ class PageBuilderService:
         active_sections = [s for s in config.get('sections', []) if s.get('enabled', False)]
         active_sections.sort(key=lambda s: s.get('order', 999))
 
-        colors = config.get('colors', TEMPLATES['minimal']['colors'])
+        colors = config.get('colors', TEMPLATES['classic']['colors'])
+        styles = config.get('styles', DEFAULT_STYLES)
         meta = config.get('meta', {})
+
+        # Compute style values
+        font_family = styles.get('fontFamily', 'system-ui')
+        heading_font = styles.get('headingFontFamily') or font_family
+        button_style = styles.get('buttonStyle', 'rounded')
+        button_size = styles.get('buttonSize', 'medium')
+        section_spacing = styles.get('sectionSpacing', 'normal')
+        border_radius = styles.get('borderRadius', 'medium')
+
+        # Map style values to CSS
+        font_map = {
+            'system-ui': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+            'Inter': '"Inter", -apple-system, BlinkMacSystemFont, sans-serif',
+            'Roboto': '"Roboto", -apple-system, BlinkMacSystemFont, sans-serif',
+            'Open Sans': '"Open Sans", -apple-system, BlinkMacSystemFont, sans-serif',
+            'Lato': '"Lato", -apple-system, BlinkMacSystemFont, sans-serif',
+            'Poppins': '"Poppins", -apple-system, BlinkMacSystemFont, sans-serif',
+            'Montserrat': '"Montserrat", -apple-system, BlinkMacSystemFont, sans-serif',
+            'Source Sans Pro': '"Source Sans Pro", -apple-system, BlinkMacSystemFont, sans-serif',
+            'Nunito': '"Nunito", -apple-system, BlinkMacSystemFont, sans-serif',
+            'Playfair Display': '"Playfair Display", Georgia, serif',
+            'Oswald': '"Oswald", -apple-system, BlinkMacSystemFont, sans-serif',
+        }
+
+        button_radius_map = {
+            'square': '0px',
+            'rounded': '8px',
+            'pill': '999px',
+        }
+
+        button_padding_map = {
+            'small': '8px 16px',
+            'medium': '12px 24px',
+            'large': '16px 32px',
+        }
+
+        section_padding_map = {
+            'compact': '40px 20px',
+            'normal': '60px 20px',
+            'relaxed': '80px 20px',
+        }
+
+        border_radius_map = {
+            'none': '0px',
+            'small': '4px',
+            'medium': '8px',
+            'large': '16px',
+        }
+
+        body_font_css = font_map.get(font_family, font_map['system-ui'])
+        heading_font_css = font_map.get(heading_font, body_font_css)
+        btn_radius = button_radius_map.get(button_style, '8px')
+        btn_padding = button_padding_map.get(button_size, '12px 24px')
+        section_padding = section_padding_map.get(section_spacing, '60px 20px')
+        card_radius = border_radius_map.get(border_radius, '8px')
+
+        # Google Fonts imports for custom fonts
+        google_fonts = []
+        for font in [font_family, heading_font]:
+            if font and font != 'system-ui' and font in font_map:
+                google_fonts.append(font.replace(' ', '+'))
+        google_fonts_link = ''
+        if google_fonts:
+            google_fonts_link = f'<link href="https://fonts.googleapis.com/css2?family={":wght@400;500;600;700&family=".join(set(google_fonts))}:wght@400;500;600;700&display=swap" rel="stylesheet">'
 
         # Build HTML (simplified version - in production, use templates)
         html_parts = [
@@ -460,6 +566,7 @@ class PageBuilderService:
             f'<title>{meta.get("title", "Rewards")}</title>',
             f'<meta name="description" content="{meta.get("description", "")}">',
             '<meta name="viewport" content="width=device-width, initial-scale=1">',
+            google_fonts_link,
             '<link rel="stylesheet" href="https://unpkg.com/@shopify/polaris@latest/build/esm/styles.css">',
             f'<style>',
             f':root {{',
@@ -467,14 +574,23 @@ class PageBuilderService:
             f'  --color-secondary: {colors.get("secondary", "#666")};',
             f'  --color-accent: {colors.get("accent", "#ffd700")};',
             f'  --color-background: {colors.get("background", "#fff")};',
+            f'  --font-body: {body_font_css};',
+            f'  --font-heading: {heading_font_css};',
+            f'  --button-radius: {btn_radius};',
+            f'  --button-padding: {btn_padding};',
+            f'  --section-padding: {section_padding};',
+            f'  --card-radius: {card_radius};',
             f'}}',
-            'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 0; background: var(--color-background); }',
-            '.hero { padding: 80px 20px; text-align: center; background: var(--color-primary); color: white; }',
-            '.section { padding: 60px 20px; max-width: 1200px; margin: 0 auto; }',
-            '.section-title { font-size: 2rem; margin-bottom: 30px; text-align: center; }',
+            f'body {{ font-family: var(--font-body); margin: 0; padding: 0; background: var(--color-background); }}',
+            f'h1, h2, h3, h4, h5, h6 {{ font-family: var(--font-heading); }}',
+            f'.hero {{ padding: var(--section-padding); text-align: center; background: var(--color-primary); color: white; }}',
+            f'.section {{ padding: var(--section-padding); max-width: 1200px; margin: 0 auto; }}',
+            f'.section-title {{ font-size: 2rem; margin-bottom: 30px; text-align: center; font-family: var(--font-heading); }}',
             '.steps { display: flex; justify-content: center; gap: 40px; flex-wrap: wrap; }',
-            '.step { text-align: center; max-width: 200px; }',
-            '.cta-button { display: inline-block; padding: 15px 30px; background: white; color: var(--color-primary); text-decoration: none; border-radius: 4px; font-weight: bold; }',
+            f'.step {{ text-align: center; max-width: 200px; background: #f9f9f9; padding: 24px; border-radius: var(--card-radius); }}',
+            f'.cta-button {{ display: inline-block; padding: var(--button-padding); background: white; color: var(--color-primary); text-decoration: none; border-radius: var(--button-radius); font-weight: bold; font-family: var(--font-body); }}',
+            f'.cta-button:hover {{ opacity: 0.9; }}',
+            f'.faq-item {{ background: #f9f9f9; padding: 20px; margin-bottom: 12px; border-radius: var(--card-radius); }}',
             config.get('custom_css', ''),
             '</style>',
             '</head>',
@@ -525,7 +641,7 @@ class PageBuilderService:
             elif section_type == 'faq':
                 faq_html = ''
                 for item in settings.get('items', []):
-                    faq_html += f'<div style="margin-bottom: 20px;"><strong>{item.get("question", "")}</strong><p>{item.get("answer", "")}</p></div>'
+                    faq_html += f'<div class="faq-item"><strong>{item.get("question", "")}</strong><p>{item.get("answer", "")}</p></div>'
                 html_parts.append(f'''
                 <div class="section">
                     <h2 class="section-title">{settings.get("title", "FAQ")}</h2>

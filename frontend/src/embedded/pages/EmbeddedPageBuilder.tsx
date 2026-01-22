@@ -32,6 +32,9 @@ import {
   FormLayout,
   Box,
   Tooltip,
+  Select,
+  ChoiceList,
+  RangeSlider,
 } from '@shopify/polaris';
 import {
   ViewIcon,
@@ -68,6 +71,14 @@ interface PageConfig {
     secondary?: string;
     accent?: string;
     background?: string;
+  };
+  styles: {
+    fontFamily?: string;
+    headingFontFamily?: string;
+    buttonStyle?: 'rounded' | 'pill' | 'square';
+    buttonSize?: 'small' | 'medium' | 'large';
+    sectionSpacing?: 'compact' | 'normal' | 'relaxed';
+    borderRadius?: 'none' | 'small' | 'medium' | 'large';
   };
   custom_css: string;
   meta: {
@@ -903,94 +914,401 @@ export function EmbeddedPageBuilder({ shop }: EmbeddedPageBuilderProps) {
                 </Box>
               )}
 
-              {/* Design Tab */}
+              {/* Design Tab - LP-006 Style Customization */}
               {selectedTab === 2 && config && (
                 <Box paddingBlockStart="400">
-                  <BlockStack gap="400">
-                    <Text as="h3" variant="headingMd">Colors</Text>
-                    <FormLayout>
-                      <FormLayout.Group>
-                        <TextField
-                          label="Primary Color"
-                          value={config.colors?.primary || '#e85d27'}
-                          onChange={(v) => updateConfig({
-                            ...config,
-                            colors: { ...config.colors, primary: v },
-                          })}
-                          autoComplete="off"
-                          prefix={
-                            <div
+                  <BlockStack gap="600">
+                    {/* Colors Section */}
+                    <BlockStack gap="400">
+                      <Text as="h3" variant="headingMd">Colors</Text>
+                      <Text as="p" variant="bodySm" tone="subdued">
+                        Click the color swatch to change colors. Changes apply to all sections in real-time.
+                      </Text>
+                      <FormLayout>
+                        <FormLayout.Group>
+                          <div>
+                            <Text as="p" variant="bodyMd">Primary Color</Text>
+                            <Text as="p" variant="bodySm" tone="subdued">Used for hero backgrounds, buttons, and highlights</Text>
+                            <InlineStack gap="200" blockAlign="center">
+                              <input
+                                type="color"
+                                value={config.colors?.primary || '#e85d27'}
+                                onChange={(e) => updateConfig({
+                                  ...config,
+                                  colors: { ...config.colors, primary: e.target.value },
+                                })}
+                                style={{
+                                  width: 48,
+                                  height: 48,
+                                  border: '2px solid #ddd',
+                                  borderRadius: 8,
+                                  cursor: 'pointer',
+                                  padding: 0,
+                                }}
+                              />
+                              <TextField
+                                label=""
+                                labelHidden
+                                value={config.colors?.primary || '#e85d27'}
+                                onChange={(v) => updateConfig({
+                                  ...config,
+                                  colors: { ...config.colors, primary: v },
+                                })}
+                                autoComplete="off"
+                                monospaced
+                              />
+                            </InlineStack>
+                          </div>
+                          <div>
+                            <Text as="p" variant="bodyMd">Secondary Color</Text>
+                            <Text as="p" variant="bodySm" tone="subdued">Used for text and secondary elements</Text>
+                            <InlineStack gap="200" blockAlign="center">
+                              <input
+                                type="color"
+                                value={config.colors?.secondary || '#666666'}
+                                onChange={(e) => updateConfig({
+                                  ...config,
+                                  colors: { ...config.colors, secondary: e.target.value },
+                                })}
+                                style={{
+                                  width: 48,
+                                  height: 48,
+                                  border: '2px solid #ddd',
+                                  borderRadius: 8,
+                                  cursor: 'pointer',
+                                  padding: 0,
+                                }}
+                              />
+                              <TextField
+                                label=""
+                                labelHidden
+                                value={config.colors?.secondary || '#666666'}
+                                onChange={(v) => updateConfig({
+                                  ...config,
+                                  colors: { ...config.colors, secondary: v },
+                                })}
+                                autoComplete="off"
+                                monospaced
+                              />
+                            </InlineStack>
+                          </div>
+                        </FormLayout.Group>
+                        <FormLayout.Group>
+                          <div>
+                            <Text as="p" variant="bodyMd">Accent Color</Text>
+                            <Text as="p" variant="bodySm" tone="subdued">Used for icons, badges, and emphasis</Text>
+                            <InlineStack gap="200" blockAlign="center">
+                              <input
+                                type="color"
+                                value={config.colors?.accent || '#ffd700'}
+                                onChange={(e) => updateConfig({
+                                  ...config,
+                                  colors: { ...config.colors, accent: e.target.value },
+                                })}
+                                style={{
+                                  width: 48,
+                                  height: 48,
+                                  border: '2px solid #ddd',
+                                  borderRadius: 8,
+                                  cursor: 'pointer',
+                                  padding: 0,
+                                }}
+                              />
+                              <TextField
+                                label=""
+                                labelHidden
+                                value={config.colors?.accent || '#ffd700'}
+                                onChange={(v) => updateConfig({
+                                  ...config,
+                                  colors: { ...config.colors, accent: v },
+                                })}
+                                autoComplete="off"
+                                monospaced
+                              />
+                            </InlineStack>
+                          </div>
+                          <div>
+                            <Text as="p" variant="bodyMd">Background Color</Text>
+                            <Text as="p" variant="bodySm" tone="subdued">Page background color</Text>
+                            <InlineStack gap="200" blockAlign="center">
+                              <input
+                                type="color"
+                                value={config.colors?.background || '#ffffff'}
+                                onChange={(e) => updateConfig({
+                                  ...config,
+                                  colors: { ...config.colors, background: e.target.value },
+                                })}
+                                style={{
+                                  width: 48,
+                                  height: 48,
+                                  border: '2px solid #ddd',
+                                  borderRadius: 8,
+                                  cursor: 'pointer',
+                                  padding: 0,
+                                }}
+                              />
+                              <TextField
+                                label=""
+                                labelHidden
+                                value={config.colors?.background || '#ffffff'}
+                                onChange={(v) => updateConfig({
+                                  ...config,
+                                  colors: { ...config.colors, background: v },
+                                })}
+                                autoComplete="off"
+                                monospaced
+                              />
+                            </InlineStack>
+                          </div>
+                        </FormLayout.Group>
+                      </FormLayout>
+                    </BlockStack>
+
+                    <Divider />
+
+                    {/* Typography Section */}
+                    <BlockStack gap="400">
+                      <Text as="h3" variant="headingMd">Typography</Text>
+                      <Text as="p" variant="bodySm" tone="subdued">
+                        Choose fonts that match your brand. Changes apply to all text on the page.
+                      </Text>
+                      <FormLayout>
+                        <FormLayout.Group>
+                          <Select
+                            label="Body Font"
+                            helpText="Used for paragraphs and descriptions"
+                            options={[
+                              { label: 'System Default', value: 'system-ui' },
+                              { label: 'Inter', value: 'Inter' },
+                              { label: 'Roboto', value: 'Roboto' },
+                              { label: 'Open Sans', value: 'Open Sans' },
+                              { label: 'Lato', value: 'Lato' },
+                              { label: 'Poppins', value: 'Poppins' },
+                              { label: 'Montserrat', value: 'Montserrat' },
+                              { label: 'Source Sans Pro', value: 'Source Sans Pro' },
+                              { label: 'Nunito', value: 'Nunito' },
+                            ]}
+                            value={config.styles?.fontFamily || 'system-ui'}
+                            onChange={(v) => updateConfig({
+                              ...config,
+                              styles: { ...config.styles, fontFamily: v },
+                            })}
+                          />
+                          <Select
+                            label="Heading Font"
+                            helpText="Used for titles and headings"
+                            options={[
+                              { label: 'Same as Body', value: '' },
+                              { label: 'System Default', value: 'system-ui' },
+                              { label: 'Inter', value: 'Inter' },
+                              { label: 'Roboto', value: 'Roboto' },
+                              { label: 'Open Sans', value: 'Open Sans' },
+                              { label: 'Lato', value: 'Lato' },
+                              { label: 'Poppins', value: 'Poppins' },
+                              { label: 'Montserrat', value: 'Montserrat' },
+                              { label: 'Playfair Display', value: 'Playfair Display' },
+                              { label: 'Oswald', value: 'Oswald' },
+                            ]}
+                            value={config.styles?.headingFontFamily || ''}
+                            onChange={(v) => updateConfig({
+                              ...config,
+                              styles: { ...config.styles, headingFontFamily: v },
+                            })}
+                          />
+                        </FormLayout.Group>
+                      </FormLayout>
+                      {/* Font Preview */}
+                      <Card>
+                        <BlockStack gap="200">
+                          <Text as="p" variant="bodySm" tone="subdued">Preview</Text>
+                          <div style={{
+                            fontFamily: config.styles?.headingFontFamily || config.styles?.fontFamily || 'system-ui, sans-serif',
+                            fontSize: '1.5rem',
+                            fontWeight: 600,
+                          }}>
+                            Welcome to Our Rewards
+                          </div>
+                          <div style={{
+                            fontFamily: config.styles?.fontFamily || 'system-ui, sans-serif',
+                            fontSize: '1rem',
+                          }}>
+                            Earn points on every purchase and unlock exclusive member benefits.
+                          </div>
+                        </BlockStack>
+                      </Card>
+                    </BlockStack>
+
+                    <Divider />
+
+                    {/* Button Styles Section */}
+                    <BlockStack gap="400">
+                      <Text as="h3" variant="headingMd">Button Styles</Text>
+                      <Text as="p" variant="bodySm" tone="subdued">
+                        Customize how buttons appear across your loyalty page.
+                      </Text>
+                      <FormLayout>
+                        <FormLayout.Group>
+                          <div>
+                            <Text as="p" variant="bodyMd">Button Shape</Text>
+                            <div style={{ marginTop: 8 }}>
+                              <ChoiceList
+                                title=""
+                                titleHidden
+                                choices={[
+                                  { label: 'Square', value: 'square' },
+                                  { label: 'Rounded', value: 'rounded' },
+                                  { label: 'Pill', value: 'pill' },
+                                ]}
+                                selected={[config.styles?.buttonStyle || 'rounded']}
+                                onChange={(v) => updateConfig({
+                                  ...config,
+                                  styles: { ...config.styles, buttonStyle: v[0] as 'rounded' | 'pill' | 'square' },
+                                })}
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <Text as="p" variant="bodyMd">Button Size</Text>
+                            <div style={{ marginTop: 8 }}>
+                              <ChoiceList
+                                title=""
+                                titleHidden
+                                choices={[
+                                  { label: 'Small', value: 'small' },
+                                  { label: 'Medium', value: 'medium' },
+                                  { label: 'Large', value: 'large' },
+                                ]}
+                                selected={[config.styles?.buttonSize || 'medium']}
+                                onChange={(v) => updateConfig({
+                                  ...config,
+                                  styles: { ...config.styles, buttonSize: v[0] as 'small' | 'medium' | 'large' },
+                                })}
+                              />
+                            </div>
+                          </div>
+                        </FormLayout.Group>
+                      </FormLayout>
+                      {/* Button Preview */}
+                      <Card>
+                        <BlockStack gap="200">
+                          <Text as="p" variant="bodySm" tone="subdued">Preview</Text>
+                          <InlineStack gap="200">
+                            <button
                               style={{
-                                width: 20,
-                                height: 20,
-                                borderRadius: 4,
                                 background: config.colors?.primary || '#e85d27',
+                                color: '#ffffff',
+                                border: 'none',
+                                padding: config.styles?.buttonSize === 'small' ? '8px 16px' :
+                                         config.styles?.buttonSize === 'large' ? '16px 32px' : '12px 24px',
+                                borderRadius: config.styles?.buttonStyle === 'square' ? '0px' :
+                                              config.styles?.buttonStyle === 'pill' ? '999px' : '8px',
+                                fontSize: config.styles?.buttonSize === 'small' ? '0.875rem' :
+                                          config.styles?.buttonSize === 'large' ? '1.125rem' : '1rem',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                fontFamily: config.styles?.fontFamily || 'system-ui, sans-serif',
                               }}
-                            />
-                          }
-                        />
-                        <TextField
-                          label="Accent Color"
-                          value={config.colors?.accent || '#ffd700'}
-                          onChange={(v) => updateConfig({
-                            ...config,
-                            colors: { ...config.colors, accent: v },
-                          })}
-                          autoComplete="off"
-                          prefix={
-                            <div
+                            >
+                              Primary Button
+                            </button>
+                            <button
                               style={{
-                                width: 20,
-                                height: 20,
-                                borderRadius: 4,
-                                background: config.colors?.accent || '#ffd700',
+                                background: 'transparent',
+                                color: config.colors?.primary || '#e85d27',
+                                border: `2px solid ${config.colors?.primary || '#e85d27'}`,
+                                padding: config.styles?.buttonSize === 'small' ? '6px 14px' :
+                                         config.styles?.buttonSize === 'large' ? '14px 30px' : '10px 22px',
+                                borderRadius: config.styles?.buttonStyle === 'square' ? '0px' :
+                                              config.styles?.buttonStyle === 'pill' ? '999px' : '8px',
+                                fontSize: config.styles?.buttonSize === 'small' ? '0.875rem' :
+                                          config.styles?.buttonSize === 'large' ? '1.125rem' : '1rem',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                fontFamily: config.styles?.fontFamily || 'system-ui, sans-serif',
                               }}
-                            />
-                          }
-                        />
-                      </FormLayout.Group>
-                      <FormLayout.Group>
-                        <TextField
-                          label="Secondary Color"
-                          value={config.colors?.secondary || '#666666'}
-                          onChange={(v) => updateConfig({
-                            ...config,
-                            colors: { ...config.colors, secondary: v },
-                          })}
-                          autoComplete="off"
-                          prefix={
-                            <div
-                              style={{
-                                width: 20,
-                                height: 20,
-                                borderRadius: 4,
-                                background: config.colors?.secondary || '#666666',
-                              }}
-                            />
-                          }
-                        />
-                        <TextField
-                          label="Background Color"
-                          value={config.colors?.background || '#ffffff'}
-                          onChange={(v) => updateConfig({
-                            ...config,
-                            colors: { ...config.colors, background: v },
-                          })}
-                          autoComplete="off"
-                          prefix={
-                            <div
-                              style={{
-                                width: 20,
-                                height: 20,
-                                borderRadius: 4,
-                                background: config.colors?.background || '#ffffff',
-                                border: '1px solid #ddd',
-                              }}
-                            />
-                          }
-                        />
-                      </FormLayout.Group>
-                    </FormLayout>
+                            >
+                              Secondary Button
+                            </button>
+                          </InlineStack>
+                        </BlockStack>
+                      </Card>
+                    </BlockStack>
+
+                    <Divider />
+
+                    {/* Section Spacing */}
+                    <BlockStack gap="400">
+                      <Text as="h3" variant="headingMd">Spacing & Layout</Text>
+                      <Text as="p" variant="bodySm" tone="subdued">
+                        Control the spacing between sections and the overall page feel.
+                      </Text>
+                      <FormLayout>
+                        <FormLayout.Group>
+                          <div>
+                            <Text as="p" variant="bodyMd">Section Spacing</Text>
+                            <div style={{ marginTop: 8 }}>
+                              <ChoiceList
+                                title=""
+                                titleHidden
+                                choices={[
+                                  { label: 'Compact - Minimal spacing between sections', value: 'compact' },
+                                  { label: 'Normal - Balanced spacing (recommended)', value: 'normal' },
+                                  { label: 'Relaxed - More breathing room between sections', value: 'relaxed' },
+                                ]}
+                                selected={[config.styles?.sectionSpacing || 'normal']}
+                                onChange={(v) => updateConfig({
+                                  ...config,
+                                  styles: { ...config.styles, sectionSpacing: v[0] as 'compact' | 'normal' | 'relaxed' },
+                                })}
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <Text as="p" variant="bodyMd">Corner Radius</Text>
+                            <div style={{ marginTop: 8 }}>
+                              <ChoiceList
+                                title=""
+                                titleHidden
+                                choices={[
+                                  { label: 'None - Sharp corners', value: 'none' },
+                                  { label: 'Small - Subtle rounding', value: 'small' },
+                                  { label: 'Medium - Moderate rounding', value: 'medium' },
+                                  { label: 'Large - Pronounced rounding', value: 'large' },
+                                ]}
+                                selected={[config.styles?.borderRadius || 'medium']}
+                                onChange={(v) => updateConfig({
+                                  ...config,
+                                  styles: { ...config.styles, borderRadius: v[0] as 'none' | 'small' | 'medium' | 'large' },
+                                })}
+                              />
+                            </div>
+                          </div>
+                        </FormLayout.Group>
+                      </FormLayout>
+                      {/* Spacing Preview */}
+                      <Card>
+                        <BlockStack gap="200">
+                          <Text as="p" variant="bodySm" tone="subdued">Preview</Text>
+                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            {[1, 2, 3].map((i) => (
+                              <div
+                                key={i}
+                                style={{
+                                  width: 80,
+                                  height: 50,
+                                  background: config.colors?.primary || '#e85d27',
+                                  borderRadius: config.styles?.borderRadius === 'none' ? '0px' :
+                                                config.styles?.borderRadius === 'small' ? '4px' :
+                                                config.styles?.borderRadius === 'large' ? '16px' : '8px',
+                                  marginBottom: config.styles?.sectionSpacing === 'compact' ? '8px' :
+                                                config.styles?.sectionSpacing === 'relaxed' ? '24px' : '16px',
+                                }}
+                              />
+                            ))}
+                          </div>
+                        </BlockStack>
+                      </Card>
+                    </BlockStack>
                   </BlockStack>
                 </Box>
               )}
