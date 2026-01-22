@@ -37,6 +37,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getApiUrl, authFetch } from '../../hooks/useShopifyBridge';
 import { PositionSelector, WidgetPosition } from '../components/PositionSelector';
+import { ColorPicker } from '../components/ColorPicker';
 
 interface EmbeddedWidgetBuilderProps {
   shop: string | null;
@@ -341,34 +342,43 @@ export function EmbeddedWidgetBuilder({ shop }: EmbeddedWidgetBuilderProps) {
                   <Divider />
 
                   <Text as="h3" variant="headingMd">Colors</Text>
-                  <FormLayout>
-                    <FormLayout.Group>
-                      <TextField
+                  <InlineStack gap="400" wrap>
+                    <Box minWidth="200px">
+                      <ColorPicker
                         label="Primary Color"
                         value={config?.appearance?.primary_color || '#e85d27'}
                         onChange={(v) => updateConfigMutation.mutate({
                           appearance: { ...config?.appearance, primary_color: v }
                         })}
-                        autoComplete="off"
+                        colorType="primary"
+                        helpText="Buttons and launcher"
                       />
-                      <TextField
+                    </Box>
+                    <Box minWidth="200px">
+                      <ColorPicker
                         label="Text Color"
                         value={config?.appearance?.text_color || '#ffffff'}
                         onChange={(v) => updateConfigMutation.mutate({
                           appearance: { ...config?.appearance, text_color: v }
                         })}
-                        autoComplete="off"
+                        colorType="text"
+                        helpText="Launcher icon text"
                       />
-                    </FormLayout.Group>
-                    <FormLayout.Group>
-                      <TextField
+                    </Box>
+                  </InlineStack>
+                  <InlineStack gap="400" wrap>
+                    <Box minWidth="200px">
+                      <ColorPicker
                         label="Background Color"
                         value={config?.appearance?.background_color || '#ffffff'}
                         onChange={(v) => updateConfigMutation.mutate({
                           appearance: { ...config?.appearance, background_color: v }
                         })}
-                        autoComplete="off"
+                        colorType="background"
+                        helpText="Panel background"
                       />
+                    </Box>
+                    <Box minWidth="200px">
                       <TextField
                         label="Border Radius"
                         type="number"
@@ -378,9 +388,10 @@ export function EmbeddedWidgetBuilder({ shop }: EmbeddedWidgetBuilderProps) {
                         })}
                         suffix="px"
                         autoComplete="off"
+                        helpText="Corner roundness"
                       />
-                    </FormLayout.Group>
-                  </FormLayout>
+                    </Box>
+                  </InlineStack>
 
                   <Divider />
 

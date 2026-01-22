@@ -54,7 +54,7 @@
         "Hex input for precise colors"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "WB-005",
