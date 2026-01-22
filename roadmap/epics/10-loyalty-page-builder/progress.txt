@@ -216,3 +216,56 @@
   - Unpublished page shows default/fallback rewards page
   - Page loads with store's theme styles (uses CSS custom properties)
   - SEO meta tags configurable (title, description, OG tags, Twitter cards)
+
+## LP-009 - Add image upload for page sections
+- Status: COMPLETE
+- Date: January 22, 2026
+- **Backend API** (app/api/page_builder_images.py):
+  - Created new blueprint `page_builder_images_bp` at `/api/page-builder/images`
+  - POST `/upload` - Upload images via multipart/form-data or base64 JSON
+    - Validates file type (png, jpg, jpeg, gif, webp, svg)
+    - Validates file size (max 5MB)
+    - Generates unique filenames with timestamp prefix
+    - Stores files in app/static/uploads/page-builder/{tenant_id}/
+    - Returns URL, filename, size, and content_type
+  - GET `/list` - List all uploaded images for the tenant
+    - Returns array of images with url, filename, size, uploaded_at
+    - Sorted by upload date (newest first)
+  - DELETE `/delete/<filename>` - Delete an uploaded image
+    - Validates filename to prevent path traversal
+    - Returns success confirmation
+  - Registered blueprint in app/__init__.py
+- **Frontend Component** (frontend/src/embedded/components/PageBuilderImageUpload.tsx):
+  - Created reusable image upload component with 3 tabs:
+    1. **Upload Tab**: Drag-and-drop or file picker using Polaris DropZone
+    2. **URL Tab**: Enter external image URL with validation
+    3. **Library Tab**: Browse previously uploaded images
+  - Features:
+    - Image preview before and after upload
+    - Size/format validation (5MB max, supported formats)
+    - Loading state with spinner during upload
+    - Error handling with dismissible banners
+    - Library modal for browsing all uploaded images
+    - Delete functionality from library view
+    - Recommended size display for different use cases
+  - Uses React Query for fetching/caching library images
+  - Proper session token authentication for uploads
+- **Section Editor Integration** (frontend/src/embedded/pages/EmbeddedPageBuilder.tsx):
+  - Imported PageBuilderImageUpload component
+  - Updated SectionEditorProps to include `shop` parameter
+  - Added image upload fields to section editors:
+    - **Hero Section**: Background image upload (1920x600 recommended)
+    - **How It Works**: Step icon images (64x64 recommended for each step)
+    - **Referral Banner**: Background image upload (1200x400 recommended)
+    - **CTA Section**: Background image upload (1200x400 recommended)
+  - Image fields marked as optional with color fallbacks
+- **File Storage**:
+  - Created app/static/uploads/page-builder/ directory
+  - Added .gitkeep to preserve directory structure
+  - Updated .gitignore to exclude uploaded images but keep .gitkeep
+- All acceptance criteria met:
+  - Image upload component in section editors
+  - Support for hero backgrounds, icons, logos
+  - Images stored locally (can migrate to S3/Shopify Files in future)
+  - Image preview before upload
+  - Size/format validation (5MB max, standard image formats)

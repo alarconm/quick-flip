@@ -52,6 +52,7 @@ import {
 } from '@shopify/polaris-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getApiUrl, authFetch } from '../../hooks/useShopifyBridge';
+import { PageBuilderImageUpload } from '../components/PageBuilderImageUpload';
 
 interface EmbeddedPageBuilderProps {
   shop: string | null;
@@ -1802,6 +1803,7 @@ export function EmbeddedPageBuilder({ shop }: EmbeddedPageBuilderProps) {
       {editingSection && (
         <SectionEditor
           section={editingSection}
+          shop={shop}
           onClose={() => setEditingSection(null)}
           onSave={(settings) => {
             updateSectionSettings(editingSection.id, settings);
@@ -1816,11 +1818,12 @@ export function EmbeddedPageBuilder({ shop }: EmbeddedPageBuilderProps) {
 // Section Editor Component
 interface SectionEditorProps {
   section: Section;
+  shop: string | null;
   onClose: () => void;
   onSave: (settings: Record<string, any>) => void;
 }
 
-function SectionEditor({ section, onClose, onSave }: SectionEditorProps) {
+function SectionEditor({ section, shop, onClose, onSave }: SectionEditorProps) {
   const [settings, setSettings] = useState(section.settings);
 
   const updateSetting = (key: string, value: any) => {
@@ -1858,11 +1861,23 @@ function SectionEditor({ section, onClose, onSave }: SectionEditorProps) {
               autoComplete="off"
               helpText="e.g., /account or /account/register"
             />
+            <Divider />
+            <Text as="h4" variant="headingSm">Background</Text>
+            <PageBuilderImageUpload
+              label="Background Image"
+              value={settings.background_image || ''}
+              onChange={(v) => updateSetting('background_image', v)}
+              shop={shop}
+              recommendedSize="1920 x 600 pixels"
+              helpText="Optional. If set, will be used instead of background color."
+              isBackground
+            />
             <TextField
               label="Background Color"
               value={settings.background_color || '#e85d27'}
               onChange={(v) => updateSetting('background_color', v)}
               autoComplete="off"
+              helpText="Used when no background image is set"
             />
             <TextField
               label="Text Color"
@@ -1900,6 +1915,18 @@ function SectionEditor({ section, onClose, onSave }: SectionEditorProps) {
                       Remove
                     </Button>
                   </InlineStack>
+                  <PageBuilderImageUpload
+                    label="Step Icon"
+                    value={step.icon_image || ''}
+                    onChange={(v) => {
+                      const newSteps = [...settings.steps];
+                      newSteps[index] = { ...newSteps[index], icon_image: v };
+                      updateSetting('steps', newSteps);
+                    }}
+                    shop={shop}
+                    recommendedSize="64 x 64 pixels"
+                    helpText="Optional. Upload a custom icon for this step."
+                  />
                   <TextField
                     label="Title"
                     value={step.title || ''}
@@ -1925,7 +1952,7 @@ function SectionEditor({ section, onClose, onSave }: SectionEditorProps) {
             ))}
             <Button
               onClick={() => {
-                const newSteps = [...(settings.steps || []), { title: '', description: '' }];
+                const newSteps = [...(settings.steps || []), { title: '', description: '', icon_image: '' }];
                 updateSetting('steps', newSteps);
               }}
             >
@@ -2072,6 +2099,16 @@ function SectionEditor({ section, onClose, onSave }: SectionEditorProps) {
               multiline={2}
               autoComplete="off"
             />
+            <Divider />
+            <PageBuilderImageUpload
+              label="Background Image"
+              value={settings.background_image || ''}
+              onChange={(v) => updateSetting('background_image', v)}
+              shop={shop}
+              recommendedSize="1200 x 400 pixels"
+              helpText="Optional. Adds a background image to the referral banner."
+              isBackground
+            />
           </>
         );
 
@@ -2107,6 +2144,16 @@ function SectionEditor({ section, onClose, onSave }: SectionEditorProps) {
               label="Show email signup form"
               checked={settings.show_email_form === true}
               onChange={(v) => updateSetting('show_email_form', v)}
+            />
+            <Divider />
+            <PageBuilderImageUpload
+              label="Background Image"
+              value={settings.background_image || ''}
+              onChange={(v) => updateSetting('background_image', v)}
+              shop={shop}
+              recommendedSize="1200 x 400 pixels"
+              helpText="Optional. Adds a background image to the CTA section."
+              isBackground
             />
           </>
         );

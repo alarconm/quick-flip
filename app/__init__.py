@@ -536,6 +536,10 @@ def register_blueprints(app: Flask) -> None:
     from .api.widget_builder import widget_builder_bp
     app.register_blueprint(widget_builder_bp, url_prefix='/api/widget-builder')
 
+    # Page Builder Images (LP-009)
+    from .api.page_builder_images import page_builder_images_bp
+    app.register_blueprint(page_builder_images_bp, url_prefix='/api/page-builder/images')
+
     # Guest Checkout Points
     from .api.guest_points import guest_points_bp
     app.register_blueprint(guest_points_bp, url_prefix='/api/guest-points')

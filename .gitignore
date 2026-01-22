@@ -68,6 +68,11 @@ migrations/versions/*.pyc
 .DS_Store
 Thumbs.db
 
+# Uploaded files (page builder images, etc.)
+# Keep directory structure but ignore uploaded images
+app/static/uploads/page-builder/*/
+!app/static/uploads/page-builder/.gitkeep
+
 # Node.js
 node_modules/
 npm-debug.log
