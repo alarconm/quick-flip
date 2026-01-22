@@ -6,8 +6,21 @@
   "scripts": {
     "shopify": "shopify",
     "dev": "shopify app dev",
-    "deploy": "shopify app deploy",
-    "info": "shopify app info"
+    "info": "shopify app info",
+
+    "deploy": "shopify app deploy --force --no-release",
+    "deploy:release": "shopify app deploy --force",
+    "release": "shopify app release --force",
+
+    "version:patch": "npm version patch && git push origin main --tags",
+    "version:minor": "npm version minor && git push origin main --tags",
+    "version:major": "npm version major && git push origin main --tags",
+
+    "validate": "python scripts/validate.py",
+    "prerelease": "python scripts/prerelease.py",
+    "prerelease:deploy": "python scripts/prerelease.py && npm run deploy",
+
+    "extensions:build": "cd extensions/checkout-ui && npm run build && cd ../customer-account-ui && npm run build && cd ../post-purchase-ui && npm run build && cd ../pos-ui && npm run build"
   },
   "devDependencies": {
     "@shopify/cli": "^3.0.0",

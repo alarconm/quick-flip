@@ -71,16 +71,74 @@ TradeUp is a **Shopify embedded app** for loyalty programs, trade-in management,
 ## Quick Commands
 
 ```bash
-# Windows
+# Development
+npm run dev                  # Hot-reload extensions in dev store
+npm run validate             # Run validation checks
+
+# Extension Deployment
+npm run deploy               # Deploy extensions (staging, not released)
+npm run release --version=X  # Release to users
+npm run deploy:release       # Deploy + release in one command
+
+# Pre-Release
+npm run prerelease           # Run all pre-release checks
+npm run prerelease:deploy    # Pre-release checks + deploy
+
+# Versioning (creates git tag + pushes)
+npm run version:patch        # 2.0.0 -> 2.0.1 (bug fixes)
+npm run version:minor        # 2.0.0 -> 2.1.0 (new features)
+npm run version:major        # 2.0.0 -> 3.0.0 (breaking changes)
+
+# Legacy (Windows)
 scripts\validate.bat         # Validate locally
 scripts\push.bat             # Validate + push
-scripts\status.bat           # Production health check
-
-# Unix/Mac
-make validate                # Validate locally
-make push                    # Validate + push
-make dev                     # Local development
 ```
+
+## Professional Deployment Workflow
+
+See `DEPLOYMENT.md` for full documentation.
+
+### Architecture
+
+| Component | Deployment | Trigger |
+|-----------|------------|---------|
+| Backend (Flask) | Railway CI/CD | Auto on `git push` |
+| Extensions (4) | Shopify CLI | Manual `npm run deploy` |
+
+### Release Process
+
+```bash
+# 1. Run pre-release checks
+npm run prerelease
+
+# 2. Deploy to staging (not released yet)
+npm run deploy
+# Output: "tradeup-by-cardflow-labs-XX"
+
+# 3. Test in dev store manually
+
+# 4. Release to users
+npm run release --version=tradeup-by-cardflow-labs-XX
+
+# 5. Tag the release
+npm run version:patch
+```
+
+### Dev vs Production App Separation
+
+**Current (Development)**:
+- Single app: "TradeUp by Cardflow Labs"
+- Test store: uy288y-nx.myshopify.com
+
+**Post-Launch (Production)**:
+Create separate apps for isolation:
+
+| App | Purpose | Stores |
+|-----|---------|--------|
+| TradeUp Dev | Testing, staging | Internal test stores |
+| TradeUp | Production | Real merchant stores |
+
+This prevents test deployments from affecting real merchants.
 
 ## Directory Structure
 
@@ -96,12 +154,12 @@ tradeup/
 │   ├── src/admin/         # Admin components
 │   ├── src/embedded/      # 17+ Shopify embedded pages
 │   └── src/pages/         # Public pages
-├── extensions/            # Shopify extensions
+├── extensions/            # Shopify UI extensions (4 active)
 │   ├── checkout-ui/       # Checkout points display
 │   ├── customer-account-ui/  # Customer rewards display (1,211 lines)
 │   ├── post-purchase-ui/  # Post-purchase celebration
-│   ├── pos-ui/            # POS member lookup
-│   └── *.disabled/        # Temporarily disabled extensions
+│   └── pos-ui/            # POS member lookup
+├── extensions-disabled/   # Disabled Shopify Functions (local backup)
 ├── landing-pages/         # 13 A/B test variants
 ├── migrations/            # Alembic migrations
 ├── scripts/               # Dev tools
@@ -158,11 +216,11 @@ Accessible at: `store.myshopify.com/apps/rewards`
 | pos-ui | POS member lookup | `src/SmartGridTile.tsx`, `src/MemberModal.tsx` (TypeScript) |
 
 ### Disabled Shopify Functions (2)
-These are Shopify Functions (Rust/WebAssembly) - more complex than UI extensions:
-- `checkout-validation.disabled` - Would enforce checkout rules (min order, membership required)
-- `tier-discount-function.disabled` - Would auto-apply tier discounts at checkout
+Moved to `extensions-disabled/` folder (not deployed):
+- `checkout-validation` - Would enforce checkout rules (min order, membership required)
+- `tier-discount-function` - Would auto-apply tier discounts at checkout
 
-**Why disabled**: Shopify Functions require Rust compilation to WebAssembly. The core app works without them - tier discounts can be done via discount codes instead.
+**Why disabled**: Shopify Functions require JavaScript→WebAssembly compilation via Javy, which takes 30+ minutes in CI. The core app works without them - tier discounts can be applied via discount codes instead. Can re-enable post-launch if needed.
 
 ## Billing Plans
 
@@ -260,6 +318,15 @@ curl -X POST "https://app.cardflowlabs.com/api/admin/fix-schema?key=tradeup-sche
 Add new columns to `app/api/admin.py` in the `columns_to_add` list.
 
 ## Recent Changes
+
+### January 21, 2026 - Professional Deployment Setup
+- ✅ Added npm deploy scripts (deploy, release, version:patch/minor/major)
+- ✅ Created DEPLOYMENT.md with full workflow documentation
+- ✅ Added prerelease.py validation script
+- ✅ Set up semantic versioning with git tags
+- ✅ Removed Shopify Functions from extensions/ (moved to extensions-disabled/)
+- ✅ Updated all extension API versions to 2026-01
+- ✅ Deployed and released version tradeup-by-cardflow-labs-16
 
 ### January 20, 2026 - App Store Ready
 - ✅ Completed E2E browser testing (89 tests, 87 passed)
