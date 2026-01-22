@@ -714,3 +714,44 @@ Date: 2026-01-21
 - [x] No errors in last 7 days (no_recent_errors check - Sentry integration placeholder)
 - [x] All 14 tests pass
 
+---
+
+## Story: RC-003 - Create review prompt service
+Date: 2026-01-21
+
+### What I Did
+- Created ReviewPromptService class in app/services/review_prompt_service.py
+- Implemented all required methods:
+  - should_show_prompt(tenant_id) - integrates with ReviewEligibilityService
+  - record_prompt_shown(tenant_id) - creates ReviewPrompt record
+  - record_prompt_response(tenant_id, response) - records merchant's response
+  - get_prompt_history(tenant_id) - retrieves prompt history
+- Added additional helper methods:
+  - get_eligibility_details() - returns detailed eligibility criteria
+  - get_last_prompt() - returns most recent prompt
+  - get_prompt_stats() - returns prompt statistics and response rates
+- Added convenience functions for simpler usage:
+  - should_show_review_prompt(tenant_id)
+  - record_review_prompt_shown(tenant_id)
+  - record_review_prompt_response(tenant_id, prompt_id, response)
+- Created comprehensive test suite with 19 tests
+
+### Files Changed
+- app/services/review_prompt_service.py (new - 230 lines)
+- tests/test_review_prompt_service.py (new - 19 tests)
+- progress.txt (updated)
+
+### Learnings
+- Service integrates ReviewPrompt model (RC-001) with ReviewEligibilityService (RC-002)
+- Lazy loading of eligibility service allows efficient creation of service instances
+- Response validation uses ReviewPromptResponse enum for type safety
+- Stats include response rate calculation and breakdown by response type
+
+### Verification
+- [x] ReviewPromptService class in app/services/review_prompt_service.py
+- [x] should_show_prompt(tenant_id) method - checks eligibility via ReviewEligibilityService
+- [x] record_prompt_shown(tenant_id) method - creates prompt via ReviewPrompt.create_prompt()
+- [x] record_prompt_response(tenant_id, response) method - validates and records response
+- [x] get_prompt_history(tenant_id) method - returns list of prompt dicts
+- [x] All 19 tests pass
+
