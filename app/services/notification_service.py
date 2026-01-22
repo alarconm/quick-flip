@@ -284,35 +284,191 @@ Your Code: {referral_code}
 '''
         },
         'anniversary_reward': {
-            'subject': 'Happy {anniversary_year} Anniversary, {member_name}!',
+            'subject': 'Happy {anniversary_year} Anniversary, {member_name}! {shop_name} has a gift for you',
             'text': '''Hi {member_name},
 
 Happy {anniversary_year} Anniversary with {shop_name}!
 
-Thank you for being a loyal member for {years_number} year(s). We truly appreciate your continued support.
+We're celebrating {years_number} year(s) of you being a valued member of our rewards program. Time flies when we're having fun together!
 
-To celebrate, we've added a special reward to your account:
+YOUR ANNIVERSARY GIFT:
 {reward_description}
 
 {custom_message}
 
-Here's to many more years together!
+Don't let this special gift go to waste - visit us today and treat yourself to something you love!
 
-{shop_name}
+Shop Now: {shop_url}
+
+Thank you for being part of our community. Here's to many more years together!
+
+Warmly,
+The {shop_name} Team
 ''',
             'html': '''
-<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-    <h2>🎉 Happy {anniversary_year} Anniversary!</h2>
-    <p>Hi {member_name},</p>
-    <p>Thank you for being a loyal member of <strong>{shop_name}</strong> for <strong>{years_number} year(s)</strong>!</p>
-    <div style="background: #e8f5e9; padding: 20px; border-radius: 8px; margin: 20px 0;">
-        <h3 style="margin-top: 0; color: #2e7d32;">Your Anniversary Reward</h3>
-        <p style="font-size: 18px; font-weight: bold; color: #2e7d32;">{reward_description}</p>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Happy Anniversary!</title>
+    <!--[if mso]>
+    <noscript>
+        <xml>
+            <o:OfficeDocumentSettings>
+                <o:PixelsPerInch>96</o:PixelsPerInch>
+            </o:OfficeDocumentSettings>
+        </xml>
+    </noscript>
+    <![endif]-->
+    <style type="text/css">
+        /* Reset styles */
+        body, table, td, p, a, li, blockquote {{
+            -webkit-text-size-adjust: 100%;
+            -ms-text-size-adjust: 100%;
+        }}
+        table, td {{
+            mso-table-lspace: 0pt;
+            mso-table-rspace: 0pt;
+        }}
+        img {{
+            -ms-interpolation-mode: bicubic;
+            border: 0;
+            height: auto;
+            line-height: 100%;
+            outline: none;
+            text-decoration: none;
+        }}
+        body {{
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 100% !important;
+            background-color: #f4f4f4;
+        }}
+        /* Mobile styles */
+        @media only screen and (max-width: 600px) {{
+            .wrapper {{
+                width: 100% !important;
+                padding: 10px !important;
+            }}
+            .content {{
+                padding: 20px !important;
+            }}
+            .hero-text {{
+                font-size: 24px !important;
+            }}
+            .reward-box {{
+                padding: 20px !important;
+            }}
+            .cta-button {{
+                width: 100% !important;
+                padding: 16px 20px !important;
+            }}
+        }}
+    </style>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f4f4f4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+    <!-- Preview text -->
+    <div style="display: none; max-height: 0; overflow: hidden;">
+        Celebrating {years_number} year(s) with you! We have a special anniversary gift waiting for you.
     </div>
-    <p style="font-style: italic;">{custom_message}</p>
-    <p>Here's to many more years together!</p>
-    <p>{shop_name}</p>
-</div>
+
+    <!-- Main wrapper -->
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f4f4f4;">
+        <tr>
+            <td align="center" style="padding: 20px 10px;">
+                <!-- Email container -->
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" class="wrapper" style="max-width: 600px; width: 100%; background-color: #ffffff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);">
+
+                    <!-- Header with celebration banner -->
+                    <tr>
+                        <td style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 30px; text-align: center; border-radius: 12px 12px 0 0;">
+                            <div style="font-size: 48px; margin-bottom: 10px;">&#127881;</div>
+                            <h1 class="hero-text" style="color: #ffffff; font-size: 28px; font-weight: 700; margin: 0 0 8px 0; line-height: 1.2;">
+                                Happy {anniversary_year} Anniversary!
+                            </h1>
+                            <p style="color: rgba(255, 255, 255, 0.9); font-size: 16px; margin: 0;">
+                                Celebrating {years_number} year(s) together
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- Main content -->
+                    <tr>
+                        <td class="content" style="padding: 40px 30px;">
+                            <!-- Greeting -->
+                            <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
+                                Hi <strong>{member_name}</strong>,
+                            </p>
+
+                            <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
+                                Time flies when we're having fun together! We're thrilled to celebrate
+                                <strong>{years_number} year(s)</strong> of you being a valued member of
+                                <strong>{shop_name}</strong>'s rewards program.
+                            </p>
+
+                            <!-- Reward box -->
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 30px 0;">
+                                <tr>
+                                    <td class="reward-box" style="background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); padding: 30px; border-radius: 12px; text-align: center; border-left: 4px solid #4caf50;">
+                                        <div style="font-size: 32px; margin-bottom: 12px;">&#127873;</div>
+                                        <p style="color: #2e7d32; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin: 0 0 8px 0;">
+                                            Your Anniversary Gift
+                                        </p>
+                                        <p style="color: #1b5e20; font-size: 24px; font-weight: 700; margin: 0;">
+                                            {reward_description}
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <!-- Custom message if present -->
+                            <p style="color: #555555; font-size: 15px; line-height: 1.6; margin: 0 0 30px 0; font-style: italic; background-color: #fafafa; padding: 16px; border-radius: 8px;">
+                                "{custom_message}"
+                            </p>
+
+                            <!-- CTA Button -->
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                                <tr>
+                                    <td align="center">
+                                        <a href="{shop_url}" class="cta-button" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 600; padding: 16px 40px; border-radius: 8px; box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);">
+                                            Shop Now & Celebrate
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <!-- Closing message -->
+                            <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 30px 0 0 0;">
+                                Thank you for being part of our community. Here's to many more years together!
+                            </p>
+
+                            <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 20px 0 0 0;">
+                                Warmly,<br>
+                                <strong>The {shop_name} Team</strong>
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td style="background-color: #f8f9fa; padding: 24px 30px; border-radius: 0 0 12px 12px; text-align: center;">
+                            <p style="color: #888888; font-size: 13px; margin: 0 0 8px 0;">
+                                You're receiving this email because you're a rewards member at {shop_name}.
+                            </p>
+                            <p style="color: #888888; font-size: 13px; margin: 0;">
+                                Member since {enrollment_date}
+                            </p>
+                        </td>
+                    </tr>
+
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
 '''
         }
     }
@@ -1044,7 +1200,7 @@ Here's to many more years together!
         Returns:
             Dict with send result
         """
-        from ..models import Member
+        from ..models import Member, Tenant
         settings = self._get_tenant_settings(tenant_id)
 
         # Check if anniversary notifications are enabled
@@ -1060,6 +1216,11 @@ Here's to many more years together!
         if not member:
             return {'success': False, 'error': 'Member not found'}
 
+        # Get tenant for shop URL
+        tenant = Tenant.query.get(tenant_id)
+        shop_domain = tenant.shop_domain if tenant else ''
+        shop_url = f"https://{shop_domain}" if shop_domain else '#'
+
         # Format reward description based on type
         if reward_type == 'points':
             reward_description = f"{int(reward_amount)} bonus points"
@@ -1073,12 +1234,26 @@ Here's to many more years together!
         # Format anniversary year as ordinal (1st, 2nd, 3rd, etc.)
         ordinal_year = self._ordinal(anniversary_year)
 
+        # Get enrollment date for email footer
+        enrollment_date = ''
+        if hasattr(member, 'get_enrollment_date') and callable(member.get_enrollment_date):
+            try:
+                enrollment = member.get_enrollment_date()
+                if enrollment:
+                    enrollment_date = enrollment.strftime('%B %d, %Y')
+            except Exception:
+                pass
+        if not enrollment_date and member.created_at:
+            enrollment_date = member.created_at.strftime('%B %d, %Y')
+
         variables = {
             'member_name': member.name or member.email.split('@')[0],
             'anniversary_year': ordinal_year,
             'years_number': anniversary_year,
             'reward_description': reward_description,
-            'custom_message': custom_message or 'Thank you for being a loyal member!'
+            'custom_message': custom_message or 'Thank you for being a loyal member!',
+            'shop_url': shop_url,
+            'enrollment_date': enrollment_date or 'the beginning'
         }
 
         rendered = self._render_template('anniversary_reward', variables, settings)

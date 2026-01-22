@@ -315,6 +315,34 @@ The TradeUp Team
             ''',
             'category': 'billing',
         },
+        'anniversary_reward': {
+            'name': 'Anniversary Reward',
+            'subject': 'Happy {{anniversary_year}} Anniversary, {{member_name}}! {{shop_name}} has a gift for you',
+            'body': '''
+Hi {{member_name}},
+
+Happy {{anniversary_year}} Anniversary with {{shop_name}}!
+
+We're celebrating **{{years_number}} year(s)** of you being a valued member of our rewards program. Time flies when we're having fun together!
+
+**Your Anniversary Gift:**
+{{reward_description}}
+
+{{#if custom_message}}
+{{custom_message}}
+{{/if}}
+
+Don't let this special gift go to waste - visit us today and treat yourself to something you love!
+
+**[Shop Now]({{shop_url}})**
+
+Thank you for being part of our community. Here's to many more years together!
+
+Warmly,
+The {{shop_name}} Team
+            ''',
+            'category': 'anniversary',
+        },
     }
 
     def __init__(self):

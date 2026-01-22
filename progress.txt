@@ -1627,3 +1627,86 @@ Date: 2026-01-22
 - [x] Job logs execution results (rewards issued, emails sent, failures)
 - [x] Job handles errors gracefully without stopping (try/except per tenant)
 
+---
+
+## Story: AR-006 - Create anniversary email template
+Date: 2026-01-22
+
+### What I Did
+- Enhanced anniversary email template in notification_service.py with mobile-responsive HTML
+- Added text version of the email template for email clients that don't support HTML
+- Template includes all required placeholders:
+  - {{shop_name}} / {shop_name} - Store name for branding
+  - {{member_name}} / {member_name} - Member's name for personalization
+  - {{anniversary_year}} / {anniversary_year} - Ordinal year (1st, 2nd, 3rd, etc.)
+  - {{years_number}} / {years_number} - Numeric year for clarity
+  - {{reward_description}} / {reward_description} - Reward type and amount
+  - {{custom_message}} / {custom_message} - Custom merchant message
+  - {{shop_url}} / {shop_url} - Link to store for CTA button
+  - {{enrollment_date}} / {enrollment_date} - When member joined (for footer)
+- Added corresponding template to email_service.py DEFAULT_TEMPLATES dictionary
+- Updated send_anniversary_reward() method to include shop_url and enrollment_date variables
+
+### Files Changed
+- app/services/notification_service.py:
+  - Rewrote 'anniversary_reward' template with comprehensive mobile-responsive HTML (~150 lines)
+  - Updated text version with better formatting
+  - Enhanced send_anniversary_reward() to get shop_url from tenant and enrollment_date from member
+  - Added Tenant import
+- app/services/email_service.py:
+  - Added 'anniversary_reward' template to DEFAULT_TEMPLATES dictionary
+
+### Email Template Features
+- **Mobile-Responsive Design**: Uses responsive CSS with @media queries for mobile devices
+- **Email Client Compatibility**:
+  - Includes MSO conditional comments for Outlook
+  - Uses table-based layout for maximum compatibility
+  - Includes both HTML and plain text versions
+- **Visual Design**:
+  - Celebration header with gradient background and confetti emoji
+  - Prominent gift box section with green accent highlighting the reward
+  - Custom message section with subtle background
+  - Call-to-action button with gradient and shadow
+  - Footer with membership information
+- **Personalization Placeholders**:
+  - Member name in greeting and subject line
+  - Anniversary year (ordinal format: 1st, 2nd, 3rd)
+  - Shop name throughout for branding
+  - Reward description (points, credit, or discount code with amount)
+  - Custom merchant message
+  - Enrollment date in footer
+
+### HTML Template Structure
+```html
+- Preview text (hidden, for email clients)
+- Header section with celebration banner
+  - Confetti emoji
+  - "Happy Xth Anniversary!" title
+  - Years together subtitle
+- Main content section
+  - Personalized greeting
+  - Thank you message
+  - Anniversary gift box with reward details
+  - Custom merchant message (italic, quoted)
+  - CTA button linking to shop
+  - Closing message
+- Footer section
+  - "Rewards member" notice
+  - Member since date
+```
+
+### Learnings
+- Email HTML requires table-based layouts for cross-client compatibility
+- CSS double braces {{ }} needed in Python string templates to escape literal braces
+- Mobile-first CSS with max-width media queries works well for responsive emails
+- MSO conditional comments needed for Outlook rendering
+- Gradient backgrounds add visual appeal but may not render in all email clients
+
+### Verification
+- [x] Anniversary email template with reward details (reward_description placeholder)
+- [x] Template shows which anniversary (1 year, 2 years, etc.) via anniversary_year placeholder
+- [x] Template uses store branding (name, logo) - shop_name throughout template
+- [x] Shows reward type and amount clearly - prominent gift box section
+- [x] Includes call-to-action to shop - gradient CTA button with shop_url
+- [x] Template is mobile-responsive - @media queries and responsive CSS included
+
