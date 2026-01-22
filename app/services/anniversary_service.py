@@ -472,6 +472,204 @@ class AnniversaryService:
         gamification_service = GamificationService(self.tenant_id)
         return gamification_service.award_anniversary_badge(member_id, anniversary_year)
 
+    def get_members_for_anniversary_reminder(self) -> List[Dict[str, Any]]:
+        """
+        Get members who should receive an anniversary reminder email today.
+
+        Returns only members whose anniversary is exactly email_days_before days away.
+        Respects member email preferences.
+
+        Returns:
+            List of dicts with member info and anniversary details.
+        """
+        settings = self.get_anniversary_settings()
+
+        # Only send reminders if enabled and advance days > 0
+        if not settings['enabled']:
+            return []
+
+        email_days_before = settings.get('email_days_before', 0)
+        if email_days_before <= 0:
+            return []
+
+        today = date.today()
+        reminder_members = []
+
+        # Get all active members for this tenant
+        members = Member.query.filter(
+            Member.tenant_id == self.tenant_id,
+            Member.status == 'active'
+        ).all()
+
+        for member in members:
+            # Skip members without email
+            if not member.email:
+                continue
+
+            # Check days until anniversary
+            days_until = member.days_until_anniversary()
+
+            # Only include if anniversary is exactly email_days_before days away
+            if days_until == email_days_before:
+                # Calculate upcoming anniversary year
+                enrollment = member.get_enrollment_date()
+                anniversary_year = today.year - enrollment.year
+                if (today.month, today.day) < (enrollment.month, enrollment.day):
+                    anniversary_year += 1
+
+                reminder_members.append({
+                    'member': member,
+                    'member_id': member.id,
+                    'member_number': member.member_number,
+                    'member_name': member.name or member.email.split('@')[0],
+                    'member_email': member.email,
+                    'enrollment_date': enrollment.isoformat(),
+                    'anniversary_date': member.get_anniversary_date(today.year if days_until > 0 else today.year + 1).isoformat(),
+                    'days_until': days_until,
+                    'anniversary_year': anniversary_year,
+                })
+
+        return reminder_members
+
+    def send_anniversary_reminder(self, member_id: int) -> Dict[str, Any]:
+        """
+        Send an advance reminder email for an upcoming anniversary.
+
+        Args:
+            member_id: ID of the member to send reminder to
+
+        Returns:
+            Dict with result info including success status.
+        """
+        member = Member.query.filter_by(
+            id=member_id,
+            tenant_id=self.tenant_id
+        ).first()
+
+        if not member:
+            return {'success': False, 'error': 'Member not found'}
+
+        if member.status != 'active':
+            return {'success': False, 'error': f'Member is not active (status: {member.status})'}
+
+        if not member.email:
+            return {'success': False, 'error': 'Member has no email address'}
+
+        settings = self.get_anniversary_settings()
+
+        if not settings['enabled']:
+            return {'success': False, 'error': 'Anniversary rewards not enabled'}
+
+        email_days_before = settings.get('email_days_before', 0)
+        if email_days_before <= 0:
+            return {'success': False, 'error': 'Advance reminders not configured (email_days_before is 0)'}
+
+        # Calculate anniversary details
+        today = date.today()
+        days_until = member.days_until_anniversary()
+        enrollment = member.get_enrollment_date()
+
+        # Calculate upcoming anniversary year
+        anniversary_year = today.year - enrollment.year
+        if (today.month, today.day) < (enrollment.month, enrollment.day):
+            anniversary_year += 1
+
+        # Get reward info for the reminder email
+        reward_type = settings['reward_type']
+        reward_amount = settings['reward_amount']
+
+        # Format reward description for email
+        if reward_type == 'points':
+            reward_preview = f"{int(reward_amount)} bonus points"
+        elif reward_type == 'credit':
+            reward_preview = f"${reward_amount:.2f} store credit"
+        elif reward_type == 'discount_code':
+            reward_preview = f"${reward_amount:.2f} discount code"
+        else:
+            reward_preview = f"{reward_amount} reward"
+
+        # Send the reminder email
+        try:
+            from .notification_service import notification_service
+
+            email_result = notification_service.send_anniversary_reminder(
+                tenant_id=self.tenant_id,
+                member_id=member.id,
+                anniversary_year=anniversary_year,
+                days_until=days_until,
+                reward_preview=reward_preview,
+                custom_message=settings.get('message', '')
+            )
+
+            if email_result.get('success'):
+                current_app.logger.info(
+                    f"Anniversary reminder sent: Member {member.member_number} "
+                    f"({anniversary_year} year anniversary in {days_until} days)"
+                )
+                return {
+                    'success': True,
+                    'member_id': member.id,
+                    'member_number': member.member_number,
+                    'member_email': member.email,
+                    'anniversary_year': anniversary_year,
+                    'days_until': days_until,
+                    'email_sent': True,
+                }
+            else:
+                current_app.logger.warning(
+                    f"Anniversary reminder email failed for member {member.member_number}: "
+                    f"{email_result.get('error', 'Unknown error')}"
+                )
+                return {
+                    'success': False,
+                    'error': email_result.get('error', 'Email send failed'),
+                    'skipped': email_result.get('skipped', False),
+                }
+
+        except Exception as e:
+            current_app.logger.error(f"Failed to send anniversary reminder for member {member_id}: {e}")
+            return {'success': False, 'error': str(e)}
+
+    def process_anniversary_reminders(self) -> Dict[str, Any]:
+        """
+        Process anniversary reminders for all members whose anniversary is
+        email_days_before days away.
+
+        Called by scheduled task daily.
+
+        Returns:
+            Dict with processing results.
+        """
+        settings = self.get_anniversary_settings()
+
+        if not settings['enabled']:
+            return {'success': False, 'error': 'Anniversary rewards not enabled', 'processed': 0}
+
+        email_days_before = settings.get('email_days_before', 0)
+        if email_days_before <= 0:
+            return {'success': False, 'error': 'Advance reminders not configured', 'processed': 0}
+
+        reminder_members = self.get_members_for_anniversary_reminder()
+        results = []
+
+        for member_info in reminder_members:
+            result = self.send_anniversary_reminder(member_info['member_id'])
+            results.append(result)
+
+        successful = [r for r in results if r.get('success')]
+        failed = [r for r in results if not r.get('success')]
+        skipped = [r for r in failed if r.get('skipped')]
+
+        return {
+            'success': True,
+            'processed': len(results),
+            'successful': len(successful),
+            'failed': len(failed),
+            'skipped': len(skipped),
+            'email_days_before': email_days_before,
+            'details': results,
+        }
+
 
 # Convenience functions for simpler usage
 def get_anniversary_service(tenant_id: int, settings: Optional[Dict] = None) -> AnniversaryService:
@@ -483,3 +681,9 @@ def process_tenant_anniversaries(tenant_id: int) -> Dict[str, Any]:
     """Process anniversary rewards for a single tenant."""
     service = AnniversaryService(tenant_id)
     return service.process_anniversary_rewards()
+
+
+def process_tenant_anniversary_reminders(tenant_id: int) -> Dict[str, Any]:
+    """Process anniversary advance reminders for a single tenant."""
+    service = AnniversaryService(tenant_id)
+    return service.process_anniversary_reminders()

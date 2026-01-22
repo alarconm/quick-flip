@@ -1867,3 +1867,71 @@ Returns anniversary-specific history with member enrollment info.
 - [x] Included in member export CSV (anniversary_rewards and member_activities export types)
 - [x] Queryable via API (/activity and /anniversary-history endpoints)
 
+---
+
+## Story: AR-009 - Add anniversary reminder email (advance notice)
+Date: 2026-01-22
+
+### What I Did
+- Added advance reminder logic to AnniversaryService:
+  - get_members_for_anniversary_reminder() - finds members whose anniversary is exactly email_days_before days away
+  - send_anniversary_reminder(member_id) - sends reminder email to a single member
+  - process_anniversary_reminders() - batch processes all reminders for a tenant
+- Created send_anniversary_reminder() method in NotificationService:
+  - Mobile-responsive HTML email template with countdown styling
+  - Text version for email clients that don't support HTML
+  - Shows upcoming reward preview (points, credit, or discount code)
+  - Includes custom message from tenant settings
+  - Pink/coral gradient theme to distinguish from anniversary reward email
+- Added run_anniversary_reminders() scheduled job to scheduler.py:
+  - Runs daily at 7 AM UTC (1 hour before anniversary rewards)
+  - Processes all active tenants with anniversary rewards enabled
+  - Only sends reminders when email_days_before > 0
+  - Logs execution results (reminders sent, failures)
+- Added convenience function process_tenant_anniversary_reminders() for manual triggering
+
+### Files Changed
+- app/services/anniversary_service.py:
+  - Added get_members_for_anniversary_reminder() method (~50 lines)
+  - Added send_anniversary_reminder() method (~80 lines)
+  - Added process_anniversary_reminders() method (~30 lines)
+  - Added process_tenant_anniversary_reminders() convenience function
+- app/services/notification_service.py:
+  - Added send_anniversary_reminder() method with HTML/text email templates (~200 lines)
+- app/utils/scheduler.py:
+  - Added run_anniversary_reminders() job function (~70 lines)
+  - Added scheduled job at 7 AM UTC
+  - Updated startup message to show 6 scheduled jobs
+
+### Email Template Features
+- **Preview Text**: Shows days until anniversary and teaser about gift
+- **Countdown Header**: Pink/coral gradient with calendar emoji and days countdown
+- **Reward Preview Box**: Orange gradient box highlighting upcoming reward
+- **Custom Message**: Italic quoted section with merchant's custom message
+- **CTA Button**: "Shop Now" button linking to store
+- **Footer**: Member since date and rewards member notice
+- **Mobile Responsive**: CSS media queries for smaller screens
+- **MSO Compatible**: Outlook conditional comments for proper rendering
+
+### Scheduler Configuration
+| Job | Time | Purpose |
+|-----|------|---------|
+| Anniversary Reminders | 7:00 UTC | Send advance reminder emails |
+| Anniversary Rewards | 8:00 UTC | Issue rewards and send reward emails |
+
+Reminders run 1 hour before rewards to ensure members receive advance notice before the actual reward is issued.
+
+### Learnings
+- Only members with email addresses receive reminders
+- Reminder logic respects member.status (only 'active' members)
+- Email_days_before of 0 means no advance reminders, only on-day notification
+- Using a separate scheduled job allows independent timing and error handling
+- Pink/coral gradient visually differentiates reminder from green reward email
+
+### Verification
+- [x] Advance email sent X days before anniversary (configurable via email_days_before setting)
+- [x] Email template with upcoming reward preview (reward_preview variable)
+- [x] Shows how long they've been a member (anniversary_year and years_number variables)
+- [x] Only sent if advance email days > 0 (email_days_before check in process_anniversary_reminders)
+- [x] Respects member email preferences (checks member.email exists and member.status is active)
+

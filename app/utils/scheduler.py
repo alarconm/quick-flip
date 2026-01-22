@@ -106,14 +106,24 @@ def init_scheduler(app):
             replace_existing=True
         )
 
+        # Anniversary reminders - Daily at 7 AM UTC (before anniversary rewards)
+        _scheduler.add_job(
+            run_anniversary_reminders,
+            trigger=CronTrigger(hour=7, minute=0),
+            id='anniversary_reminders',
+            name='Send anniversary advance reminders',
+            replace_existing=True
+        )
+
         _scheduler.start()
         os.environ['SCHEDULER_RUNNING'] = 'true'
 
         # Use print during init to avoid app context issues
-        print('[Scheduler] Started with 5 scheduled jobs:')
+        print('[Scheduler] Started with 6 scheduled jobs:')
         print('  - Monthly credits: 1st of month at 6:00 UTC (creates pending for approval)')
         print('  - Credit expiration: Daily at 0:00 UTC')
         print('  - Pending expiration: Daily at 1:00 UTC')
+        print('  - Anniversary reminders: Daily at 7:00 UTC')
         print('  - Anniversary rewards: Daily at 8:00 UTC')
         print('  - Expiration warnings: Daily at 9:00 UTC')
 
@@ -414,6 +424,82 @@ def run_anniversary_rewards():
 
         except Exception as e:
             logger.error(f'[Scheduler] Anniversary rewards failed: {e}')
+
+
+def run_anniversary_reminders():
+    """
+    Send anniversary advance reminder emails for all tenants.
+    Runs daily at 7 AM UTC (before anniversary rewards at 8 AM).
+
+    Only sends reminders if:
+    - Anniversary rewards are enabled for the tenant
+    - email_days_before > 0 (advance reminders configured)
+    - Member's anniversary is exactly email_days_before days away
+    """
+    global _flask_app
+
+    if not _flask_app:
+        logger.error('[Scheduler] Flask app not initialized')
+        return
+
+    logger.info('[Scheduler] Processing anniversary reminders...')
+
+    with _flask_app.app_context():
+        try:
+            from ..extensions import db
+            from ..models.tenant import Tenant
+            from ..services.anniversary_service import AnniversaryService
+
+            # Get all active tenants
+            tenants = Tenant.query.filter_by(subscription_active=True).all()
+
+            total_reminders_sent = 0
+            total_failed = 0
+            tenants_with_reminders = 0
+
+            for tenant in tenants:
+                try:
+                    # Create service instance for this tenant
+                    service = AnniversaryService(tenant.id)
+                    settings = service.get_anniversary_settings()
+
+                    # Skip if anniversary rewards are disabled
+                    if not settings.get('enabled'):
+                        continue
+
+                    # Skip if advance reminders not configured
+                    email_days_before = settings.get('email_days_before', 0)
+                    if email_days_before <= 0:
+                        continue
+
+                    # Process anniversary reminders for this tenant
+                    result = service.process_anniversary_reminders()
+
+                    if result.get('success'):
+                        successful = result.get('successful', 0)
+                        if successful > 0:
+                            total_reminders_sent += successful
+                            tenants_with_reminders += 1
+                            logger.info(
+                                f'[Scheduler] Tenant {tenant.id}: {successful} anniversary reminders sent '
+                                f'({email_days_before} days in advance)'
+                            )
+                    else:
+                        if result.get('error') not in ['Anniversary rewards not enabled', 'Advance reminders not configured']:
+                            logger.warning(f'[Scheduler] Tenant {tenant.id}: {result.get("error", "Unknown error")}')
+
+                except Exception as e:
+                    total_failed += 1
+                    logger.error(f'[Scheduler] Anniversary reminders failed for tenant {tenant.id}: {e}')
+
+            logger.info(
+                f'[Scheduler] Anniversary reminders complete: '
+                f'{total_reminders_sent} reminders sent across {tenants_with_reminders} tenants, '
+                f'{total_failed} tenant failures'
+            )
+
+        except Exception as e:
+            logger.error(f'[Scheduler] Anniversary reminders failed: {e}')
 
 
 def get_next_run_times() -> dict:
