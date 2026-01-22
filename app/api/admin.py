@@ -920,3 +920,59 @@ def delete_discount(discount_id):
         return jsonify(result)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@admin_bp.route('/create-new-feature-tables', methods=['POST'])
+def create_new_feature_tables():
+    """
+    Create all new feature tables from Ralph automation.
+
+    This creates:
+    - loyalty_pages (Page Builder)
+    - loyalty_page_analytics (Page Analytics)
+    - widgets (Widget Builder)
+    - nudges_sent (Nudges & Reminders)
+    - review_prompts (Review Collection)
+    - support_tickets (Support Review)
+    - And any other tables registered with SQLAlchemy
+
+    Call with: POST /api/admin/create-new-feature-tables?key=tradeup-schema-fix-2026
+    """
+    key = request.args.get('key')
+    if key != 'tradeup-schema-fix-2026':
+        return jsonify({'error': 'Invalid key'}), 403
+
+    try:
+        # Import all the new models to register them with SQLAlchemy
+        from ..models.loyalty_page import LoyaltyPage
+        from ..models.loyalty_page_analytics import LoyaltyPageAnalytics
+        from ..models.widget import Widget
+        from ..models.nudge_sent import NudgeSent
+        from ..models.nudge_config import NudgeConfig
+        from ..models.review_prompt import ReviewPrompt
+        from ..models.support_ticket import SupportTicket
+        from ..models.gamification import Badge, MemberBadge
+
+        # Create all tables that don't exist yet
+        db.create_all()
+
+        return jsonify({
+            'success': True,
+            'message': 'New feature tables created successfully',
+            'tables': [
+                'loyalty_pages',
+                'loyalty_page_analytics',
+                'widgets',
+                'nudges_sent',
+                'nudge_configs',
+                'review_prompts',
+                'support_tickets',
+                'badges',
+                'member_badges'
+            ]
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
