@@ -1132,3 +1132,559 @@ class NudgesService:
             'success': True,
             'config': config.to_dict(),
         }
+
+    # ==================== Inactive Member Re-engagement Methods ====================
+
+    def get_inactive_reengagement_config(self) -> Dict[str, Any]:
+        """
+        Get configuration for inactive member re-engagement nudges.
+
+        Returns:
+            Dict with: enabled, inactive_days (threshold), frequency_days (cooldown),
+                      incentive_type, incentive_amount
+        """
+        config = self.get_nudge_config(NudgeType.INACTIVE_REMINDER.value)
+
+        if config:
+            return {
+                'enabled': config.is_enabled,
+                'inactive_days': config.config_options.get('inactive_days', 30),
+                'frequency_days': config.frequency_days,
+                'incentive_type': config.config_options.get('incentive_type', 'points'),
+                'incentive_amount': config.config_options.get('incentive_amount', 50),
+                'message_template': config.message_template,
+            }
+
+        # Fall back to defaults
+        settings = self.get_nudge_settings()
+        return {
+            'enabled': settings.get('enabled', True),
+            'inactive_days': settings.get('inactive_days', 30),
+            'frequency_days': 30,  # Default cooldown: 30 days
+            'incentive_type': 'points',  # points, credit, discount
+            'incentive_amount': 50,  # 50 bonus points by default
+            'message_template': None,
+        }
+
+    def get_inactive_members_for_reengagement(
+        self,
+        inactive_days: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Get members who have been inactive and are eligible for re-engagement.
+
+        Args:
+            inactive_days: Days of inactivity threshold (default: from config)
+
+        Returns:
+            List of dicts with member info, inactivity details, and current status
+        """
+        config = self.get_inactive_reengagement_config()
+        if inactive_days is None:
+            inactive_days = config['inactive_days']
+
+        cutoff_date = datetime.utcnow() - timedelta(days=inactive_days)
+
+        # Find members with no recent activity
+        inactive_members = Member.query.filter(
+            Member.tenant_id == self.tenant_id,
+            Member.status == 'active',
+            Member.updated_at < cutoff_date
+        ).all()
+
+        results = []
+        for member in inactive_members:
+            days_since_activity = (datetime.utcnow() - (member.updated_at or member.created_at)).days
+
+            # Get member's current status summary
+            points_balance = member.points_balance or 0
+            tier_name = member.tier.name if member.tier else 'Member'
+            tier_benefits = self._format_tier_benefits(member.tier) if member.tier else []
+
+            # Calculate what they're missing
+            missed_summary = self._calculate_missed_opportunities(member, days_since_activity)
+
+            results.append({
+                'member': member.to_dict(),
+                'days_inactive': days_since_activity,
+                'last_activity': member.updated_at.isoformat() if member.updated_at else None,
+                'points_balance': points_balance,
+                'tier_name': tier_name,
+                'tier_benefits': tier_benefits,
+                'missed_opportunities': missed_summary,
+                'nudge_type': NudgeType.INACTIVE_MEMBER.value,
+            })
+
+        # Sort by days inactive (longest first)
+        results.sort(key=lambda x: x['days_inactive'], reverse=True)
+        return results
+
+    def _calculate_missed_opportunities(
+        self,
+        member: Member,
+        days_inactive: int
+    ) -> Dict[str, Any]:
+        """
+        Calculate what opportunities a member has missed during their inactivity.
+
+        Args:
+            member: The inactive Member
+            days_inactive: Number of days of inactivity
+
+        Returns:
+            Dict with summary of missed opportunities
+        """
+        missed = {
+            'potential_points': 0,
+            'potential_credit': 0,
+            'summary_items': [],
+        }
+
+        # Estimate potential points based on average earning (simplified)
+        # Assume 10 points per transaction, 2 transactions per month
+        months_inactive = days_inactive / 30
+        estimated_transactions = int(months_inactive * 2)
+        estimated_points = estimated_transactions * 10
+        if estimated_points > 0:
+            missed['potential_points'] = estimated_points
+            missed['summary_items'].append(f"~{estimated_points} points from purchases")
+
+        # Check if tier has monthly credit
+        if member.tier and member.tier.monthly_credit_amount:
+            months_missed = int(months_inactive)
+            credit_missed = float(member.tier.monthly_credit_amount) * months_missed
+            if credit_missed > 0:
+                missed['potential_credit'] = credit_missed
+                missed['summary_items'].append(f"${credit_missed:.2f} in monthly tier credits")
+
+        # Add generic missed items
+        if days_inactive >= 60:
+            missed['summary_items'].append("New product releases and exclusive deals")
+        if days_inactive >= 90:
+            missed['summary_items'].append("Seasonal promotions and sales")
+
+        return missed
+
+    def should_send_reengagement_email(
+        self,
+        member_id: int,
+        cooldown_days: Optional[int] = None
+    ) -> bool:
+        """
+        Check if a re-engagement email should be sent to this inactive member.
+
+        Checks:
+        1. Nudge type is enabled
+        2. Member has been inactive for threshold days
+        3. No re-engagement email was sent within the cooldown period
+
+        Args:
+            member_id: The member ID
+            cooldown_days: Override cooldown period (uses config default if not provided)
+
+        Returns:
+            True if email should be sent, False otherwise
+        """
+        config = self.get_inactive_reengagement_config()
+
+        # Check if nudge is enabled
+        if not config['enabled']:
+            return False
+
+        # Use config cooldown if not overridden
+        if cooldown_days is None:
+            cooldown_days = config['frequency_days']
+
+        # Check if recently sent
+        if NudgeSent.was_recently_sent(
+            tenant_id=self.tenant_id,
+            member_id=member_id,
+            nudge_type=NudgeType.INACTIVE_MEMBER.value,
+            cooldown_days=cooldown_days
+        ):
+            return False
+
+        # Check if member is inactive enough
+        inactive_members = self.get_inactive_members_for_reengagement(
+            inactive_days=config['inactive_days']
+        )
+        for data in inactive_members:
+            if data['member']['id'] == member_id:
+                return True
+
+        return False
+
+    def send_reengagement_email(
+        self,
+        member_id: int,
+        force: bool = False,
+        custom_incentive: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        Send a re-engagement email to an inactive member.
+
+        Args:
+            member_id: The member to send the email to
+            force: Skip cooldown check if True
+            custom_incentive: Override default incentive (type, amount)
+
+        Returns:
+            Dict with success status and details
+        """
+        from app.models.tenant import Tenant
+        from app.services.email_service import email_service
+
+        member = Member.query.filter_by(
+            id=member_id,
+            tenant_id=self.tenant_id
+        ).first()
+
+        if not member:
+            return {'success': False, 'error': 'Member not found'}
+
+        if not member.email:
+            return {'success': False, 'error': 'Member has no email address'}
+
+        if member.status != 'active':
+            return {'success': False, 'error': 'Member is not active'}
+
+        # Check if we should send (unless forced)
+        if not force:
+            if not self.should_send_reengagement_email(member_id):
+                return {'success': False, 'error': 'Re-engagement email not due (cooldown or not inactive enough)'}
+
+        # Get tenant info
+        tenant = Tenant.query.get(self.tenant_id)
+        if not tenant:
+            return {'success': False, 'error': 'Tenant not found'}
+
+        # Get inactivity data
+        inactivity_data = None
+        config = self.get_inactive_reengagement_config()
+
+        for data in self.get_inactive_members_for_reengagement(inactive_days=config['inactive_days']):
+            if data['member']['id'] == member_id:
+                inactivity_data = data
+                break
+
+        if not inactivity_data:
+            return {'success': False, 'error': 'Member is not inactive enough for re-engagement'}
+
+        # Determine incentive
+        incentive = custom_incentive or {
+            'type': config['incentive_type'],
+            'amount': config['incentive_amount'],
+        }
+
+        # Format incentive for email
+        if incentive['type'] == 'points':
+            incentive_text = f"{incentive['amount']} bonus points"
+        elif incentive['type'] == 'credit':
+            incentive_text = f"${incentive['amount']:.2f} store credit"
+        elif incentive['type'] == 'discount':
+            incentive_text = f"{incentive['amount']}% off your next purchase"
+        else:
+            incentive_text = "a special reward"
+
+        # Format missed opportunities
+        missed_items = inactivity_data.get('missed_opportunities', {}).get('summary_items', [])
+        missed_text = '\n'.join([f"- {item}" for item in missed_items]) if missed_items else ''
+
+        # Build email data
+        email_data = {
+            'member_name': member.name or member.email.split('@')[0],
+            'days_inactive': inactivity_data['days_inactive'],
+            'points_balance': inactivity_data['points_balance'],
+            'tier_name': inactivity_data['tier_name'],
+            'incentive_text': incentive_text,
+            'missed_opportunities': missed_text,
+            'shop_name': tenant.shop_name or tenant.shop_domain.split('.')[0].title(),
+            'shop_url': f"https://{tenant.shop_domain}",
+        }
+
+        # Send email
+        result = email_service.send_template_email(
+            template_key='inactive_reengagement',
+            tenant_id=self.tenant_id,
+            to_email=member.email,
+            to_name=member.name or '',
+            data=email_data,
+            from_name=email_data['shop_name'],
+        )
+
+        # Record the nudge sent
+        if result.get('success'):
+            NudgeSent.record_sent(
+                tenant_id=self.tenant_id,
+                member_id=member_id,
+                nudge_type=NudgeType.INACTIVE_MEMBER.value,
+                context_data={
+                    'days_inactive': inactivity_data['days_inactive'],
+                    'points_balance': inactivity_data['points_balance'],
+                    'tier_name': inactivity_data['tier_name'],
+                    'incentive_type': incentive['type'],
+                    'incentive_amount': incentive['amount'],
+                },
+                delivery_method='email',
+            )
+            logger.info(f"Re-engagement email sent to member {member_id} "
+                       f"(inactive {inactivity_data['days_inactive']} days)")
+        else:
+            logger.warning(f"Failed to send re-engagement email to member {member_id}: "
+                          f"{result.get('error', 'Unknown error')}")
+
+        return {
+            'success': result.get('success', False),
+            'member_id': member_id,
+            'days_inactive': inactivity_data['days_inactive'],
+            'incentive': incentive,
+            'email_sent': result.get('success', False),
+            'error': result.get('error'),
+        }
+
+    def process_reengagement_emails(
+        self,
+        inactive_days: Optional[int] = None,
+        max_emails: int = 50
+    ) -> Dict[str, Any]:
+        """
+        Process and send re-engagement emails to all eligible inactive members.
+
+        Args:
+            inactive_days: Override inactivity threshold (uses config if not provided)
+            max_emails: Maximum emails to send in one batch
+
+        Returns:
+            Dict with count of emails sent and any errors
+        """
+        config = self.get_inactive_reengagement_config()
+
+        if not config['enabled']:
+            return {'success': False, 'error': 'Inactive re-engagement nudge is disabled'}
+
+        # Use config threshold or provided value
+        if inactive_days is None:
+            inactive_days = config['inactive_days']
+
+        # Get inactive members
+        inactive_members = self.get_inactive_members_for_reengagement(
+            inactive_days=inactive_days
+        )
+
+        results = {
+            'success': True,
+            'total_eligible': len(inactive_members),
+            'emails_sent': 0,
+            'skipped': 0,
+            'errors': [],
+        }
+
+        emails_sent = 0
+        for data in inactive_members:
+            if emails_sent >= max_emails:
+                break
+
+            member_id = data['member']['id']
+
+            # Check cooldown
+            if NudgeSent.was_recently_sent(
+                tenant_id=self.tenant_id,
+                member_id=member_id,
+                nudge_type=NudgeType.INACTIVE_MEMBER.value,
+                cooldown_days=config['frequency_days']
+            ):
+                results['skipped'] += 1
+                continue
+
+            # Send email
+            result = self.send_reengagement_email(member_id, force=True)
+
+            if result.get('success'):
+                results['emails_sent'] += 1
+                emails_sent += 1
+            else:
+                results['errors'].append({
+                    'member_id': member_id,
+                    'error': result.get('error'),
+                })
+
+        return results
+
+    def get_reengagement_stats(self, days: int = 30) -> Dict[str, Any]:
+        """
+        Get statistics about re-engagement nudge effectiveness.
+
+        Tracks:
+        - Total sent
+        - Open rate
+        - Click rate (response rate)
+        - Members who became active after receiving email
+
+        Args:
+            days: Number of days to analyze
+
+        Returns:
+            Dict with re-engagement statistics
+        """
+        from sqlalchemy import func
+
+        cutoff = datetime.utcnow() - timedelta(days=days)
+
+        # Get all re-engagement nudges sent in the period
+        nudges = NudgeSent.query.filter(
+            NudgeSent.tenant_id == self.tenant_id,
+            NudgeSent.nudge_type == NudgeType.INACTIVE_MEMBER.value,
+            NudgeSent.sent_at >= cutoff
+        ).all()
+
+        total_sent = len(nudges)
+        opened = sum(1 for n in nudges if n.opened_at)
+        clicked = sum(1 for n in nudges if n.clicked_at)
+
+        # Check how many members became active after receiving the email
+        reactivated = 0
+        for nudge in nudges:
+            member = Member.query.get(nudge.member_id)
+            if member and member.updated_at and nudge.sent_at:
+                # Check if member had activity after the nudge was sent
+                if member.updated_at > nudge.sent_at:
+                    reactivated += 1
+
+        return {
+            'period_days': days,
+            'total_sent': total_sent,
+            'opened': opened,
+            'clicked': clicked,
+            'reactivated': reactivated,
+            'open_rate': round(opened / total_sent * 100, 1) if total_sent > 0 else 0,
+            'click_rate': round(clicked / total_sent * 100, 1) if total_sent > 0 else 0,
+            'response_rate': round(reactivated / total_sent * 100, 1) if total_sent > 0 else 0,
+        }
+
+    def get_reengagement_history(
+        self,
+        member_id: Optional[int] = None,
+        days: int = 30
+    ) -> List[Dict[str, Any]]:
+        """
+        Get history of re-engagement emails sent.
+
+        Args:
+            member_id: Filter to specific member (optional)
+            days: Number of days to look back
+
+        Returns:
+            List of nudge sent records
+        """
+        if member_id:
+            nudges = NudgeSent.get_member_nudge_history(
+                tenant_id=self.tenant_id,
+                member_id=member_id,
+                nudge_type=NudgeType.INACTIVE_MEMBER.value,
+                limit=100
+            )
+        else:
+            nudges = NudgeSent.get_recent_nudges_for_tenant(
+                tenant_id=self.tenant_id,
+                nudge_type=NudgeType.INACTIVE_MEMBER.value,
+                days=days,
+                limit=100
+            )
+
+        return [n.to_dict() for n in nudges]
+
+    def update_inactive_reengagement_config(
+        self,
+        enabled: Optional[bool] = None,
+        inactive_days: Optional[int] = None,
+        frequency_days: Optional[int] = None,
+        incentive_type: Optional[str] = None,
+        incentive_amount: Optional[float] = None
+    ) -> Dict[str, Any]:
+        """
+        Update the inactive re-engagement nudge configuration.
+
+        Args:
+            enabled: Enable/disable the nudge
+            inactive_days: Days of inactivity threshold
+            frequency_days: Cooldown days between re-engagement emails
+            incentive_type: Type of incentive (points, credit, discount)
+            incentive_amount: Amount of incentive
+
+        Returns:
+            Dict with updated configuration
+        """
+        config = NudgeConfig.get_by_type(self.tenant_id, NudgeType.INACTIVE_REMINDER.value)
+
+        if not config:
+            return {'success': False, 'error': 'Inactive re-engagement nudge config not found'}
+
+        if enabled is not None:
+            config.is_enabled = enabled
+
+        if frequency_days is not None:
+            config.frequency_days = frequency_days
+
+        # Update config_options
+        if not config.config_options:
+            config.config_options = {}
+
+        if inactive_days is not None:
+            config.config_options['inactive_days'] = inactive_days
+
+        if incentive_type is not None:
+            if incentive_type not in ['points', 'credit', 'discount']:
+                return {'success': False, 'error': 'Invalid incentive type. Must be: points, credit, or discount'}
+            config.config_options['incentive_type'] = incentive_type
+
+        if incentive_amount is not None:
+            if incentive_amount <= 0:
+                return {'success': False, 'error': 'Incentive amount must be positive'}
+            config.config_options['incentive_amount'] = incentive_amount
+
+        config.updated_at = datetime.utcnow()
+        db.session.commit()
+
+        return {
+            'success': True,
+            'config': config.to_dict(),
+        }
+
+    def track_reengagement_response(
+        self,
+        member_id: int,
+        action: str = 'clicked'
+    ) -> Dict[str, Any]:
+        """
+        Track when an inactive member responds to a re-engagement email.
+
+        Args:
+            member_id: The member who responded
+            action: The action taken ('opened', 'clicked')
+
+        Returns:
+            Dict with success status
+        """
+        # Find the most recent re-engagement nudge for this member
+        nudge = NudgeSent.query.filter(
+            NudgeSent.tenant_id == self.tenant_id,
+            NudgeSent.member_id == member_id,
+            NudgeSent.nudge_type == NudgeType.INACTIVE_MEMBER.value
+        ).order_by(NudgeSent.sent_at.desc()).first()
+
+        if not nudge:
+            return {'success': False, 'error': 'No re-engagement email found for this member'}
+
+        if action == 'opened':
+            nudge.mark_opened()
+        elif action == 'clicked':
+            nudge.mark_clicked()
+        else:
+            return {'success': False, 'error': f'Invalid action: {action}'}
+
+        return {
+            'success': True,
+            'nudge_id': nudge.id,
+            'action': action,
+            'tracked_at': datetime.utcnow().isoformat(),
+        }

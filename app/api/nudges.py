@@ -262,3 +262,197 @@ def get_tier_progress_history():
         'history': history,
         'count': len(history),
     })
+
+
+# ==================== Inactive Member Re-engagement Endpoints ====================
+
+
+@nudges_bp.route('/reengagement', methods=['GET'])
+@require_shopify_auth
+def get_inactive_members_for_reengagement():
+    """
+    Get members who are inactive and eligible for re-engagement.
+
+    Query params:
+        days: int - Inactivity threshold in days (default: from config)
+    """
+    days = request.args.get('days', type=int)
+    service = get_service()
+    members = service.get_inactive_members_for_reengagement(inactive_days=days)
+
+    return jsonify({
+        'success': True,
+        'members': members,
+        'count': len(members),
+    })
+
+
+@nudges_bp.route('/reengagement/config', methods=['GET'])
+@require_shopify_auth
+def get_reengagement_config():
+    """Get inactive re-engagement nudge configuration."""
+    service = get_service()
+    config = service.get_inactive_reengagement_config()
+
+    return jsonify({
+        'success': True,
+        'config': config,
+    })
+
+
+@nudges_bp.route('/reengagement/config', methods=['PUT'])
+@require_shopify_auth
+def update_reengagement_config():
+    """
+    Update inactive re-engagement nudge configuration.
+
+    Body:
+        enabled: bool - Enable/disable the nudge
+        inactive_days: int - Days of inactivity threshold
+        frequency_days: int - Cooldown days between emails
+        incentive_type: str - Type of incentive (points, credit, discount)
+        incentive_amount: float - Amount of incentive
+    """
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+
+    service = get_service()
+    result = service.update_inactive_reengagement_config(
+        enabled=data.get('enabled'),
+        inactive_days=data.get('inactive_days'),
+        frequency_days=data.get('frequency_days'),
+        incentive_type=data.get('incentive_type'),
+        incentive_amount=data.get('incentive_amount'),
+    )
+
+    if not result.get('success'):
+        return jsonify(result), 400
+
+    return jsonify(result)
+
+
+@nudges_bp.route('/reengagement/send/<int:member_id>', methods=['POST'])
+@require_shopify_auth
+def send_reengagement_email(member_id):
+    """
+    Send re-engagement email to a specific inactive member.
+
+    Query params:
+        force: bool - Skip cooldown check (default: False)
+
+    Body (optional):
+        incentive_type: str - Override incentive type
+        incentive_amount: float - Override incentive amount
+    """
+    force = request.args.get('force', 'false').lower() == 'true'
+
+    # Check for custom incentive in body
+    custom_incentive = None
+    data = request.get_json(silent=True)
+    if data and ('incentive_type' in data or 'incentive_amount' in data):
+        custom_incentive = {
+            'type': data.get('incentive_type', 'points'),
+            'amount': data.get('incentive_amount', 50),
+        }
+
+    service = get_service()
+    result = service.send_reengagement_email(
+        member_id,
+        force=force,
+        custom_incentive=custom_incentive
+    )
+
+    if not result.get('success'):
+        return jsonify(result), 400
+
+    return jsonify(result)
+
+
+@nudges_bp.route('/reengagement/process', methods=['POST'])
+@require_shopify_auth
+def process_reengagement_emails():
+    """
+    Process and send re-engagement emails to all eligible inactive members.
+
+    Query params:
+        days: int - Inactivity threshold (uses config if not provided)
+        max_emails: int - Maximum emails to send (default: 50)
+    """
+    days = request.args.get('days', type=int)
+    max_emails = request.args.get('max_emails', 50, type=int)
+
+    service = get_service()
+    result = service.process_reengagement_emails(
+        inactive_days=days,
+        max_emails=max_emails
+    )
+
+    return jsonify(result)
+
+
+@nudges_bp.route('/reengagement/stats', methods=['GET'])
+@require_shopify_auth
+def get_reengagement_stats():
+    """
+    Get re-engagement nudge effectiveness statistics.
+
+    Query params:
+        days: int - Days to analyze (default: 30)
+    """
+    days = request.args.get('days', 30, type=int)
+    service = get_service()
+    stats = service.get_reengagement_stats(days=days)
+
+    return jsonify({
+        'success': True,
+        'stats': stats,
+    })
+
+
+@nudges_bp.route('/reengagement/history', methods=['GET'])
+@require_shopify_auth
+def get_reengagement_history():
+    """
+    Get re-engagement email history.
+
+    Query params:
+        member_id: int - Filter to specific member (optional)
+        days: int - Days to look back (default: 30)
+    """
+    member_id = request.args.get('member_id', type=int)
+    days = request.args.get('days', 30, type=int)
+    service = get_service()
+    history = service.get_reengagement_history(member_id=member_id, days=days)
+
+    return jsonify({
+        'success': True,
+        'history': history,
+        'count': len(history),
+    })
+
+
+@nudges_bp.route('/reengagement/track/<int:member_id>', methods=['POST'])
+@require_shopify_auth
+def track_reengagement_response(member_id):
+    """
+    Track when an inactive member responds to a re-engagement email.
+
+    Body:
+        action: str - The action taken ('opened' or 'clicked')
+    """
+    data = request.get_json()
+    if not data or 'action' not in data:
+        return jsonify({'error': 'Action is required'}), 400
+
+    action = data['action']
+    if action not in ['opened', 'clicked']:
+        return jsonify({'error': 'Invalid action. Must be: opened or clicked'}), 400
+
+    service = get_service()
+    result = service.track_reengagement_response(member_id, action=action)
+
+    if not result.get('success'):
+        return jsonify(result), 400
+
+    return jsonify(result)

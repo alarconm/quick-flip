@@ -401,6 +401,38 @@ The {{shop_name}} Team
             ''',
             'category': 'nudge',
         },
+        'inactive_reengagement': {
+            'name': 'Inactive Member Re-engagement',
+            'subject': 'We miss you, {{member_name}}! Here\'s {{incentive_text}} to welcome you back',
+            'body': '''
+Hi {{member_name}},
+
+We've noticed it's been a while since we've seen you at {{shop_name}} - **{{days_inactive}} days** to be exact! We miss having you around.
+
+**Your Account Status:**
+- Points Balance: **{{points_balance}} points** (ready to use!)
+- Current Tier: **{{tier_name}}**
+
+{{#if missed_opportunities}}
+**Here's what you've been missing:**
+{{missed_opportunities}}
+{{/if}}
+
+**Come back and get {{incentive_text}}!**
+
+We'd love to welcome you back with a special reward. Visit {{shop_name}} today and we'll make it worth your while.
+
+**[Shop Now & Claim Your Reward]({{shop_url}})**
+
+Your points are waiting for you, and we've got some exciting new items we think you'll love!
+
+Best,
+The {{shop_name}} Team
+
+P.S. Your {{points_balance}} points are still available - don't let them go to waste!
+            ''',
+            'category': 'nudge',
+        },
     }
 
     def __init__(self):

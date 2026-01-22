@@ -2157,3 +2157,99 @@ Date: 2026-01-22
 - [x] Configurable percentage threshold (update_tier_progress_config method)
 - [x] Don't send if already at highest tier (highest tier members excluded from results)
 
+
+---
+
+## Story: NR-004 - Implement inactive member re-engagement
+Date: 2026-01-22
+
+### What I Did
+- Added comprehensive inactive member re-engagement functionality to NudgesService:
+  - get_inactive_reengagement_config() - Get re-engagement nudge configuration
+  - get_inactive_members_for_reengagement() - Find members inactive for 30+ days
+  - _calculate_missed_opportunities() - Calculate what member missed during inactivity
+  - should_send_reengagement_email() - Check if email should be sent
+  - send_reengagement_email() - Send re-engagement email with incentive
+  - process_reengagement_emails() - Batch process all eligible inactive members
+  - get_reengagement_stats() - Get effectiveness statistics (response rate tracking)
+  - get_reengagement_history() - Get history of sent re-engagement emails
+  - update_inactive_reengagement_config() - Update configuration settings
+  - track_reengagement_response() - Track when members open/click emails
+- Added inactive_reengagement email template to EmailService.DEFAULT_TEMPLATES:
+  - Shows days inactive and points balance
+  - Displays what they're missing (potential points, credits, promotions)
+  - Offers configurable incentive (points, credit, or discount)
+  - Includes compelling call-to-action
+- Added API endpoints to nudges.py:
+  - GET /api/nudges/reengagement - Get inactive members eligible for re-engagement
+  - GET /api/nudges/reengagement/config - Get re-engagement configuration
+  - PUT /api/nudges/reengagement/config - Update configuration
+  - POST /api/nudges/reengagement/send/<member_id> - Send to specific member
+  - POST /api/nudges/reengagement/process - Batch process all eligible members
+  - GET /api/nudges/reengagement/stats - Get effectiveness statistics (response rate)
+  - GET /api/nudges/reengagement/history - Get email history
+  - POST /api/nudges/reengagement/track/<member_id> - Track response (opened/clicked)
+
+### Files Changed
+- app/services/nudges_service.py (added ~450 lines for inactive re-engagement features)
+- app/services/email_service.py (added inactive_reengagement email template)
+- app/api/nudges.py (added 8 new API endpoints)
+- progress.txt (updated)
+
+### Inactive Detection Logic
+- Members with updated_at older than inactive_days threshold (default: 30 days)
+- Only active status members are considered
+- Sorted by days inactive (longest first)
+- Calculates missed opportunities (potential points, credits, promotions)
+
+### Email Template Variables
+| Variable | Description |
+|----------|-------------|
+| {{member_name}} | Member's name or email prefix |
+| {{days_inactive}} | Number of days since last activity |
+| {{points_balance}} | Member's current points balance |
+| {{tier_name}} | Current membership tier name |
+| {{incentive_text}} | Formatted incentive offer |
+| {{missed_opportunities}} | List of what they've been missing |
+| {{shop_name}} | Store name |
+| {{shop_url}} | Store URL |
+
+### Configuration Options
+| Option | Default | Description |
+|--------|---------|-------------|
+| inactive_days | 30 | Days threshold for inactivity |
+| frequency_days | 30 | Cooldown between emails |
+| incentive_type | points | Type: points, credit, discount |
+| incentive_amount | 50 | Amount of incentive |
+
+### API Endpoints
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| /api/nudges/reengagement | GET | Get inactive members for re-engagement |
+| /api/nudges/reengagement/config | GET | Get configuration |
+| /api/nudges/reengagement/config | PUT | Update configuration |
+| /api/nudges/reengagement/send/<id> | POST | Send to specific member |
+| /api/nudges/reengagement/process | POST | Process all eligible members |
+| /api/nudges/reengagement/stats | GET | Get effectiveness statistics |
+| /api/nudges/reengagement/history | GET | Get email history |
+| /api/nudges/reengagement/track/<id> | POST | Track response (opened/clicked) |
+
+### Response Rate Tracking
+- Stats endpoint tracks: total_sent, opened, clicked, reactivated
+- Calculates: open_rate, click_rate, response_rate (% of members who became active again)
+- track_reengagement_response() records opens/clicks using NudgeSent model
+- Reactivation detected by comparing member.updated_at to nudge.sent_at
+
+### Learnings
+- Reused existing NudgeType.INACTIVE_MEMBER enum value
+- NudgeSent model already supports opened_at, clicked_at, delivery_status for tracking
+- Incentives are configurable per tenant via config_options JSON field
+- Missed opportunities calculation encourages urgency and FOMO
+- 30-day cooldown prevents email fatigue while allowing periodic re-engagement
+
+### Verification
+- [x] Detect members inactive for 30+ days (configurable inactive_days threshold)
+- [x] Send re-engagement email with incentive (configurable type and amount)
+- [x] Show what they're missing (points_balance, tier_status, missed_opportunities)
+- [x] Configurable inactive days threshold (update_inactive_reengagement_config method)
+- [x] Track response rate (get_reengagement_stats with open_rate, click_rate, response_rate)
