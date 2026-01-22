@@ -196,7 +196,7 @@ class Member(db.Model):
             'trade_in_count': self.total_trade_ins or 0,
             'total_trade_in_value': float(self.total_trade_value or 0),
             'total_credits_issued': float(self.total_bonus_earned or 0),
-            'last_trade_in_at': None,  # TODO: Calculate from trade_in_batches if needed
+            'last_trade_in_at': self.last_trade_in_at.isoformat() if self.last_trade_in_at else None
             # Points
             'points_balance': self.points_balance or 0,
             'lifetime_points_earned': self.lifetime_points_earned or 0,

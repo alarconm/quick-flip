@@ -80,7 +80,7 @@
         "No TODO comments left in models"
       ],
       "priority": 3,
-      "passes": false
+      "passes": true
     },
     {
       "id": "CQ-007",

@@ -524,3 +524,25 @@ The SECRET_KEY validation was already properly implemented:
 - [x] Clear error message explaining the issue (RuntimeError with instructions)
 - [x] Development mode allows default key
 
+---
+
+## Story: CQ-006 - Remove TODO comments in member model
+Date: 2026-01-21
+
+### What I Did
+- Verified TODO comment about last_trade_in_at was already removed
+- Confirmed last_trade_in_at is now properly implemented as a @property
+- Verified no TODO comments exist in app/models/
+
+### Existing Implementation
+The last_trade_in_at property in app/models/member.py:163 already:
+- Calculates from trade_in_batches relationship
+- Returns most recent completed trade-in date
+- Is included in to_dict() serialization
+
+### Verification
+- [x] last_trade_in_at implemented (calculates from trade_in_batches)
+- [x] TODO comment removed (grep finds no TODO in app/models/)
+- [x] Member serialization includes correct last_trade_in_at value
+- [x] No TODO comments left in models
+
