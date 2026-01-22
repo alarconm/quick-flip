@@ -2253,3 +2253,87 @@ Date: 2026-01-22
 - [x] Show what they're missing (points_balance, tier_status, missed_opportunities)
 - [x] Configurable inactive days threshold (update_inactive_reengagement_config method)
 - [x] Track response rate (get_reengagement_stats with open_rate, click_rate, response_rate)
+
+---
+
+## Story: NR-005 - Implement trade-in reminder
+Date: 2026-01-22
+
+### What I Did
+- Added trade-in reminder detection to NudgesService:
+  - `get_trade_in_reminder_config()` - Get configuration for trade-in reminders
+  - `is_trade_ins_enabled_for_tenant()` - Check if store has trade-ins enabled
+  - `get_trade_in_rates_for_tenant()` - Get current tier bonuses for trade-ins
+  - `get_members_needing_trade_in_reminder()` - Find members with no trade-in in 60+ days
+  - `should_send_trade_in_reminder()` - Check if reminder should be sent
+  - `send_trade_in_reminder()` - Send reminder to specific member
+  - `process_trade_in_reminders()` - Batch process all eligible members
+  - `get_trade_in_reminder_stats()` - Get effectiveness statistics
+  - `get_trade_in_reminder_history()` - Get reminder history
+  - `update_trade_in_reminder_config()` - Update configuration
+- Added trade-in reminder email template to EmailService
+- Added API endpoints for trade-in reminder management
+- Updated `get_all_pending_nudges()` to include trade-in reminders
+- Updated `get_nudge_stats()` to count trade-in reminders
+- Updated `get_nudges_for_member()` to check trade-in reminders
+
+### Files Changed
+- app/services/nudges_service.py (added trade-in reminder methods)
+- app/services/email_service.py (added trade_in_reminder template)
+- app/api/nudges.py (added trade-in reminder endpoints)
+
+### Trade-In Reminder Detection Logic
+1. Check if trade-ins are enabled for the store (`settings.trade_ins.enabled`)
+2. Find members who:
+   - Are active
+   - Have done at least one trade-in before
+   - Haven't done a trade-in in 60+ days (configurable)
+3. Check cooldown period (21 days default) before sending again
+4. Send personalized email with:
+   - Days since last trade-in
+   - Tier bonus percentage (if applicable)
+   - Current credit rates/bonuses
+   - Items accepted for trade-in
+
+### Email Template Variables
+| Variable | Description |
+|----------|-------------|
+| {{member_name}} | Member's name or email prefix |
+| {{days_since_last}} | Days since last trade-in |
+| {{tier_name}} | Current membership tier |
+| {{tier_bonus}} | Tier bonus percentage |
+| {{has_tier_bonus}} | Boolean for conditional content |
+| {{credit_rates}} | Formatted list of tier bonuses |
+| {{shop_name}} | Store name |
+| {{shop_url}} | Store URL |
+
+### Configuration Options
+| Option | Default | Description |
+|--------|---------|-------------|
+| min_days_since_last | 60 | Days since last trade-in to trigger |
+| frequency_days | 21 | Cooldown between reminders |
+
+### API Endpoints
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| /api/nudges/trade-in-reminder | GET | Get members needing reminder |
+| /api/nudges/trade-in-reminder/config | GET | Get configuration |
+| /api/nudges/trade-in-reminder/config | PUT | Update configuration |
+| /api/nudges/trade-in-reminder/send/<id> | POST | Send to specific member |
+| /api/nudges/trade-in-reminder/process | POST | Process all eligible members |
+| /api/nudges/trade-in-reminder/stats | GET | Get effectiveness stats |
+| /api/nudges/trade-in-reminder/history | GET | Get reminder history |
+
+### Key Features
+- Only sends reminders if trade-ins are enabled for the store
+- Targets members who have shown interest (done at least one trade-in)
+- Shows tier-specific bonuses to incentivize membership
+- Tracks response rate (trade-ins done after reminder)
+- Configurable threshold and cooldown periods
+
+### Verification
+- [x] Detect members with no trade-in in 60+ days (configurable min_days_since_last)
+- [x] Send reminder about trade-in program benefits
+- [x] Show current credit rates/bonuses (tier bonuses displayed)
+- [x] Configurable reminder frequency (frequency_days cooldown)
+- [x] Only for stores with trade-ins enabled (is_trade_ins_enabled_for_tenant check)

@@ -456,3 +456,153 @@ def track_reengagement_response(member_id):
         return jsonify(result), 400
 
     return jsonify(result)
+
+
+# ==================== Trade-In Reminder Endpoints ====================
+
+
+@nudges_bp.route('/trade-in-reminder', methods=['GET'])
+@require_shopify_auth
+def get_members_for_trade_in_reminder():
+    """
+    Get members who haven't done a trade-in recently and qualify for a reminder.
+
+    Query params:
+        days: int - Minimum days since last trade-in (default: from config, typically 60)
+    """
+    days = request.args.get('days', type=int)
+    service = get_service()
+    members = service.get_members_needing_trade_in_reminder(min_days_since_last=days)
+
+    return jsonify({
+        'success': True,
+        'members': members,
+        'count': len(members),
+        'trade_ins_enabled': service.is_trade_ins_enabled_for_tenant(),
+    })
+
+
+@nudges_bp.route('/trade-in-reminder/config', methods=['GET'])
+@require_shopify_auth
+def get_trade_in_reminder_config():
+    """Get trade-in reminder nudge configuration."""
+    service = get_service()
+    config = service.get_trade_in_reminder_config()
+    rates = service.get_trade_in_rates_for_tenant()
+
+    return jsonify({
+        'success': True,
+        'config': config,
+        'credit_rates': rates,
+        'trade_ins_enabled': service.is_trade_ins_enabled_for_tenant(),
+    })
+
+
+@nudges_bp.route('/trade-in-reminder/config', methods=['PUT'])
+@require_shopify_auth
+def update_trade_in_reminder_config():
+    """
+    Update trade-in reminder nudge configuration.
+
+    Body:
+        enabled: bool - Enable/disable the nudge
+        min_days_since_last: int - Days since last trade-in to trigger reminder
+        frequency_days: int - Cooldown days between reminders
+    """
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+
+    service = get_service()
+    result = service.update_trade_in_reminder_config(
+        enabled=data.get('enabled'),
+        min_days_since_last=data.get('min_days_since_last'),
+        frequency_days=data.get('frequency_days'),
+    )
+
+    if not result.get('success'):
+        return jsonify(result), 400
+
+    return jsonify(result)
+
+
+@nudges_bp.route('/trade-in-reminder/send/<int:member_id>', methods=['POST'])
+@require_shopify_auth
+def send_trade_in_reminder(member_id):
+    """
+    Send trade-in reminder to a specific member.
+
+    Query params:
+        force: bool - Skip cooldown check (default: False)
+    """
+    force = request.args.get('force', 'false').lower() == 'true'
+    service = get_service()
+    result = service.send_trade_in_reminder(member_id, force=force)
+
+    if not result.get('success'):
+        return jsonify(result), 400
+
+    return jsonify(result)
+
+
+@nudges_bp.route('/trade-in-reminder/process', methods=['POST'])
+@require_shopify_auth
+def process_trade_in_reminders():
+    """
+    Process and send trade-in reminders to all eligible members.
+
+    Query params:
+        days: int - Minimum days since last trade-in (uses config if not provided)
+        max_emails: int - Maximum emails to send (default: 50)
+    """
+    days = request.args.get('days', type=int)
+    max_emails = request.args.get('max_emails', 50, type=int)
+
+    service = get_service()
+    result = service.process_trade_in_reminders(
+        min_days_since_last=days,
+        max_emails=max_emails
+    )
+
+    return jsonify(result)
+
+
+@nudges_bp.route('/trade-in-reminder/stats', methods=['GET'])
+@require_shopify_auth
+def get_trade_in_reminder_stats():
+    """
+    Get trade-in reminder effectiveness statistics.
+
+    Query params:
+        days: int - Days to analyze (default: 30)
+    """
+    days = request.args.get('days', 30, type=int)
+    service = get_service()
+    stats = service.get_trade_in_reminder_stats(days=days)
+
+    return jsonify({
+        'success': True,
+        'stats': stats,
+    })
+
+
+@nudges_bp.route('/trade-in-reminder/history', methods=['GET'])
+@require_shopify_auth
+def get_trade_in_reminder_history():
+    """
+    Get trade-in reminder history.
+
+    Query params:
+        member_id: int - Filter to specific member (optional)
+        days: int - Days to look back (default: 30)
+    """
+    member_id = request.args.get('member_id', type=int)
+    days = request.args.get('days', 30, type=int)
+    service = get_service()
+    history = service.get_trade_in_reminder_history(member_id=member_id, days=days)
+
+    return jsonify({
+        'success': True,
+        'history': history,
+        'count': len(history),
+    })

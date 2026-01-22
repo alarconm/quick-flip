@@ -433,6 +433,45 @@ P.S. Your {{points_balance}} points are still available - don't let them go to w
             ''',
             'category': 'nudge',
         },
+        'trade_in_reminder': {
+            'name': 'Trade-In Reminder',
+            'subject': 'Have items to trade in? {{shop_name}} is ready for your next trade-in!',
+            'body': '''
+Hi {{member_name}},
+
+It's been **{{days_since_last}} days** since your last trade-in at {{shop_name}}. We wanted to remind you about our trade-in program - a great way to turn your unused items into store credit!
+
+**Why Trade In With Us?**
+- Get instant store credit for your items
+- Fair pricing based on current market values
+- Quick and easy process
+
+{{#if has_tier_bonus}}
+**As a {{tier_name}} member, you get an extra {{tier_bonus}}% bonus on all trade-ins!**
+{{/if}}
+
+{{#if credit_rates}}
+**Current Tier Bonuses:**
+{{credit_rates}}
+{{/if}}
+
+**Items We Accept:**
+- Sports cards (baseball, basketball, football, hockey)
+- Pokemon cards
+- Magic: The Gathering cards
+- Other trading card games
+
+Bring in your items today and see what they're worth. Our team is ready to help!
+
+**[Start Your Trade-In]({{shop_url}})**
+
+Best,
+The {{shop_name}} Team
+
+P.S. Not sure what your cards are worth? Stop by and we'll give you a free evaluation!
+            ''',
+            'category': 'nudge',
+        },
     }
 
     def __init__(self):

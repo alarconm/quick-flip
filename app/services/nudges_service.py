@@ -280,6 +280,13 @@ class NudgesService:
             'points_milestones': self.get_members_at_points_milestone(),
         }
 
+        # Add trade-in reminders only if trade-ins are enabled
+        if self.is_trade_ins_enabled_for_tenant():
+            trade_in_reminder_days = settings.get('trade_in_reminder_days', 60)
+            nudges['trade_in_reminders'] = self.get_members_needing_trade_in_reminder(
+                min_days_since_last=trade_in_reminder_days
+            )
+
         return {
             'success': True,
             'nudges': nudges,
@@ -293,15 +300,18 @@ class NudgesService:
         if 'error' in nudges:
             return nudges
 
+        stats = {
+            'points_expiring': len(nudges['nudges'].get('points_expiring', [])),
+            'tier_upgrade_near': len(nudges['nudges'].get('tier_upgrade_near', [])),
+            'inactive_members': len(nudges['nudges'].get('inactive_members', [])),
+            'points_milestones': len(nudges['nudges'].get('points_milestones', [])),
+            'trade_in_reminders': len(nudges['nudges'].get('trade_in_reminders', [])),
+            'total': nudges.get('total_count', 0),
+        }
+
         return {
             'success': True,
-            'stats': {
-                'points_expiring': len(nudges['nudges'].get('points_expiring', [])),
-                'tier_upgrade_near': len(nudges['nudges'].get('tier_upgrade_near', [])),
-                'inactive_members': len(nudges['nudges'].get('inactive_members', [])),
-                'points_milestones': len(nudges['nudges'].get('points_milestones', [])),
-                'total': nudges.get('total_count', 0),
-            },
+            'stats': stats,
         }
 
     def get_nudges_for_member(self, member_id: int) -> List[Dict[str, Any]]:
@@ -333,6 +343,13 @@ class NudgesService:
         for n in inactive:
             if n['member']['id'] == member_id:
                 nudges.append(n)
+
+        # Check trade-in reminder (only if trade-ins enabled)
+        if self.is_trade_ins_enabled_for_tenant():
+            trade_in_reminders = self.get_members_needing_trade_in_reminder()
+            for n in trade_in_reminders:
+                if n['member']['id'] == member_id:
+                    nudges.append(n)
 
         return nudges
 
@@ -1687,4 +1704,543 @@ class NudgesService:
             'nudge_id': nudge.id,
             'action': action,
             'tracked_at': datetime.utcnow().isoformat(),
+        }
+
+    # ==================== Trade-In Reminder Methods ====================
+
+    def get_trade_in_reminder_config(self) -> Dict[str, Any]:
+        """
+        Get configuration for trade-in reminder nudges.
+
+        Returns:
+            Dict with: enabled, min_days_since_last (threshold), frequency_days (cooldown)
+        """
+        config = self.get_nudge_config(NudgeType.TRADE_IN_REMINDER.value)
+
+        if config:
+            return {
+                'enabled': config.is_enabled,
+                'min_days_since_last': config.config_options.get('min_days_since_last', 60),
+                'frequency_days': config.frequency_days,
+                'message_template': config.message_template,
+            }
+
+        # Fall back to defaults
+        settings = self.get_nudge_settings()
+        return {
+            'enabled': settings.get('enabled', True),
+            'min_days_since_last': settings.get('trade_in_reminder_days', 60),
+            'frequency_days': 21,  # Default cooldown: 3 weeks
+            'message_template': None,
+        }
+
+    def is_trade_ins_enabled_for_tenant(self) -> bool:
+        """
+        Check if trade-ins are enabled for the tenant.
+
+        Returns:
+            True if trade-ins are enabled, False otherwise
+        """
+        from app.models.tenant import Tenant
+        from app.utils.settings_defaults import get_settings_with_defaults
+
+        tenant = Tenant.query.get(self.tenant_id)
+        if not tenant:
+            return False
+
+        settings = get_settings_with_defaults(tenant.settings or {})
+        return settings.get('trade_ins', {}).get('enabled', True)
+
+    def get_trade_in_rates_for_tenant(self) -> Dict[str, Any]:
+        """
+        Get current trade-in credit rates and bonuses for the tenant.
+
+        Returns:
+            Dict with credit rate info and any active bonuses
+        """
+        from app.models.member import MembershipTier
+
+        rates = {
+            'base_rate': '100%',  # Base trade-in value
+            'tier_bonuses': [],
+            'active_promotions': [],
+        }
+
+        # Get tier bonuses
+        tiers = MembershipTier.query.filter_by(
+            tenant_id=self.tenant_id,
+            is_active=True
+        ).order_by(MembershipTier.bonus_rate.asc()).all()
+
+        for tier in tiers:
+            if tier.bonus_rate and float(tier.bonus_rate) > 0:
+                bonus_pct = round(float(tier.bonus_rate) * 100, 1)
+                rates['tier_bonuses'].append({
+                    'tier_name': tier.name,
+                    'bonus_percent': bonus_pct,
+                    'description': f"{tier.name} members: +{bonus_pct}% bonus on trade-ins",
+                })
+
+        return rates
+
+    def get_members_needing_trade_in_reminder(
+        self,
+        min_days_since_last: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Get members who haven't done a trade-in in a while and may benefit from a reminder.
+
+        Identifies members who:
+        1. Are active
+        2. Have done at least one trade-in before (showing interest in the program)
+        3. Haven't done a trade-in in min_days_since_last days (default: 60)
+
+        Args:
+            min_days_since_last: Minimum days since last trade-in to qualify (default: from config)
+
+        Returns:
+            List of dicts with member info and last trade-in details
+        """
+        from app.models.trade_in import TradeInBatch
+
+        # Check if trade-ins are enabled for this tenant
+        if not self.is_trade_ins_enabled_for_tenant():
+            return []
+
+        config = self.get_trade_in_reminder_config()
+        if min_days_since_last is None:
+            min_days_since_last = config['min_days_since_last']
+
+        cutoff_date = datetime.utcnow() - timedelta(days=min_days_since_last)
+
+        # Get all active members with their most recent trade-in
+        members = Member.query.filter_by(
+            tenant_id=self.tenant_id,
+            status='active'
+        ).all()
+
+        results = []
+        for member in members:
+            # Find this member's most recent trade-in
+            last_trade_in = TradeInBatch.query.filter(
+                TradeInBatch.tenant_id == self.tenant_id,
+                TradeInBatch.member_id == member.id,
+                TradeInBatch.status.in_(['completed', 'listed', 'pending'])
+            ).order_by(TradeInBatch.trade_in_date.desc()).first()
+
+            # Only include members who have done at least one trade-in
+            if not last_trade_in:
+                continue
+
+            # Check if the last trade-in is old enough
+            if last_trade_in.trade_in_date >= cutoff_date:
+                continue  # Too recent, skip
+
+            days_since_last = (datetime.utcnow() - last_trade_in.trade_in_date).days
+
+            # Get trade-in stats for this member
+            trade_in_count = TradeInBatch.query.filter(
+                TradeInBatch.tenant_id == self.tenant_id,
+                TradeInBatch.member_id == member.id,
+                TradeInBatch.status == 'completed'
+            ).count()
+
+            total_value = db.session.query(
+                db.func.sum(TradeInBatch.total_trade_value)
+            ).filter(
+                TradeInBatch.tenant_id == self.tenant_id,
+                TradeInBatch.member_id == member.id,
+                TradeInBatch.status == 'completed'
+            ).scalar() or 0
+
+            results.append({
+                'member': member.to_dict(),
+                'days_since_last_trade_in': days_since_last,
+                'last_trade_in_date': last_trade_in.trade_in_date.isoformat(),
+                'last_trade_in_value': float(last_trade_in.total_trade_value),
+                'total_trade_ins': trade_in_count,
+                'lifetime_trade_in_value': float(total_value),
+                'tier_name': member.tier.name if member.tier else 'Member',
+                'tier_bonus': float(member.tier.bonus_rate * 100) if member.tier and member.tier.bonus_rate else 0,
+                'nudge_type': NudgeType.TRADE_IN_REMINDER.value,
+            })
+
+        # Sort by days since last trade-in (longest first)
+        results.sort(key=lambda x: x['days_since_last_trade_in'], reverse=True)
+        return results
+
+    def should_send_trade_in_reminder(
+        self,
+        member_id: int,
+        cooldown_days: Optional[int] = None
+    ) -> bool:
+        """
+        Check if a trade-in reminder should be sent to this member.
+
+        Checks:
+        1. Trade-ins are enabled for the tenant
+        2. Nudge type is enabled
+        3. Member qualifies (hasn't traded in recently)
+        4. No reminder was sent within the cooldown period
+
+        Args:
+            member_id: The member ID
+            cooldown_days: Override cooldown period (uses config default if not provided)
+
+        Returns:
+            True if reminder should be sent, False otherwise
+        """
+        # Check if trade-ins are enabled
+        if not self.is_trade_ins_enabled_for_tenant():
+            return False
+
+        config = self.get_trade_in_reminder_config()
+
+        # Check if nudge is enabled
+        if not config['enabled']:
+            return False
+
+        # Use config cooldown if not overridden
+        if cooldown_days is None:
+            cooldown_days = config['frequency_days']
+
+        # Check if recently sent
+        if NudgeSent.was_recently_sent(
+            tenant_id=self.tenant_id,
+            member_id=member_id,
+            nudge_type=NudgeType.TRADE_IN_REMINDER.value,
+            cooldown_days=cooldown_days
+        ):
+            return False
+
+        # Check if member qualifies for reminder
+        qualifying_members = self.get_members_needing_trade_in_reminder(
+            min_days_since_last=config['min_days_since_last']
+        )
+        for data in qualifying_members:
+            if data['member']['id'] == member_id:
+                return True
+
+        return False
+
+    def send_trade_in_reminder(
+        self,
+        member_id: int,
+        force: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Send a trade-in reminder to a specific member.
+
+        Args:
+            member_id: The member to send reminder to
+            force: Skip cooldown check if True
+
+        Returns:
+            Dict with success status and details
+        """
+        from app.models.tenant import Tenant
+        from app.services.email_service import email_service
+
+        # Check if trade-ins are enabled
+        if not self.is_trade_ins_enabled_for_tenant():
+            return {'success': False, 'error': 'Trade-ins are not enabled for this store'}
+
+        member = Member.query.filter_by(
+            id=member_id,
+            tenant_id=self.tenant_id
+        ).first()
+
+        if not member:
+            return {'success': False, 'error': 'Member not found'}
+
+        if not member.email:
+            return {'success': False, 'error': 'Member has no email address'}
+
+        if member.status != 'active':
+            return {'success': False, 'error': 'Member is not active'}
+
+        # Check if we should send (unless forced)
+        if not force:
+            if not self.should_send_trade_in_reminder(member_id):
+                return {'success': False, 'error': 'Reminder not due (cooldown, no qualifying trade-in history, or trade-ins disabled)'}
+
+        # Get tenant info
+        tenant = Tenant.query.get(self.tenant_id)
+        if not tenant:
+            return {'success': False, 'error': 'Tenant not found'}
+
+        # Get trade-in data for this member
+        reminder_data = None
+        config = self.get_trade_in_reminder_config()
+
+        for data in self.get_members_needing_trade_in_reminder(min_days_since_last=config['min_days_since_last']):
+            if data['member']['id'] == member_id:
+                reminder_data = data
+                break
+
+        if not reminder_data and not force:
+            return {'success': False, 'error': 'Member does not qualify for trade-in reminder'}
+
+        # If forced but no data, create minimal data
+        if not reminder_data:
+            reminder_data = {
+                'days_since_last_trade_in': 0,
+                'tier_name': member.tier.name if member.tier else 'Member',
+                'tier_bonus': float(member.tier.bonus_rate * 100) if member.tier and member.tier.bonus_rate else 0,
+            }
+
+        # Get current credit rates
+        rates = self.get_trade_in_rates_for_tenant()
+
+        # Build credit rates text
+        rates_text = ''
+        if rates['tier_bonuses']:
+            rates_text = '\n'.join([f"- {b['description']}" for b in rates['tier_bonuses']])
+
+        # Build email data
+        email_data = {
+            'member_name': member.name or member.email.split('@')[0],
+            'days_since_last': reminder_data.get('days_since_last_trade_in', 0),
+            'tier_name': reminder_data.get('tier_name', 'Member'),
+            'tier_bonus': reminder_data.get('tier_bonus', 0),
+            'credit_rates': rates_text,
+            'has_tier_bonus': reminder_data.get('tier_bonus', 0) > 0,
+            'shop_name': tenant.shop_name or tenant.shop_domain.split('.')[0].title(),
+            'shop_url': f"https://{tenant.shop_domain}",
+        }
+
+        # Send email
+        result = email_service.send_template_email(
+            template_key='trade_in_reminder',
+            tenant_id=self.tenant_id,
+            to_email=member.email,
+            to_name=member.name or '',
+            data=email_data,
+            from_name=email_data['shop_name'],
+        )
+
+        # Record the nudge sent
+        if result.get('success'):
+            NudgeSent.record_sent(
+                tenant_id=self.tenant_id,
+                member_id=member_id,
+                nudge_type=NudgeType.TRADE_IN_REMINDER.value,
+                context_data={
+                    'days_since_last': reminder_data.get('days_since_last_trade_in', 0),
+                    'tier_name': reminder_data.get('tier_name'),
+                    'tier_bonus': reminder_data.get('tier_bonus', 0),
+                },
+                delivery_method='email',
+            )
+            logger.info(f"Trade-in reminder sent to member {member_id} "
+                       f"(last trade-in {reminder_data.get('days_since_last_trade_in', 'N/A')} days ago)")
+        else:
+            logger.warning(f"Failed to send trade-in reminder to member {member_id}: "
+                          f"{result.get('error', 'Unknown error')}")
+
+        return {
+            'success': result.get('success', False),
+            'member_id': member_id,
+            'days_since_last_trade_in': reminder_data.get('days_since_last_trade_in', 0),
+            'tier_bonus': reminder_data.get('tier_bonus', 0),
+            'email_sent': result.get('success', False),
+            'error': result.get('error'),
+        }
+
+    def process_trade_in_reminders(
+        self,
+        min_days_since_last: Optional[int] = None,
+        max_emails: int = 50
+    ) -> Dict[str, Any]:
+        """
+        Process and send trade-in reminders to all eligible members.
+
+        Args:
+            min_days_since_last: Override days threshold (uses config if not provided)
+            max_emails: Maximum emails to send in one batch
+
+        Returns:
+            Dict with count of reminders sent and any errors
+        """
+        # Check if trade-ins are enabled
+        if not self.is_trade_ins_enabled_for_tenant():
+            return {'success': False, 'error': 'Trade-ins are not enabled for this store'}
+
+        config = self.get_trade_in_reminder_config()
+
+        if not config['enabled']:
+            return {'success': False, 'error': 'Trade-in reminder nudge is disabled'}
+
+        # Use config threshold or provided value
+        if min_days_since_last is None:
+            min_days_since_last = config['min_days_since_last']
+
+        # Get members needing reminder
+        qualifying_members = self.get_members_needing_trade_in_reminder(
+            min_days_since_last=min_days_since_last
+        )
+
+        results = {
+            'success': True,
+            'total_eligible': len(qualifying_members),
+            'reminders_sent': 0,
+            'skipped': 0,
+            'errors': [],
+        }
+
+        emails_sent = 0
+        for data in qualifying_members:
+            if emails_sent >= max_emails:
+                break
+
+            member_id = data['member']['id']
+
+            # Check cooldown
+            if NudgeSent.was_recently_sent(
+                tenant_id=self.tenant_id,
+                member_id=member_id,
+                nudge_type=NudgeType.TRADE_IN_REMINDER.value,
+                cooldown_days=config['frequency_days']
+            ):
+                results['skipped'] += 1
+                continue
+
+            # Send reminder
+            result = self.send_trade_in_reminder(member_id, force=True)
+
+            if result.get('success'):
+                results['reminders_sent'] += 1
+                emails_sent += 1
+            else:
+                results['errors'].append({
+                    'member_id': member_id,
+                    'error': result.get('error'),
+                })
+
+        return results
+
+    def get_trade_in_reminder_stats(self, days: int = 30) -> Dict[str, Any]:
+        """
+        Get statistics about trade-in reminder effectiveness.
+
+        Args:
+            days: Number of days to analyze
+
+        Returns:
+            Dict with reminder statistics
+        """
+        cutoff = datetime.utcnow() - timedelta(days=days)
+
+        # Get all trade-in reminders sent in the period
+        nudges = NudgeSent.query.filter(
+            NudgeSent.tenant_id == self.tenant_id,
+            NudgeSent.nudge_type == NudgeType.TRADE_IN_REMINDER.value,
+            NudgeSent.sent_at >= cutoff
+        ).all()
+
+        total_sent = len(nudges)
+        opened = sum(1 for n in nudges if n.opened_at)
+        clicked = sum(1 for n in nudges if n.clicked_at)
+
+        # Check how many members did a trade-in after receiving the reminder
+        from app.models.trade_in import TradeInBatch
+
+        responded = 0
+        for nudge in nudges:
+            # Check if member did a trade-in after the nudge was sent
+            trade_in_after = TradeInBatch.query.filter(
+                TradeInBatch.tenant_id == self.tenant_id,
+                TradeInBatch.member_id == nudge.member_id,
+                TradeInBatch.trade_in_date > nudge.sent_at
+            ).first()
+
+            if trade_in_after:
+                responded += 1
+
+        return {
+            'period_days': days,
+            'total_sent': total_sent,
+            'opened': opened,
+            'clicked': clicked,
+            'trade_ins_after_reminder': responded,
+            'open_rate': round(opened / total_sent * 100, 1) if total_sent > 0 else 0,
+            'click_rate': round(clicked / total_sent * 100, 1) if total_sent > 0 else 0,
+            'response_rate': round(responded / total_sent * 100, 1) if total_sent > 0 else 0,
+        }
+
+    def get_trade_in_reminder_history(
+        self,
+        member_id: Optional[int] = None,
+        days: int = 30
+    ) -> List[Dict[str, Any]]:
+        """
+        Get history of trade-in reminders sent.
+
+        Args:
+            member_id: Filter to specific member (optional)
+            days: Number of days to look back
+
+        Returns:
+            List of nudge sent records
+        """
+        if member_id:
+            nudges = NudgeSent.get_member_nudge_history(
+                tenant_id=self.tenant_id,
+                member_id=member_id,
+                nudge_type=NudgeType.TRADE_IN_REMINDER.value,
+                limit=100
+            )
+        else:
+            nudges = NudgeSent.get_recent_nudges_for_tenant(
+                tenant_id=self.tenant_id,
+                nudge_type=NudgeType.TRADE_IN_REMINDER.value,
+                days=days,
+                limit=100
+            )
+
+        return [n.to_dict() for n in nudges]
+
+    def update_trade_in_reminder_config(
+        self,
+        enabled: Optional[bool] = None,
+        min_days_since_last: Optional[int] = None,
+        frequency_days: Optional[int] = None
+    ) -> Dict[str, Any]:
+        """
+        Update the trade-in reminder nudge configuration.
+
+        Args:
+            enabled: Enable/disable the nudge
+            min_days_since_last: Days since last trade-in to trigger reminder
+            frequency_days: Cooldown days between reminders
+
+        Returns:
+            Dict with updated configuration
+        """
+        config = NudgeConfig.get_by_type(self.tenant_id, NudgeType.TRADE_IN_REMINDER.value)
+
+        if not config:
+            return {'success': False, 'error': 'Trade-in reminder nudge config not found'}
+
+        if enabled is not None:
+            config.is_enabled = enabled
+
+        if frequency_days is not None:
+            config.frequency_days = frequency_days
+
+        # Update config_options
+        if not config.config_options:
+            config.config_options = {}
+
+        if min_days_since_last is not None:
+            if min_days_since_last < 1:
+                return {'success': False, 'error': 'min_days_since_last must be at least 1'}
+            config.config_options['min_days_since_last'] = min_days_since_last
+
+        config.updated_at = datetime.utcnow()
+        db.session.commit()
+
+        return {
+            'success': True,
+            'config': config.to_dict(),
         }
