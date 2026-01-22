@@ -945,7 +945,7 @@ def create_new_feature_tables():
     try:
         # Import all the new models to register them with SQLAlchemy
         from ..models.loyalty_page import LoyaltyPage
-        from ..models.loyalty_page_analytics import LoyaltyPageAnalytics
+        from ..models.loyalty_page_analytics import LoyaltyPageView, LoyaltyPageSignup, DailyPageStats
         from ..models.widget import Widget
         from ..models.nudge_sent import NudgeSent
         from ..models.nudge_config import NudgeConfig
@@ -961,7 +961,9 @@ def create_new_feature_tables():
             'message': 'New feature tables created successfully',
             'tables': [
                 'loyalty_pages',
-                'loyalty_page_analytics',
+                'loyalty_page_views',
+                'loyalty_page_signups',
+                'daily_page_stats',
                 'widgets',
                 'nudges_sent',
                 'nudge_configs',
