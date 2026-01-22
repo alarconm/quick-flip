@@ -2337,3 +2337,43 @@ Date: 2026-01-22
 - [x] Show current credit rates/bonuses (tier bonuses displayed)
 - [x] Configurable reminder frequency (frequency_days cooldown)
 - [x] Only for stores with trade-ins enabled (is_trade_ins_enabled_for_tenant check)
+
+---
+
+## Story: NR-006 - Create nudge settings UI in admin
+Date: 2026-01-22
+
+### What I Did
+- Added nudge settings section to admin Settings page (EmbeddedSettings.tsx)
+- Created UI to toggle each nudge type on/off
+- Added frequency configuration (days between nudges)
+- Added message preview for each nudge type
+- Added test send button that sends to store owner email
+- Added backend endpoints for configs and test send
+
+### Backend Changes
+- Added `/api/nudges/configs` GET endpoint to fetch all nudge configurations
+- Added `/api/nudges/configs/<nudge_type>` PUT endpoint to update specific nudge config
+- Added `/api/nudges/test-send` POST endpoint to send test nudge to store owner
+
+### Frontend Changes
+- Added NudgeConfig interfaces and API functions
+- Added useQuery for fetching nudge configs
+- Added useMutation for updating configs and sending test nudges
+- Added Nudges & Reminders AnnotatedSection with:
+  - Toggle switches for each nudge type (Points Expiring, Tier Progress, Inactive Re-engagement, Trade-In Reminder)
+  - Frequency configuration (days between nudges)
+  - Message preview showing the template
+  - Send Test button to verify email delivery
+- Added Test Nudge Modal for entering recipient email/name
+
+### Files Changed
+- `app/api/nudges.py` (added /configs, /configs/<type>, /test-send endpoints)
+- `frontend/src/embedded/pages/EmbeddedSettings.tsx` (added Nudges & Reminders section)
+
+### Verification
+- [x] Nudges section in Settings page
+- [x] Toggle for each nudge type
+- [x] Configuration options per nudge (frequency days)
+- [x] Preview of nudge message
+- [x] Test send button (sends to store owner)

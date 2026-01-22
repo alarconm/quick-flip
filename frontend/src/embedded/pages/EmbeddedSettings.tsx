@@ -29,7 +29,7 @@ import {
   ResourceItem,
   Icon,
 } from '@shopify/polaris';
-import { RefreshIcon, PlusIcon, EmailIcon, ClockIcon, CalendarIcon, ViewIcon, ChatIcon, StarIcon, GiftIcon } from '@shopify/polaris-icons';
+import { RefreshIcon, PlusIcon, EmailIcon, ClockIcon, CalendarIcon, ViewIcon, ChatIcon, StarIcon, GiftIcon, NotificationIcon, SendIcon } from '@shopify/polaris-icons';
 import { SaveBar, useAppBridge } from '@shopify/app-bridge-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getApiUrl, authFetch } from '../../hooks/useShopifyBridge';
@@ -452,6 +452,88 @@ interface RunTaskResponse {
   result: MonthlyCreditPreview;
 }
 
+// Nudge Configuration Types
+interface NudgeConfig {
+  id: number;
+  tenant_id: number;
+  nudge_type: string;
+  is_enabled: boolean;
+  frequency_days: number;
+  message_template: string;
+  config_options: Record<string, unknown>;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+interface NudgeConfigsResponse {
+  success: boolean;
+  configs: NudgeConfig[];
+}
+
+interface TestNudgeResponse {
+  success: boolean;
+  message?: string;
+  error?: string;
+  nudge_type?: string;
+}
+
+// Nudge type labels for display
+const NUDGE_TYPE_LABELS: Record<string, { label: string; description: string; icon: string }> = {
+  points_expiring: {
+    label: 'Points Expiring',
+    description: 'Remind members when their points are about to expire',
+    icon: 'clock',
+  },
+  tier_progress: {
+    label: 'Tier Progress',
+    description: 'Notify members when they are close to reaching the next tier',
+    icon: 'trending-up',
+  },
+  inactive_reminder: {
+    label: 'Inactive Re-engagement',
+    description: 'Re-engage members who have been inactive for a while',
+    icon: 'refresh',
+  },
+  trade_in_reminder: {
+    label: 'Trade-In Reminder',
+    description: 'Remind members to bring in items for trade-in',
+    icon: 'exchange',
+  },
+};
+
+async function fetchNudgeConfigs(shop: string | null): Promise<NudgeConfigsResponse> {
+  const response = await authFetch(`${getApiUrl()}/nudges/configs`, shop);
+  if (!response.ok) throw new Error('Failed to fetch nudge configs');
+  return response.json();
+}
+
+async function updateNudgeConfig(
+  shop: string | null,
+  nudgeType: string,
+  data: Partial<NudgeConfig>
+): Promise<{ success: boolean; config: NudgeConfig }> {
+  const response = await authFetch(`${getApiUrl()}/nudges/configs/${nudgeType}`, shop, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) throw new Error('Failed to update nudge config');
+  return response.json();
+}
+
+async function sendTestNudge(
+  shop: string | null,
+  nudgeType: string,
+  toEmail?: string,
+  toName?: string
+): Promise<TestNudgeResponse> {
+  const response = await authFetch(`${getApiUrl()}/nudges/test-send`, shop, {
+    method: 'POST',
+    body: JSON.stringify({ nudge_type: nudgeType, to_email: toEmail, to_name: toName }),
+  });
+  if (!response.ok) throw new Error('Failed to send test nudge');
+  return response.json();
+}
+
 async function fetchMonthlyCreditsPreview(shop: string | null): Promise<MonthlyCreditPreview> {
   const response = await authFetch(`${getApiUrl()}/scheduled-tasks/monthly-credits/preview`, shop);
   if (!response.ok) throw new Error('Failed to fetch preview');
@@ -699,6 +781,62 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
     queryFn: () => fetchEmailTemplates(shop),
     enabled: !!shop,
   });
+
+  // Nudge Configurations (NR-006)
+  const {
+    data: nudgeConfigsData,
+    isLoading: nudgeConfigsLoading,
+    refetch: refetchNudgeConfigs,
+  } = useQuery({
+    queryKey: ['nudge-configs', shop],
+    queryFn: () => fetchNudgeConfigs(shop),
+    enabled: !!shop,
+  });
+
+  const [nudgeTestOpen, setNudgeTestOpen] = useState(false);
+  const [selectedNudgeType, setSelectedNudgeType] = useState<string | null>(null);
+  const [nudgeTestEmail, setNudgeTestEmail] = useState('');
+  const [nudgeTestName, setNudgeTestName] = useState('');
+  const [nudgeSuccess, setNudgeSuccess] = useState('');
+  const [nudgeError, setNudgeError] = useState('');
+
+  const updateNudgeConfigMutation = useMutation({
+    mutationFn: ({ nudgeType, data }: { nudgeType: string; data: Partial<NudgeConfig> }) =>
+      updateNudgeConfig(shop, nudgeType, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['nudge-configs'] });
+      setNudgeSuccess('Nudge settings updated');
+      setTimeout(() => setNudgeSuccess(''), 3000);
+    },
+    onError: (err: Error) => {
+      setNudgeError(err.message);
+    },
+  });
+
+  const sendTestNudgeMutation = useMutation({
+    mutationFn: () => {
+      if (!selectedNudgeType) throw new Error('No nudge type selected');
+      return sendTestNudge(shop, selectedNudgeType, nudgeTestEmail || undefined, nudgeTestName || undefined);
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        setNudgeSuccess(data.message || 'Test nudge sent');
+        setNudgeTestOpen(false);
+        setNudgeTestEmail('');
+        setNudgeTestName('');
+        setTimeout(() => setNudgeSuccess(''), 5000);
+      } else {
+        setNudgeError(data.error || 'Failed to send test nudge');
+      }
+    },
+    onError: (err: Error) => setNudgeError(err.message),
+  });
+
+  const openNudgeTest = useCallback((nudgeType: string) => {
+    setSelectedNudgeType(nudgeType);
+    setNudgeError('');
+    setNudgeTestOpen(true);
+  }, []);
 
   // Review Prompt Metrics (RC-007)
   const [reviewMetricsDays, setReviewMetricsDays] = useState(30);
@@ -1575,6 +1713,184 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
                 helpText="Sender email (must be verified with SendGrid)"
                 autoComplete="email"
               />
+            </BlockStack>
+          </Card>
+        </Layout.AnnotatedSection>
+
+        {/* Nudges & Reminders (NR-006) */}
+        <Layout.AnnotatedSection
+          id="nudges"
+          title="Nudges & Reminders"
+          description="Automated messages to engage members and drive activity"
+        >
+          <Card>
+            <BlockStack gap="400">
+              {nudgeSuccess && (
+                <Banner tone="success" onDismiss={() => setNudgeSuccess('')}>
+                  <p>{nudgeSuccess}</p>
+                </Banner>
+              )}
+              {nudgeError && (
+                <Banner tone="critical" onDismiss={() => setNudgeError('')}>
+                  <p>{nudgeError}</p>
+                </Banner>
+              )}
+
+              <InlineStack align="space-between" blockAlign="center">
+                <BlockStack gap="100">
+                  <InlineStack gap="200" blockAlign="center">
+                    <Icon source={NotificationIcon} tone="base" />
+                    <Text as="h3" variant="headingMd">
+                      Engagement Nudges
+                    </Text>
+                  </InlineStack>
+                  <Text as="p" variant="bodySm" tone="subdued">
+                    Configure automated reminders to keep members engaged with your loyalty program.
+                  </Text>
+                </BlockStack>
+                <Button
+                  onClick={() => refetchNudgeConfigs()}
+                  loading={nudgeConfigsLoading}
+                  icon={RefreshIcon}
+                >
+                  Refresh
+                </Button>
+              </InlineStack>
+
+              <Divider />
+
+              {nudgeConfigsLoading ? (
+                <InlineStack align="center">
+                  <Spinner size="small" />
+                  <Text as="span" variant="bodySm" tone="subdued">Loading nudge settings...</Text>
+                </InlineStack>
+              ) : nudgeConfigsData?.configs && nudgeConfigsData.configs.length > 0 ? (
+                <BlockStack gap="400">
+                  {nudgeConfigsData.configs.map((config) => {
+                    const typeInfo = NUDGE_TYPE_LABELS[config.nudge_type] || {
+                      label: config.nudge_type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                      description: 'Configure this nudge type',
+                    };
+                    return (
+                      <Box
+                        key={config.id || config.nudge_type}
+                        padding="400"
+                        background="bg-surface-secondary"
+                        borderRadius="200"
+                      >
+                        <BlockStack gap="300">
+                          <InlineStack align="space-between" blockAlign="center">
+                            <BlockStack gap="050">
+                              <Text as="h4" variant="bodyMd" fontWeight="semibold">
+                                {typeInfo.label}
+                              </Text>
+                              <Text as="p" variant="bodySm" tone="subdued">
+                                {typeInfo.description}
+                              </Text>
+                            </BlockStack>
+                            <InlineStack gap="200">
+                              <Checkbox
+                                label=""
+                                labelHidden
+                                checked={config.is_enabled}
+                                onChange={(value) => {
+                                  updateNudgeConfigMutation.mutate({
+                                    nudgeType: config.nudge_type,
+                                    data: { is_enabled: value },
+                                  });
+                                }}
+                              />
+                              <Badge tone={config.is_enabled ? 'success' : undefined}>
+                                {config.is_enabled ? 'Enabled' : 'Disabled'}
+                              </Badge>
+                            </InlineStack>
+                          </InlineStack>
+
+                          {config.is_enabled && (
+                            <>
+                              <Divider />
+                              <InlineStack gap="400" wrap>
+                                <Box minWidth="200px">
+                                  <TextField
+                                    label="Frequency"
+                                    type="number"
+                                    value={String(config.frequency_days)}
+                                    onChange={(value) => {
+                                      updateNudgeConfigMutation.mutate({
+                                        nudgeType: config.nudge_type,
+                                        data: { frequency_days: parseInt(value) || 7 },
+                                      });
+                                    }}
+                                    suffix="days"
+                                    autoComplete="off"
+                                    helpText="Time between nudges"
+                                  />
+                                </Box>
+                              </InlineStack>
+
+                              <BlockStack gap="200">
+                                <Text as="h5" variant="bodySm" fontWeight="semibold">
+                                  Message Preview
+                                </Text>
+                                <Box
+                                  padding="300"
+                                  background="bg-surface"
+                                  borderRadius="100"
+                                  borderWidth="025"
+                                  borderColor="border"
+                                >
+                                  <Text as="p" variant="bodySm" tone="subdued">
+                                    {config.message_template || 'No message template configured'}
+                                  </Text>
+                                </Box>
+                              </BlockStack>
+
+                              <InlineStack gap="200">
+                                <Button
+                                  icon={SendIcon}
+                                  onClick={() => openNudgeTest(config.nudge_type)}
+                                  size="slim"
+                                >
+                                  Send Test
+                                </Button>
+                              </InlineStack>
+                            </>
+                          )}
+                        </BlockStack>
+                      </Box>
+                    );
+                  })}
+                </BlockStack>
+              ) : (
+                <Box padding="400" background="bg-surface-secondary" borderRadius="200">
+                  <BlockStack gap="200" inlineAlign="center">
+                    <Text as="p" tone="subdued">No nudge configurations found.</Text>
+                    <Button onClick={() => refetchNudgeConfigs()}>
+                      Load Default Configurations
+                    </Button>
+                  </BlockStack>
+                </Box>
+              )}
+
+              <Divider />
+
+              <BlockStack gap="200">
+                <Text as="h3" variant="headingSm">How Nudges Work</Text>
+                <List type="bullet">
+                  <List.Item>
+                    <strong>Points Expiring:</strong> Reminds members before their points expire
+                  </List.Item>
+                  <List.Item>
+                    <strong>Tier Progress:</strong> Encourages members who are close to the next tier
+                  </List.Item>
+                  <List.Item>
+                    <strong>Inactive Re-engagement:</strong> Reaches out to members who have not visited recently
+                  </List.Item>
+                  <List.Item>
+                    <strong>Trade-In Reminder:</strong> Prompts members to bring in items for trade-in
+                  </List.Item>
+                </List>
+              </BlockStack>
             </BlockStack>
           </Card>
         </Layout.AnnotatedSection>
@@ -2792,6 +3108,61 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
         </button>
         <button onClick={handleDiscard}>Discard</button>
       </SaveBar>
+
+      {/* Test Nudge Modal (NR-006) */}
+      <Modal
+        open={nudgeTestOpen}
+        onClose={() => {
+          setNudgeTestOpen(false);
+          setNudgeError('');
+        }}
+        title={`Send Test: ${selectedNudgeType ? NUDGE_TYPE_LABELS[selectedNudgeType]?.label || selectedNudgeType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Nudge'}`}
+        primaryAction={{
+          content: 'Send Test Nudge',
+          onAction: () => sendTestNudgeMutation.mutate(),
+          loading: sendTestNudgeMutation.isPending,
+        }}
+        secondaryActions={[
+          {
+            content: 'Cancel',
+            onAction: () => {
+              setNudgeTestOpen(false);
+              setNudgeError('');
+            },
+          },
+        ]}
+      >
+        <Modal.Section>
+          <BlockStack gap="400">
+            {nudgeError && (
+              <Banner tone="critical" onDismiss={() => setNudgeError('')}>
+                <p>{nudgeError}</p>
+              </Banner>
+            )}
+            <Text as="p" variant="bodySm" tone="subdued">
+              Send a test nudge to verify your configuration. The test will use sample data
+              and will be clearly marked as a test message.
+            </Text>
+            <TextField
+              label="Recipient Email"
+              type="email"
+              value={nudgeTestEmail}
+              onChange={setNudgeTestEmail}
+              placeholder="you@example.com (defaults to store email)"
+              autoComplete="email"
+              helpText="Leave blank to send to your store's email address"
+            />
+            <TextField
+              label="Recipient Name"
+              value={nudgeTestName}
+              onChange={setNudgeTestName}
+              placeholder="Store Owner"
+              autoComplete="name"
+              helpText="Name used in the greeting"
+            />
+          </BlockStack>
+        </Modal.Section>
+      </Modal>
 
       {/* Bug Report Modal */}
       <BugReportModal

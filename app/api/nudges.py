@@ -606,3 +606,165 @@ def get_trade_in_reminder_history():
         'history': history,
         'count': len(history),
     })
+
+
+# ==================== All Configs Endpoint ====================
+
+
+@nudges_bp.route('/configs', methods=['GET'])
+@require_shopify_auth
+def get_all_configs():
+    """
+    Get all nudge configurations for the tenant.
+
+    Returns all nudge types with their current settings.
+    """
+    service = get_service()
+    configs = service.get_all_nudge_configs()
+
+    # If no configs exist, create defaults
+    if not configs:
+        from app.models.nudge_config import NudgeConfig
+        configs = NudgeConfig.create_defaults_for_tenant(g.tenant.id)
+
+    return jsonify({
+        'success': True,
+        'configs': [c.to_dict() for c in configs],
+    })
+
+
+@nudges_bp.route('/configs/<nudge_type>', methods=['PUT'])
+@require_shopify_auth
+def update_nudge_config(nudge_type):
+    """
+    Update a specific nudge configuration.
+
+    Body:
+        is_enabled: bool - Enable/disable the nudge
+        frequency_days: int - Days between nudges
+        message_template: str - Message template with placeholders
+        config_options: dict - Type-specific options
+    """
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+
+    from app.models.nudge_config import NudgeConfig
+
+    config = NudgeConfig.get_by_type(g.tenant.id, nudge_type)
+
+    if not config:
+        # Create config if it doesn't exist
+        from app.models.nudge_config import NudgeConfig, NudgeType, DEFAULT_NUDGE_TEMPLATES, DEFAULT_NUDGE_FREQUENCY
+        try:
+            nudge_type_enum = NudgeType(nudge_type)
+        except ValueError:
+            return jsonify({'error': f'Invalid nudge type: {nudge_type}'}), 400
+
+        config = NudgeConfig(
+            tenant_id=g.tenant.id,
+            nudge_type=nudge_type,
+            is_enabled=data.get('is_enabled', True),
+            frequency_days=data.get('frequency_days', DEFAULT_NUDGE_FREQUENCY.get(nudge_type_enum, 7)),
+            message_template=data.get('message_template', DEFAULT_NUDGE_TEMPLATES.get(nudge_type_enum, '')),
+            config_options=data.get('config_options', {}),
+        )
+        from app import db
+        db.session.add(config)
+    else:
+        # Update existing config
+        if 'is_enabled' in data:
+            config.is_enabled = data['is_enabled']
+        if 'frequency_days' in data:
+            config.frequency_days = data['frequency_days']
+        if 'message_template' in data:
+            config.message_template = data['message_template']
+        if 'config_options' in data:
+            config.config_options = data['config_options']
+
+    from app import db
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'config': config.to_dict(),
+    })
+
+
+# ==================== Test Send Endpoint ====================
+
+
+@nudges_bp.route('/test-send', methods=['POST'])
+@require_shopify_auth
+def send_test_nudge():
+    """
+    Send a test nudge to the store owner.
+
+    Body:
+        nudge_type: str - Type of nudge to test
+        to_email: str - Email to send to (optional, defaults to store email)
+        to_name: str - Name for greeting (optional)
+    """
+    data = request.get_json()
+    if not data or 'nudge_type' not in data:
+        return jsonify({'error': 'nudge_type is required'}), 400
+
+    nudge_type = data['nudge_type']
+    to_email = data.get('to_email') or g.tenant.owner_email
+    to_name = data.get('to_name') or g.tenant.shop_name or 'Store Owner'
+
+    # Get the nudge config
+    service = get_service()
+    config = service.get_nudge_config(nudge_type)
+
+    if not config:
+        # Use default template
+        from app.models.nudge_config import NudgeType, DEFAULT_NUDGE_TEMPLATES
+        try:
+            nudge_type_enum = NudgeType(nudge_type)
+            template = DEFAULT_NUDGE_TEMPLATES.get(nudge_type_enum, 'Test nudge message')
+        except ValueError:
+            return jsonify({'error': f'Invalid nudge type: {nudge_type}'}), 400
+    else:
+        template = config.message_template
+
+    # Fill in template with test data
+    test_message = template.format(
+        member_name=to_name,
+        shop_name=g.tenant.shop_name or 'Your Store',
+        expiring_points='100',
+        days_until='7',
+        progress_percent='85',
+        next_tier='Gold',
+        points_needed='150',
+        days_inactive='30',
+    )
+
+    # Try to send email
+    try:
+        from app.services.email_service import EmailService
+        email_service = EmailService(g.tenant.id)
+        result = email_service.send_email(
+            to_email=to_email,
+            to_name=to_name,
+            subject=f'[TEST] {nudge_type.replace("_", " ").title()} Nudge from {g.tenant.shop_name or "TradeUp"}',
+            body_text=test_message,
+            body_html=f'<p>{test_message}</p><hr><p><em>This is a test nudge. In production, this would be sent to actual members.</em></p>',
+        )
+
+        if result.get('success'):
+            return jsonify({
+                'success': True,
+                'message': f'Test nudge sent to {to_email}',
+                'nudge_type': nudge_type,
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': result.get('error', 'Failed to send test nudge'),
+            }), 500
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e),
+        }), 500
