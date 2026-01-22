@@ -10,8 +10,9 @@
  * - Badge showcase with progress
  * - Achievement unlocked celebrations
  * - Milestone celebrations
+ * - In-app nudge notifications (NR-010)
  *
- * @version 2.3.0
+ * @version 2.4.0
  */
 import {
   reactExtension,
@@ -91,6 +92,10 @@ function TradeUpRewards() {
   const [showMilestoneModal, setShowMilestoneModal] = useState(false);
   const [currentCelebrationMilestone, setCurrentCelebrationMilestone] = useState(null);
 
+  // Nudge notification state
+  const [nudges, setNudges] = useState([]);
+  const [nudgesLoading, setNudgesLoading] = useState(false);
+
   // Fetch initial data
   useEffect(() => {
     async function fetchData() {
@@ -167,6 +172,85 @@ function TradeUpRewards() {
       checkNewlyAchievedMilestones();
     }
   }, [data?.is_member, customer?.id]);
+
+  // Fetch nudge notifications when member data is loaded
+  useEffect(() => {
+    if (data?.is_member && customer?.id) {
+      fetchNudges();
+    }
+  }, [data?.is_member, customer?.id]);
+
+  const fetchNudges = async () => {
+    if (!customer?.id) return;
+    setNudgesLoading(true);
+
+    try {
+      const token = await sessionToken.get();
+      const customerId = customer.id.replace('gid://shopify/Customer/', '');
+
+      const response = await fetch(`${API_BASE}/customer/extension/nudges`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'X-Shop-Domain': shop.domain,
+        },
+        body: JSON.stringify({
+          customer_id: customerId,
+          shop: shop.domain,
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setNudges(result.nudges || []);
+      }
+    } catch (err) {
+      console.error('Error fetching nudges:', err);
+    } finally {
+      setNudgesLoading(false);
+    }
+  };
+
+  const dismissNudge = async (nudge) => {
+    if (!customer?.id) return;
+
+    try {
+      const token = await sessionToken.get();
+      const customerId = customer.id.replace('gid://shopify/Customer/', '');
+
+      await fetch(`${API_BASE}/customer/extension/nudges/dismiss`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'X-Shop-Domain': shop.domain,
+        },
+        body: JSON.stringify({
+          customer_id: customerId,
+          nudge_id: nudge.id,
+          nudge_type: nudge.nudge_type,
+        }),
+      });
+
+      // Remove the dismissed nudge from state
+      setNudges((prev) => prev.filter((n) => n.id !== nudge.id));
+    } catch (err) {
+      console.error('Error dismissing nudge:', err);
+    }
+  };
+
+  const handleNudgeAction = (nudge) => {
+    // Handle action based on nudge type
+    if (nudge.action_tab) {
+      setActiveTab(nudge.action_tab);
+    } else if (nudge.action_url) {
+      // Open external URL
+      window.open(nudge.action_url, '_blank');
+    }
+    // Dismiss after action
+    dismissNudge(nudge);
+  };
 
   const fetchRewards = async () => {
     if (!customer?.id) return;
@@ -572,6 +656,15 @@ function TradeUpRewards() {
 
         <Divider />
 
+        {/* Nudge Notifications Banner */}
+        {nudges.length > 0 && (
+          <NudgeBanner
+            nudges={nudges}
+            onDismiss={dismissNudge}
+            onAction={handleNudgeAction}
+          />
+        )}
+
         {/* Tab Content */}
         {activeTab === 'overview' && (
           <OverviewTab
@@ -645,6 +738,53 @@ function TradeUpRewards() {
         )}
       </BlockStack>
     </Card>
+  );
+}
+
+// ============================================================================
+// Nudge Banner Component
+// ============================================================================
+
+function NudgeBanner({ nudges, onDismiss, onAction }) {
+  if (!nudges || nudges.length === 0) return null;
+
+  // Get urgency-based styling
+  const getUrgencyTone = (urgency) => {
+    switch (urgency) {
+      case 'critical':
+        return 'critical';
+      case 'warning':
+        return 'warning';
+      case 'success':
+        return 'success';
+      default:
+        return 'info';
+    }
+  };
+
+  return (
+    <BlockStack spacing="tight">
+      {nudges.map((nudge) => (
+        <Banner
+          key={nudge.id}
+          status={getUrgencyTone(nudge.urgency)}
+          title={nudge.title}
+          onDismiss={nudge.dismissable ? () => onDismiss(nudge) : undefined}
+        >
+          <BlockStack spacing="tight">
+            <Text>{nudge.message}</Text>
+            {nudge.action_text && (
+              <Button
+                kind="secondary"
+                onPress={() => onAction(nudge)}
+              >
+                {nudge.action_text}
+              </Button>
+            )}
+          </BlockStack>
+        </Banner>
+      ))}
+    </BlockStack>
   );
 }
 

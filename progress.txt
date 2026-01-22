@@ -2644,3 +2644,95 @@ Implemented comprehensive nudge effectiveness tracking including open rates, cli
   }
 }
 ```
+
+---
+
+## Story: NR-010 - Add in-app notifications for nudges
+Date: 2026-01-22
+
+### What I Did
+- Added in-app notification banner system to the customer account extension
+- Shows the same nudge messages as would be sent via email, but displayed in-app
+- Implemented three new API endpoints in `customer_account.py`:
+  - `POST /api/customer/extension/nudges` - Fetches pending nudge notifications for a member
+  - `POST /api/customer/extension/nudges/dismiss` - Dismisses a nudge notification
+  - `POST /api/customer/extension/nudges/sync` - Syncs nudge status between email and in-app
+- Added `NudgeBanner` component to the customer account extension
+- Integrated nudge system with existing NudgesService
+
+### Backend Changes (app/api/customer_account.py):
+- Added `get_extension_nudges()` endpoint that:
+  - Fetches applicable nudges from NudgesService
+  - Builds notification objects with title, message, action button
+  - Prioritizes nudges (points expiring most urgent)
+  - Limits to top 3 most important nudges
+- Added `_build_nudge_notification()` helper function that maps nudge types to UI notifications:
+  - `points_expiring` - Critical/warning banner with countdown
+  - `tier_upgrade_near` - Success banner encouraging final push
+  - `tier_progress` - Info banner showing progress
+  - `trade_in_reminder` - Info banner with tier bonus mention
+  - `inactive_member` - Info banner welcoming back
+  - `points_milestone` - Success banner celebrating achievement
+- Added `dismiss_extension_nudge()` endpoint that records dismissal using NudgeSent model
+- Added `sync_nudge_status()` endpoint for email/in-app status synchronization
+
+### Frontend Changes (extensions/customer-account-ui/src/TradeUpRewards.jsx):
+- Updated version to 2.4.0
+- Added state variables: `nudges`, `nudgesLoading`
+- Added `fetchNudges()` function to load pending notifications on page load
+- Added `dismissNudge()` function to dismiss notifications
+- Added `handleNudgeAction()` function to handle action button clicks
+- Created `NudgeBanner` component (~50 lines) with:
+  - Urgency-based styling (critical, warning, success, info)
+  - Dismissable banner with title and message
+  - Action button that navigates to relevant tab or URL
+- Integrated banner into main UI (appears between tab nav and content)
+
+### API Response Example (GET /api/customer/extension/nudges):
+```json
+{
+  "is_member": true,
+  "nudges": [
+    {
+      "id": "nudge_points_expiring_123",
+      "nudge_type": "points_expiring",
+      "urgency": "warning",
+      "title": "Points Expiring in 5 Days",
+      "message": "You have 500 points expiring soon. Use them before they're gone!",
+      "action_text": "Redeem Now",
+      "action_tab": "rewards",
+      "icon": "clock",
+      "dismissable": true
+    }
+  ],
+  "count": 1
+}
+```
+
+### Nudge Type Mapping:
+| Nudge Type | Urgency | Action Tab | Icon |
+|------------|---------|------------|------|
+| points_expiring | critical/warning | rewards | clock |
+| tier_upgrade_near | success/info | overview | star |
+| tier_progress | info | overview | trending-up |
+| trade_in_reminder | info | (external URL) | refresh |
+| inactive_member | info | rewards | gift |
+| points_milestone | success | badges | award |
+
+### Files Changed:
+- `app/api/customer_account.py` - Added ~200 lines (3 endpoints + helper function)
+- `extensions/customer-account-ui/src/TradeUpRewards.jsx` - Added ~100 lines (state, functions, component)
+
+### Acceptance Criteria Verification:
+- [x] Notification banner in customer account UI
+- [x] Shows same nudge messages as email
+- [x] Dismissable by customer
+- [x] Syncs with email nudge status (uses same NudgeSent model)
+- [x] Non-intrusive design (appears below tabs, above content)
+
+### Design Decisions:
+- Limited to 3 nudges max to avoid overwhelming the customer
+- Priority order ensures most urgent nudges shown first
+- Action buttons navigate within the extension when possible
+- Dismissing records in NudgeSent with `delivery_method='in_app'` for consistent tracking
+- Uses existing Shopify Banner component for native look and feel

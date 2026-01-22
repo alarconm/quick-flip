@@ -1525,3 +1525,336 @@ def get_milestone_history():
         'history': history,
         'total_achieved': len(history),
     })
+
+
+# ==================== Nudge Notification Endpoints ====================
+
+@customer_account_bp.route('/extension/nudges', methods=['POST'])
+def get_extension_nudges():
+    """
+    Get pending nudge notifications for Customer Account Extension.
+
+    Shows the same nudge messages as would be sent via email, but displayed
+    in-app for immediate visibility.
+
+    Request body:
+        customer_id: Shopify customer ID
+        shop: Shop domain
+
+    Returns:
+        List of pending nudge notifications for the customer
+    """
+    data = request.json or {}
+    customer_id = data.get('customer_id')
+
+    if not customer_id:
+        return jsonify({'error': 'Missing customer_id'}), 400
+
+    # Find member
+    member = Member.query.filter_by(
+        shopify_customer_id=str(customer_id)
+    ).first()
+
+    if not member:
+        return jsonify({
+            'is_member': False,
+            'nudges': [],
+            'message': 'Not enrolled in rewards program'
+        })
+
+    # Import nudge models and service
+    from ..models.nudge_sent import NudgeSent
+    from ..models.nudge_config import NudgeConfig, NudgeType
+    from ..services.nudges_service import NudgesService
+
+    # Get nudge service
+    nudge_service = NudgesService(member.tenant_id)
+
+    # Get applicable nudges for this member
+    applicable_nudges = nudge_service.get_nudges_for_member(member.id)
+
+    # Build the nudge notifications list
+    notifications = []
+
+    for nudge in applicable_nudges:
+        nudge_type = nudge.get('nudge_type')
+        notification = _build_nudge_notification(nudge, member, nudge_service)
+        if notification:
+            notifications.append(notification)
+
+    # Sort by priority (points_expiring most urgent)
+    priority_order = {
+        'points_expiring': 0,
+        'tier_upgrade_near': 1,
+        'tier_progress': 2,
+        'trade_in_reminder': 3,
+        'inactive_member': 4,
+        'points_milestone': 5,
+    }
+    notifications.sort(key=lambda x: priority_order.get(x.get('nudge_type'), 99))
+
+    # Limit to top 3 most important nudges
+    notifications = notifications[:3]
+
+    return jsonify({
+        'is_member': True,
+        'nudges': notifications,
+        'count': len(notifications),
+    })
+
+
+def _build_nudge_notification(nudge: dict, member, nudge_service) -> dict:
+    """
+    Build a notification object from a nudge data dict.
+
+    Args:
+        nudge: The nudge data from NudgesService
+        member: The Member instance
+        nudge_service: The NudgesService instance
+
+    Returns:
+        A notification dict with title, message, action_text, and action_url
+    """
+    from ..models.tenant import Tenant
+
+    nudge_type = nudge.get('nudge_type')
+    tenant = Tenant.query.get(member.tenant_id)
+    shop_url = f"https://{tenant.shop_domain}" if tenant else ""
+
+    # Build notification based on nudge type
+    if nudge_type == 'points_expiring':
+        expiring_points = nudge.get('expiring_points', 0)
+        days_until = nudge.get('days_until_expiry', 0)
+
+        if days_until <= 1:
+            urgency = 'critical'
+            title = 'Points Expiring Tomorrow!'
+        elif days_until <= 7:
+            urgency = 'warning'
+            title = f'Points Expiring in {days_until} Days'
+        else:
+            urgency = 'info'
+            title = f'Points Expiring Soon'
+
+        return {
+            'id': f"nudge_points_expiring_{member.id}",
+            'nudge_type': nudge_type,
+            'urgency': urgency,
+            'title': title,
+            'message': f"You have {expiring_points:,} points expiring soon. Use them before they're gone!",
+            'action_text': 'Redeem Now',
+            'action_tab': 'rewards',
+            'icon': 'clock',
+            'dismissable': True,
+        }
+
+    elif nudge_type == 'tier_upgrade_near':
+        next_tier = nudge.get('next_tier', {})
+        progress = nudge.get('progress_percent', 0)
+        points_needed = nudge.get('points_needed', 0)
+
+        return {
+            'id': f"nudge_tier_upgrade_{member.id}",
+            'nudge_type': nudge_type,
+            'urgency': 'success' if progress >= 95 else 'info',
+            'title': f"You're {int(progress)}% to {next_tier.get('name', 'Next Tier')}!",
+            'message': f"Just {points_needed:,} more points to unlock better rewards and benefits.",
+            'action_text': 'View Tier Benefits',
+            'action_tab': 'overview',
+            'icon': 'star',
+            'dismissable': True,
+        }
+
+    elif nudge_type == 'tier_progress':
+        next_tier = nudge.get('next_tier', {})
+        progress = nudge.get('progress_percent', 0)
+        points_needed = nudge.get('points_needed', 0)
+
+        return {
+            'id': f"nudge_tier_progress_{member.id}",
+            'nudge_type': nudge_type,
+            'urgency': 'info',
+            'title': f"Almost at {next_tier.get('name', 'Next Tier')}!",
+            'message': f"You're {int(progress)}% there! Earn {points_needed:,} more points to level up.",
+            'action_text': 'See Progress',
+            'action_tab': 'overview',
+            'icon': 'trending-up',
+            'dismissable': True,
+        }
+
+    elif nudge_type == 'trade_in_reminder':
+        days_since = nudge.get('days_since_last_trade_in', 0)
+        tier_bonus = nudge.get('tier_bonus', 0)
+
+        bonus_text = f" Your tier gives you a {int(tier_bonus)}% bonus!" if tier_bonus > 0 else ""
+
+        return {
+            'id': f"nudge_trade_in_{member.id}",
+            'nudge_type': nudge_type,
+            'urgency': 'info',
+            'title': "Time for a Trade-In?",
+            'message': f"It's been {days_since} days since your last trade-in. Turn your items into store credit!{bonus_text}",
+            'action_text': 'Start Trade-In',
+            'action_url': f"{shop_url}/pages/trade-in",
+            'icon': 'refresh',
+            'dismissable': True,
+        }
+
+    elif nudge_type == 'inactive_member':
+        days_inactive = nudge.get('days_inactive', 0)
+        points_balance = nudge.get('points_balance', 0)
+
+        message = f"We miss you! You have {points_balance:,} points waiting to be redeemed."
+
+        return {
+            'id': f"nudge_inactive_{member.id}",
+            'nudge_type': nudge_type,
+            'urgency': 'info',
+            'title': "Welcome Back!",
+            'message': message,
+            'action_text': 'Browse Rewards',
+            'action_tab': 'rewards',
+            'icon': 'gift',
+            'dismissable': True,
+        }
+
+    elif nudge_type == 'points_milestone':
+        milestone = nudge.get('milestone', 0)
+        current_points = nudge.get('current_points', 0)
+
+        return {
+            'id': f"nudge_milestone_{member.id}_{milestone}",
+            'nudge_type': nudge_type,
+            'urgency': 'success',
+            'title': f"Milestone Reached: {milestone:,} Points!",
+            'message': f"Congratulations! You've earned over {milestone:,} lifetime points. Keep it up!",
+            'action_text': 'View Badges',
+            'action_tab': 'badges',
+            'icon': 'award',
+            'dismissable': True,
+        }
+
+    return None
+
+
+@customer_account_bp.route('/extension/nudges/dismiss', methods=['POST'])
+def dismiss_extension_nudge():
+    """
+    Dismiss a nudge notification in the customer account extension.
+
+    This records that the customer has seen/dismissed the nudge so it
+    won't be shown again for the configured cooldown period.
+
+    Request body:
+        customer_id: Shopify customer ID
+        nudge_id: The ID of the nudge to dismiss (format: nudge_{type}_{member_id})
+        nudge_type: The type of nudge being dismissed
+
+    Returns:
+        Success status
+    """
+    data = request.json or {}
+    customer_id = data.get('customer_id')
+    nudge_id = data.get('nudge_id')
+    nudge_type = data.get('nudge_type')
+
+    if not customer_id:
+        return jsonify({'error': 'Missing customer_id'}), 400
+
+    if not nudge_type:
+        return jsonify({'error': 'Missing nudge_type'}), 400
+
+    # Find member
+    member = Member.query.filter_by(
+        shopify_customer_id=str(customer_id)
+    ).first()
+
+    if not member:
+        return jsonify({'error': 'Not enrolled in rewards program'}), 404
+
+    # Import nudge model
+    from ..models.nudge_sent import NudgeSent
+
+    try:
+        # Record that this nudge was "sent" (shown in-app) and dismissed
+        # This uses the same mechanism as email nudges for cooldown tracking
+        NudgeSent.record_sent(
+            tenant_id=member.tenant_id,
+            member_id=member.id,
+            nudge_type=nudge_type,
+            context_data={
+                'dismissed_in_app': True,
+                'nudge_id': nudge_id,
+            },
+            delivery_method='in_app'
+        )
+
+        return jsonify({
+            'success': True,
+            'message': 'Nudge dismissed',
+            'nudge_id': nudge_id,
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error dismissing nudge: {e}")
+        return jsonify({'error': f'Failed to dismiss nudge: {str(e)}'}), 500
+
+
+@customer_account_bp.route('/extension/nudges/sync', methods=['POST'])
+def sync_nudge_status():
+    """
+    Sync nudge status between email and in-app notifications.
+
+    Returns the nudge types that have been sent via email so the
+    in-app notification can reflect the same status.
+
+    Request body:
+        customer_id: Shopify customer ID
+
+    Returns:
+        List of nudge types with their last sent timestamps
+    """
+    data = request.json or {}
+    customer_id = data.get('customer_id')
+
+    if not customer_id:
+        return jsonify({'error': 'Missing customer_id'}), 400
+
+    # Find member
+    member = Member.query.filter_by(
+        shopify_customer_id=str(customer_id)
+    ).first()
+
+    if not member:
+        return jsonify({
+            'is_member': False,
+            'nudge_status': {},
+        })
+
+    # Import nudge model
+    from ..models.nudge_sent import NudgeSent
+    from ..models.nudge_config import NudgeType
+
+    # Get recent nudges for this member (last 30 days)
+    recent_nudges = NudgeSent.get_member_nudge_history(
+        tenant_id=member.tenant_id,
+        member_id=member.id,
+        limit=50
+    )
+
+    # Build status dict by nudge type
+    nudge_status = {}
+    for nudge in recent_nudges:
+        if nudge.nudge_type not in nudge_status:
+            nudge_status[nudge.nudge_type] = {
+                'last_sent_at': nudge.sent_at.isoformat() if nudge.sent_at else None,
+                'delivery_method': nudge.delivery_method,
+                'was_opened': nudge.opened_at is not None,
+                'was_clicked': nudge.clicked_at is not None,
+            }
+
+    return jsonify({
+        'is_member': True,
+        'nudge_status': nudge_status,
+    })
