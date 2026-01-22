@@ -27,7 +27,7 @@
         "Code passes linting without warnings"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "CQ-003",

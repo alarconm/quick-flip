@@ -411,3 +411,36 @@ Date: 2026-01-21
 - [x] No sensitive information exposed in production
 - [x] Added comment documenting this is dev-only
 
+---
+
+## Story: CQ-002 - Replace __import__() anti-pattern with proper imports
+Date: 2026-01-21
+
+### What I Did
+- Replaced all __import__('datetime') anti-patterns with proper top-level imports
+- Replaced __import__('json') anti-pattern in partner_sync_service.py
+- Added `from datetime import datetime` to:
+  - app/api/integrations/sms.py
+  - app/api/integrations/klaviyo.py
+  - app/api/integrations/thirdparty.py
+  - app/api/partners.py
+- Added `import json` to app/services/partner_sync_service.py
+
+### Files Changed
+- app/api/integrations/sms.py (2 occurrences replaced)
+- app/api/integrations/klaviyo.py (1 occurrence replaced)
+- app/api/integrations/thirdparty.py (3 occurrences replaced)
+- app/api/partners.py (1 occurrence replaced)
+- app/services/partner_sync_service.py (1 occurrence replaced)
+
+### Learnings
+- The __import__() pattern was used inline to avoid top-level imports, but this is an anti-pattern
+- Standard imports at the top of the file are more readable and maintainable
+- Python's import system handles circular imports better with top-level imports
+
+### Verification
+- [x] No __import__() calls in app/api/integrations/*.py
+- [x] No __import__() calls in app/services/partner_sync_service.py
+- [x] All files use standard import statements at top of file
+- [x] Code structure is cleaner and more maintainable
+
