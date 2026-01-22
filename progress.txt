@@ -639,3 +639,43 @@ Backend and admin UI already implemented. Remaining stories require frontend wor
 - GS-009: Progress bars for tier advancement (NOT STARTED)
 - GS-010: Milestone celebrations (NOT STARTED)
 
+---
+
+## Story: RC-001 - Create review prompt tracking model
+Date: 2026-01-21
+
+### What I Did
+- Created ReviewPrompt model in app/models/review_prompt.py with all required fields:
+  - id (primary key)
+  - tenant_id (foreign key to tenants)
+  - prompt_shown_at (datetime when prompt was displayed)
+  - response (string: dismissed, clicked, reminded_later)
+  - responded_at (datetime when merchant responded)
+- Created ReviewPromptResponse enum for type-safe response values
+- Added class methods for duplicate prevention:
+  - can_show_prompt(tenant_id, cooldown_hours=168) - checks if prompt can be shown
+  - get_prompt_history(tenant_id, limit=10) - retrieves prompt history
+  - create_prompt(tenant_id) - creates new prompt record
+- Created Alembic migration x2y3z4a5b6c7_add_review_prompts_table.py
+- Updated app/models/__init__.py to export ReviewPrompt and ReviewPromptResponse
+- Created comprehensive test suite with 14 tests
+
+### Files Changed
+- app/models/review_prompt.py (new - 102 lines)
+- app/models/__init__.py (added exports)
+- migrations/versions/x2y3z4a5b6c7_add_review_prompts_table.py (new migration)
+- tests/test_review_prompt.py (new - 14 tests)
+- app/models/member.py (fixed missing comma on line 199)
+
+### Learnings
+- Default 7-day (168 hours) cooldown prevents spamming merchants with review prompts
+- Model includes both the event timestamp (prompt_shown_at) and response timestamp (responded_at)
+- Tenant relationship allows easy filtering by merchant
+
+### Verification
+- [x] ReviewPrompt model with: id, tenant_id, prompt_shown_at, response, responded_at
+- [x] Alembic migration created
+- [x] Track prompt history per tenant (get_prompt_history method)
+- [x] Prevent duplicate prompts (can_show_prompt method with configurable cooldown)
+- [x] All 14 tests pass
+

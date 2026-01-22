@@ -49,6 +49,7 @@ from .loyalty_points import (
 from .cashback_campaign import CashbackCampaign, CashbackRedemption
 from .gamification import Badge, MemberBadge, MemberStreak, Milestone, MemberMilestone
 from .guest_points import GuestPoints
+from .review_prompt import ReviewPrompt, ReviewPromptResponse
 
 __all__ = [
     'Tenant',
@@ -108,4 +109,7 @@ __all__ = [
     'MemberMilestone',
     # Guest Points
     'GuestPoints',
+    # Review Collection
+    'ReviewPrompt',
+    'ReviewPromptResponse',
 ]
