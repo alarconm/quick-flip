@@ -137,3 +137,40 @@
   - Gamified: Poppins/Montserrat fonts, large buttons, medium spacing
 - All style changes apply to sections in real-time via the preview panel
 - Styles are persisted in the page configuration and rendered in the published page
+
+## LP-007 - Create mobile preview mode
+- Status: COMPLETE
+- Date: January 22, 2026
+- Added mobile/desktop preview toggle to the page builder in EmbeddedPageBuilder.tsx:
+  - **Preview Mode State**: Added `previewMode` state variable with 'desktop' | 'mobile' type
+  - **Mobile Device Constants**: Added MOBILE_PREVIEW constants (375x667px, iPhone SE dimensions)
+  - **Editor Toolbar Toggle**: Added segmented control in toolbar next to undo/redo buttons
+    - Desktop icon button (DesktopIcon from Polaris)
+    - Mobile icon button (MobileIcon from Polaris)
+    - Visual indicator showing active mode with background highlight and shadow
+    - Accessible with aria-pressed attributes
+  - **Sidebar Preview Panel**: Updated live preview to show different views based on mode
+    - Desktop: Scaled iframe at 50% showing full-width layout
+    - Mobile: Device frame mockup with notch, rounded corners, dark bezel
+    - Mobile iframe sized to 375px width to trigger responsive styles
+    - Badge indicator showing current preview mode and device name
+  - **Quick Toggle Buttons**: Added Desktop/Mobile buttons in sidebar for fast switching
+  - **Full Preview Modal**: Updated modal to include preview mode toggle
+    - Segmented control with icons and labels (Desktop / Mobile iPhone SE)
+    - Desktop shows full-width iframe in modal
+    - Mobile shows realistic phone frame with:
+      - Dark bezel with rounded corners (44px radius)
+      - Notch at top (120px width)
+      - Home indicator bar at bottom
+      - Full-size (375x667) iframe for accurate mobile testing
+    - Gray background to make device frame stand out
+  - **Responsive URL Parameter**: Mobile preview passes ?viewport=mobile to preview URL
+    - Backend can use this to set viewport meta tag or adjust rendering
+- Imported DesktopIcon and MobileIcon from @shopify/polaris-icons
+- TypeScript compiles without errors
+- All acceptance criteria met:
+  - Toggle between desktop and mobile preview
+  - Mobile preview shows responsive layout via iframe width constraint
+  - Section components adapt to mobile width (rendered at phone dimensions)
+  - Preview frame mimics phone dimensions (iPhone SE: 375x667)
+  - Easy toggle in editor toolbar and modal

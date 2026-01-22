@@ -47,6 +47,8 @@ import {
   ArrowDownIcon,
   CheckCircleIcon,
   AlertCircleIcon,
+  DesktopIcon,
+  MobileIcon,
 } from '@shopify/polaris-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getApiUrl, authFetch } from '../../hooks/useShopifyBridge';
@@ -258,9 +260,20 @@ async function discardDraft(shop: string | null): Promise<ApiResponse> {
   return response.json();
 }
 
+// Preview mode type for LP-007
+type PreviewMode = 'desktop' | 'mobile';
+
+// Mobile device dimensions for preview
+const MOBILE_PREVIEW = {
+  width: 375,
+  height: 667,
+  label: 'iPhone SE',
+};
+
 export function EmbeddedPageBuilder({ shop }: EmbeddedPageBuilderProps) {
   const [selectedTab, setSelectedTab] = useState(0);
   const [showPreview, setShowPreview] = useState(false);
+  const [previewMode, setPreviewMode] = useState<PreviewMode>('desktop'); // LP-007
   const [editingSection, setEditingSection] = useState<Section | null>(null);
   const [showAddSection, setShowAddSection] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
@@ -629,9 +642,9 @@ export function EmbeddedPageBuilder({ shop }: EmbeddedPageBuilderProps) {
         {/* Main content area */}
         <Layout.Section>
           <Card>
-            {/* Undo/Redo toolbar */}
+            {/* Undo/Redo toolbar with preview mode toggle (LP-007) */}
             <Box paddingBlockEnd="400">
-              <InlineStack gap="200">
+              <InlineStack gap="200" blockAlign="center">
                 <Tooltip content="Undo (Ctrl+Z)">
                   <Button
                     icon={UndoIcon}
@@ -648,6 +661,65 @@ export function EmbeddedPageBuilder({ shop }: EmbeddedPageBuilderProps) {
                     accessibilityLabel="Redo"
                   />
                 </Tooltip>
+
+                {/* Preview mode toggle - LP-007 */}
+                <div style={{ marginLeft: '16px', borderLeft: '1px solid #e0e0e0', paddingLeft: '16px' }}>
+                  <InlineStack gap="100" blockAlign="center">
+                    <Text as="span" variant="bodySm" tone="subdued">Preview:</Text>
+                    <div style={{
+                      display: 'flex',
+                      background: '#f6f6f7',
+                      borderRadius: '8px',
+                      padding: '2px',
+                    }}>
+                      <Tooltip content="Desktop preview">
+                        <button
+                          onClick={() => setPreviewMode('desktop')}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: '36px',
+                            height: '32px',
+                            border: 'none',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            background: previewMode === 'desktop' ? '#ffffff' : 'transparent',
+                            boxShadow: previewMode === 'desktop' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                            transition: 'all 0.15s ease',
+                          }}
+                          aria-label="Desktop preview"
+                          aria-pressed={previewMode === 'desktop'}
+                        >
+                          <Icon source={DesktopIcon} tone={previewMode === 'desktop' ? 'base' : 'subdued'} />
+                        </button>
+                      </Tooltip>
+                      <Tooltip content="Mobile preview">
+                        <button
+                          onClick={() => setPreviewMode('mobile')}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: '36px',
+                            height: '32px',
+                            border: 'none',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            background: previewMode === 'mobile' ? '#ffffff' : 'transparent',
+                            boxShadow: previewMode === 'mobile' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                            transition: 'all 0.15s ease',
+                          }}
+                          aria-label="Mobile preview"
+                          aria-pressed={previewMode === 'mobile'}
+                        >
+                          <Icon source={MobileIcon} tone={previewMode === 'mobile' ? 'base' : 'subdued'} />
+                        </button>
+                      </Tooltip>
+                    </div>
+                  </InlineStack>
+                </div>
+
                 <div style={{ flex: 1 }} />
                 {hasUnsavedChanges && (
                   <Button
@@ -1368,35 +1440,128 @@ export function EmbeddedPageBuilder({ shop }: EmbeddedPageBuilderProps) {
           </Card>
         </Layout.Section>
 
-        {/* Preview sidebar */}
+        {/* Preview sidebar - LP-007 responsive preview */}
         <Layout.Section variant="oneThird">
           <BlockStack gap="400">
             <Card>
               <BlockStack gap="300">
-                <Text as="h3" variant="headingMd">Live Preview</Text>
+                <InlineStack align="space-between" blockAlign="center">
+                  <Text as="h3" variant="headingMd">Live Preview</Text>
+                  <Badge tone={previewMode === 'mobile' ? 'info' : 'success'}>
+                    {previewMode === 'mobile' ? MOBILE_PREVIEW.label : 'Desktop'}
+                  </Badge>
+                </InlineStack>
+
+                {/* Preview frame with device simulation - LP-007 */}
                 <div
                   style={{
-                    border: '1px solid #e0e0e0',
-                    borderRadius: 8,
-                    overflow: 'hidden',
-                    height: 400,
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'flex-start',
                     background: '#f5f5f5',
+                    borderRadius: 8,
+                    padding: previewMode === 'mobile' ? '16px' : '0',
+                    minHeight: 400,
+                    overflow: 'hidden',
                   }}
                 >
-                  <iframe
-                    src={`${getApiUrl()}/loyalty-page/preview`}
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      border: 'none',
-                      transform: 'scale(0.5)',
-                      transformOrigin: 'top left',
-                      width: '200%',
-                      height: '200%',
-                    }}
-                    title="Page Preview"
-                  />
+                  {previewMode === 'mobile' ? (
+                    /* Mobile device frame */
+                    <div
+                      style={{
+                        background: '#1a1a1a',
+                        borderRadius: '32px',
+                        padding: '12px',
+                        boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+                        position: 'relative',
+                      }}
+                    >
+                      {/* Notch */}
+                      <div
+                        style={{
+                          position: 'absolute',
+                          top: '12px',
+                          left: '50%',
+                          transform: 'translateX(-50%)',
+                          width: '80px',
+                          height: '24px',
+                          background: '#1a1a1a',
+                          borderRadius: '0 0 16px 16px',
+                          zIndex: 10,
+                        }}
+                      />
+                      {/* Screen */}
+                      <div
+                        style={{
+                          width: `${MOBILE_PREVIEW.width * 0.45}px`,
+                          height: `${MOBILE_PREVIEW.height * 0.5}px`,
+                          borderRadius: '20px',
+                          overflow: 'hidden',
+                          background: '#ffffff',
+                        }}
+                      >
+                        <iframe
+                          src={`${getApiUrl()}/loyalty-page/preview?viewport=mobile`}
+                          style={{
+                            width: `${MOBILE_PREVIEW.width}px`,
+                            height: `${MOBILE_PREVIEW.height}px`,
+                            border: 'none',
+                            transform: 'scale(0.45)',
+                            transformOrigin: 'top left',
+                          }}
+                          title="Mobile Preview"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    /* Desktop preview */
+                    <div
+                      style={{
+                        border: '1px solid #e0e0e0',
+                        borderRadius: 8,
+                        overflow: 'hidden',
+                        width: '100%',
+                        height: 400,
+                        background: '#ffffff',
+                      }}
+                    >
+                      <iframe
+                        src={`${getApiUrl()}/loyalty-page/preview`}
+                        style={{
+                          width: '200%',
+                          height: '200%',
+                          border: 'none',
+                          transform: 'scale(0.5)',
+                          transformOrigin: 'top left',
+                        }}
+                        title="Desktop Preview"
+                      />
+                    </div>
+                  )}
                 </div>
+
+                {/* Quick toggle in sidebar */}
+                <InlineStack gap="200">
+                  <Button
+                    fullWidth
+                    onClick={() => setPreviewMode('desktop')}
+                    icon={DesktopIcon}
+                    variant={previewMode === 'desktop' ? 'primary' : 'secondary'}
+                    size="slim"
+                  >
+                    Desktop
+                  </Button>
+                  <Button
+                    fullWidth
+                    onClick={() => setPreviewMode('mobile')}
+                    icon={MobileIcon}
+                    variant={previewMode === 'mobile' ? 'primary' : 'secondary'}
+                    size="slim"
+                  >
+                    Mobile
+                  </Button>
+                </InlineStack>
+
                 <Button
                   fullWidth
                   onClick={() => setShowPreview(true)}
@@ -1444,7 +1609,7 @@ export function EmbeddedPageBuilder({ shop }: EmbeddedPageBuilderProps) {
         </Layout.Section>
       </Layout>
 
-      {/* Full Preview Modal */}
+      {/* Full Preview Modal with mobile/desktop toggle - LP-007 */}
       <Modal
         open={showPreview}
         onClose={() => setShowPreview(false)}
@@ -1452,11 +1617,148 @@ export function EmbeddedPageBuilder({ shop }: EmbeddedPageBuilderProps) {
         size="large"
       >
         <Modal.Section>
-          <iframe
-            src={`${getApiUrl()}/loyalty-page/preview`}
-            style={{ width: '100%', height: '600px', border: 'none' }}
-            title="Page Preview"
-          />
+          <BlockStack gap="400">
+            {/* Preview mode toggle in modal */}
+            <InlineStack align="center" gap="400">
+              <Text as="span" variant="bodyMd">View as:</Text>
+              <div style={{
+                display: 'flex',
+                background: '#f6f6f7',
+                borderRadius: '8px',
+                padding: '4px',
+              }}>
+                <button
+                  onClick={() => setPreviewMode('desktop')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 16px',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    background: previewMode === 'desktop' ? '#ffffff' : 'transparent',
+                    boxShadow: previewMode === 'desktop' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                    transition: 'all 0.15s ease',
+                    fontWeight: previewMode === 'desktop' ? 600 : 400,
+                    color: previewMode === 'desktop' ? '#202223' : '#6d7175',
+                  }}
+                  aria-pressed={previewMode === 'desktop'}
+                >
+                  <Icon source={DesktopIcon} tone={previewMode === 'desktop' ? 'base' : 'subdued'} />
+                  Desktop
+                </button>
+                <button
+                  onClick={() => setPreviewMode('mobile')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 16px',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    background: previewMode === 'mobile' ? '#ffffff' : 'transparent',
+                    boxShadow: previewMode === 'mobile' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                    transition: 'all 0.15s ease',
+                    fontWeight: previewMode === 'mobile' ? 600 : 400,
+                    color: previewMode === 'mobile' ? '#202223' : '#6d7175',
+                  }}
+                  aria-pressed={previewMode === 'mobile'}
+                >
+                  <Icon source={MobileIcon} tone={previewMode === 'mobile' ? 'base' : 'subdued'} />
+                  Mobile ({MOBILE_PREVIEW.label})
+                </button>
+              </div>
+            </InlineStack>
+
+            {/* Preview container */}
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'flex-start',
+                background: '#f5f5f5',
+                borderRadius: 8,
+                padding: previewMode === 'mobile' ? '24px' : '0',
+                minHeight: 600,
+              }}
+            >
+              {previewMode === 'mobile' ? (
+                /* Mobile device frame in modal */
+                <div
+                  style={{
+                    background: '#1a1a1a',
+                    borderRadius: '44px',
+                    padding: '14px',
+                    boxShadow: '0 12px 48px rgba(0,0,0,0.25)',
+                    position: 'relative',
+                  }}
+                >
+                  {/* Notch */}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: '14px',
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      width: '120px',
+                      height: '28px',
+                      background: '#1a1a1a',
+                      borderRadius: '0 0 20px 20px',
+                      zIndex: 10,
+                    }}
+                  />
+                  {/* Screen */}
+                  <div
+                    style={{
+                      width: `${MOBILE_PREVIEW.width}px`,
+                      height: `${MOBILE_PREVIEW.height}px`,
+                      borderRadius: '30px',
+                      overflow: 'hidden',
+                      background: '#ffffff',
+                    }}
+                  >
+                    <iframe
+                      src={`${getApiUrl()}/loyalty-page/preview?viewport=mobile`}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        border: 'none',
+                      }}
+                      title="Mobile Preview"
+                    />
+                  </div>
+                  {/* Home indicator */}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      bottom: '8px',
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      width: '100px',
+                      height: '4px',
+                      background: '#4a4a4a',
+                      borderRadius: '2px',
+                    }}
+                  />
+                </div>
+              ) : (
+                /* Desktop preview in modal */
+                <iframe
+                  src={`${getApiUrl()}/loyalty-page/preview`}
+                  style={{
+                    width: '100%',
+                    height: '600px',
+                    border: '1px solid #e0e0e0',
+                    borderRadius: 8,
+                    background: '#ffffff',
+                  }}
+                  title="Desktop Preview"
+                />
+              )}
+            </div>
+          </BlockStack>
         </Modal.Section>
       </Modal>
 
