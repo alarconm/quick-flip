@@ -14,7 +14,7 @@
         "Add comment documenting this is dev-only"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "CQ-002",
@@ -27,7 +27,7 @@
         "Code passes linting without warnings"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "CQ-003",
@@ -40,7 +40,7 @@
         "Templates folder cleaned up if empty"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "CQ-004",
@@ -54,7 +54,7 @@
         "Error messages are user-friendly, technical details logged only"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "CQ-005",
@@ -67,7 +67,7 @@
         "Development mode allows default key"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "CQ-006",
@@ -80,7 +80,7 @@
         "No TODO comments left in models"
       ],
       "priority": 3,
-      "passes": false
+      "passes": true
     },
     {
       "id": "CQ-007",
@@ -93,7 +93,7 @@
         "Add custom exceptions for business logic errors"
       ],
       "priority": 3,
-      "passes": false
+      "passes": true
     },
     {
       "id": "CQ-008",
@@ -106,7 +106,7 @@
         "mypy passes without errors on typed files"
       ],
       "priority": 3,
-      "passes": false
+      "passes": true
     }
   ]
 }

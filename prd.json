@@ -1,112 +1,149 @@
 {
-  "branch": "feature/code-quality-fixes",
-  "title": "Code Quality and Security Fixes",
-  "description": "Fix code quality issues, security concerns, and anti-patterns identified in codebase review. Removes debug endpoints, fixes import anti-patterns, standardizes error responses, and cleans up unused code.",
+  "branch": "feature/gamification-system",
+  "title": "Gamification System - Badges, Achievements & Streaks",
+  "description": "Implement a comprehensive gamification system to increase member engagement. Includes achievement badges, progress tracking, milestone celebrations, and streak tracking. This is a HIGH PRIORITY competitive feature that Smile.io and Rivo have but TradeUp lacks.",
   "userStories": [
     {
-      "id": "CQ-001",
-      "title": "Remove or protect debug endpoint",
-      "description": "The /api/members/debug endpoint exposes access_token_status and tenant info. This should be removed or restricted to development only.",
+      "id": "GS-001",
+      "title": "Create badge database models",
+      "description": "Create database tables for badges and member badge assignments to track achievements.",
       "acceptanceCriteria": [
-        "Debug endpoint returns 404 in production environment",
-        "Debug endpoint only accessible when FLASK_ENV=development",
-        "No sensitive information exposed in production",
-        "Add comment documenting this is dev-only"
+        "Badge model with: id, name, description, icon_url, criteria_type, criteria_value, points_reward, is_active, created_at",
+        "MemberBadge model with: id, member_id, badge_id, earned_at, notified_at",
+        "Foreign key relationships properly defined",
+        "Alembic migration created and applied",
+        "Indexes on member_id and badge_id for efficient queries"
       ],
       "priority": 1,
-      "passes": true
+      "passes": false
     },
     {
-      "id": "CQ-002",
-      "title": "Replace __import__() anti-pattern with proper imports",
-      "description": "Replace all instances of __import__('datetime') and similar patterns with standard import statements for better readability and maintainability.",
+      "id": "GS-002",
+      "title": "Create badge CRUD API endpoints",
+      "description": "API endpoints for merchants to create, manage, and view badges.",
       "acceptanceCriteria": [
-        "No __import__() calls in app/api/integrations/*.py",
-        "No __import__() calls in app/services/partner_sync_service.py",
-        "All files use standard 'import datetime' at top of file",
-        "Code passes linting without warnings"
+        "GET /api/badges - list all badges for tenant",
+        "POST /api/badges - create new badge",
+        "PUT /api/badges/{id} - update badge",
+        "DELETE /api/badges/{id} - delete badge (soft delete if members have it)",
+        "GET /api/members/{id}/badges - get member's earned badges"
       ],
       "priority": 1,
-      "passes": true
+      "passes": false
     },
     {
-      "id": "CQ-003",
-      "title": "Remove unused legacy dashboard template",
-      "description": "Remove app/templates/dashboard.html which contains TODO comments and is no longer used (React SPA handles all UI).",
+      "id": "GS-003",
+      "title": "Implement badge criteria evaluation service",
+      "description": "Service to check if a member qualifies for badges based on their activity.",
       "acceptanceCriteria": [
-        "app/templates/dashboard.html deleted",
-        "No references to dashboard.html in Flask routes",
-        "App still functions correctly without the template",
-        "Templates folder cleaned up if empty"
+        "BadgeService class in app/services/badge_service.py",
+        "check_and_award_badges(member_id) method",
+        "Support criteria types: first_purchase, purchase_count, total_spent, trade_in_count, referral_count, tier_reached, streak_days",
+        "Badges awarded only once per member",
+        "Badge award triggers notification"
+      ],
+      "priority": 1,
+      "passes": false
+    },
+    {
+      "id": "GS-004",
+      "title": "Create default badge templates",
+      "description": "Pre-configured badges that merchants can enable out of the box.",
+      "acceptanceCriteria": [
+        "First Purchase badge (first order placed)",
+        "Trade-In Pro badge (10+ trade-ins completed)",
+        "Big Spender badge ($500+ lifetime spend)",
+        "Referral Champion badge (5+ successful referrals)",
+        "Loyal Member badge (12 months membership)",
+        "Hot Streak badge (3 consecutive months active)",
+        "Seed data script to create default badges"
       ],
       "priority": 2,
-      "passes": true
+      "passes": false
     },
     {
-      "id": "CQ-004",
-      "title": "Standardize API error response format",
-      "description": "Ensure all API endpoints return errors in a consistent format: {'error': {'message': '...', 'code': 'ERROR_CODE'}}",
+      "id": "GS-005",
+      "title": "Add streak tracking to members",
+      "description": "Track consecutive activity periods for members to enable streak-based achievements.",
       "acceptanceCriteria": [
-        "Create ErrorResponse schema/helper in app/utils/",
-        "All API endpoints use standardized error format",
-        "Error codes defined as constants (MEMBER_NOT_FOUND, INVALID_REQUEST, etc.)",
-        "Frontend api.ts updated to handle new format",
-        "Error messages are user-friendly, technical details logged only"
+        "Add current_streak and longest_streak columns to members table",
+        "Alembic migration for new columns",
+        "Streak increments on monthly activity (purchase or trade-in)",
+        "Streak resets after 30 days of inactivity",
+        "Streak displayed in member profile"
       ],
       "priority": 2,
-      "passes": true
+      "passes": false
     },
     {
-      "id": "CQ-005",
-      "title": "Add SECRET_KEY validation in production",
-      "description": "Fail fast if SECRET_KEY is missing or using default value in production environment.",
+      "id": "GS-006",
+      "title": "Create badge management UI in admin",
+      "description": "React components for merchants to manage badges in the admin dashboard.",
       "acceptanceCriteria": [
-        "App fails to start in production if SECRET_KEY not set",
-        "App fails to start if SECRET_KEY contains 'dev' or 'change'",
-        "Clear error message explaining the issue",
-        "Development mode allows default key"
+        "EmbeddedBadges.tsx page component",
+        "Badge list with enable/disable toggle",
+        "Badge create/edit modal with criteria configuration",
+        "Badge preview showing icon and description",
+        "Route added to admin navigation"
       ],
-      "priority": 1,
-      "passes": true
+      "priority": 2,
+      "passes": false
     },
     {
-      "id": "CQ-006",
-      "title": "Remove TODO comments in member model",
-      "description": "Address or remove the TODO comment at app/models/member.py:188 about last_trade_in_at calculation.",
+      "id": "GS-007",
+      "title": "Add badge showcase to customer account extension",
+      "description": "Display earned badges in the customer-facing rewards dashboard.",
       "acceptanceCriteria": [
-        "Either implement last_trade_in_at calculation from trade_in_batches",
-        "Or remove TODO comment if not needed",
-        "Member serialization includes correct last_trade_in_at value",
-        "No TODO comments left in models"
+        "BadgeShowcase component in customer-account-ui",
+        "Shows earned badges with earned date",
+        "Shows locked badges with progress toward earning",
+        "Badges displayed with icons and descriptions",
+        "Responsive grid layout"
       ],
-      "priority": 3,
-      "passes": true
+      "priority": 2,
+      "passes": false
     },
     {
-      "id": "CQ-007",
-      "title": "Use specific exception types instead of generic Exception",
-      "description": "Replace broad 'except Exception as e' with more specific exception types where appropriate for better error handling.",
+      "id": "GS-008",
+      "title": "Create achievement unlocked celebration modal",
+      "description": "Celebratory modal shown when customer earns a new badge.",
       "acceptanceCriteria": [
-        "Review and fix exception handling in services/",
-        "Use ValueError, KeyError, TypeError where appropriate",
-        "Keep generic Exception only for truly unexpected errors",
-        "Add custom exceptions for business logic errors"
-      ],
-      "priority": 3,
-      "passes": true
-    },
-    {
-      "id": "CQ-008",
-      "title": "Add type hints to core service functions",
-      "description": "Add Python type hints to the most critical service functions for better IDE support and documentation.",
-      "acceptanceCriteria": [
-        "Type hints added to member_service.py public functions",
-        "Type hints added to tier_service.py public functions",
-        "Type hints added to credit_service.py public functions",
-        "mypy passes without errors on typed files"
+        "AchievementUnlocked component with animation",
+        "Shows badge icon, name, and points earned",
+        "Confetti or particle effect animation",
+        "Share to social option (optional)",
+        "Modal triggered when viewing page after earning badge"
       ],
       "priority": 3,
-      "passes": true
+      "passes": false
+    },
+    {
+      "id": "GS-009",
+      "title": "Add progress bars for tier advancement",
+      "description": "Visual progress indicators showing how close member is to next tier.",
+      "acceptanceCriteria": [
+        "Progress bar component shows points/spend toward next tier",
+        "Percentage complete calculated correctly",
+        "Displays requirement for next tier",
+        "Integrated into customer account extension",
+        "Updates in real-time after transactions"
+      ],
+      "priority": 2,
+      "passes": false
+    },
+    {
+      "id": "GS-010",
+      "title": "Implement milestone celebrations",
+      "description": "Special celebrations for significant point milestones (100, 500, 1000, etc.).",
+      "acceptanceCriteria": [
+        "Milestone thresholds configurable in settings",
+        "Celebration shown when milestone crossed",
+        "Optional bonus points/credit for milestones",
+        "Milestone history tracked per member",
+        "Email notification for major milestones"
+      ],
+      "priority": 3,
+      "passes": false
     }
   ]
 }
