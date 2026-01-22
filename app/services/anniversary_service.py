@@ -206,6 +206,23 @@ class AnniversaryService:
         if hasattr(member, 'last_anniversary_reward_year'):
             member.last_anniversary_reward_year = current_year
 
+        # Award anniversary badge if applicable (1, 2, or 5 year milestones)
+        badge_awarded = None
+        try:
+            badge_awarded = self._award_anniversary_badge(member_id, anniversary_year)
+            if badge_awarded:
+                result['badge_awarded'] = {
+                    'id': badge_awarded.badge_id,
+                    'name': badge_awarded.badge.name if badge_awarded.badge else None,
+                }
+                current_app.logger.info(
+                    f"Anniversary badge awarded: {badge_awarded.badge.name if badge_awarded.badge else 'Unknown'} "
+                    f"to member {member.member_number}"
+                )
+        except Exception as e:
+            # Don't fail the reward if badge awarding fails
+            current_app.logger.warning(f"Failed to award anniversary badge for member {member_id}: {e}")
+
         try:
             db.session.commit()
             current_app.logger.info(
@@ -413,6 +430,22 @@ class AnniversaryService:
         else:
             suffix = {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')
         return f"{n}{suffix}"
+
+    def _award_anniversary_badge(self, member_id: int, anniversary_year: int):
+        """
+        Award anniversary badge via GamificationService integration.
+
+        Args:
+            member_id: ID of the member
+            anniversary_year: The anniversary year (1, 2, 5, etc.)
+
+        Returns:
+            MemberBadge if awarded, None otherwise
+        """
+        from .gamification_service import GamificationService
+
+        gamification_service = GamificationService(self.tenant_id)
+        return gamification_service.award_anniversary_badge(member_id, anniversary_year)
 
 
 # Convenience functions for simpler usage

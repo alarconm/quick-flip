@@ -1710,3 +1710,55 @@ Date: 2026-01-22
 - [x] Includes call-to-action to shop - gradient CTA button with shop_url
 - [x] Template is mobile-responsive - @media queries and responsive CSS included
 
+---
+
+## Story: AR-007 - Add milestone anniversary badges
+Date: 2026-01-22
+
+### What I Did
+- Added 2 Year Member and 5 Year Member badges to GamificationService.DEFAULT_BADGES
+- Renamed existing "Loyal Member" badge to "1 Year Member" for consistency
+- Created award_anniversary_badge() method in GamificationService:
+  - Maps anniversary years (1, 2, 5) to badge criteria values (365, 730, 1825 days)
+  - Finds matching anniversary badge for tenant
+  - Awards badge if not already earned
+  - Awards badge rewards (points/credit) automatically
+- Created get_anniversary_badges() method in GamificationService for retrieving all anniversary badges
+- Integrated badge awarding into AnniversaryService.issue_anniversary_reward():
+  - Calls _award_anniversary_badge() after issuing the reward
+  - Adds badge_awarded info to result dict
+  - Handles badge awarding errors gracefully (doesn't fail the reward)
+- Created _award_anniversary_badge() helper method in AnniversaryService that delegates to GamificationService
+
+### Files Changed
+- app/services/gamification_service.py:
+  - Renamed "Loyal Member" to "1 Year Member" in DEFAULT_BADGES
+  - Added "2 Year Member" badge (730 days, silver color, 2000 points)
+  - Added "5 Year Member" badge (1825 days, gold color, 5000 points, heart icon)
+  - Added award_anniversary_badge() method (~50 lines)
+  - Added get_anniversary_badges() method (~10 lines)
+- app/services/anniversary_service.py:
+  - Added badge awarding integration to issue_anniversary_reward() (~20 lines)
+  - Added _award_anniversary_badge() helper method (~15 lines)
+
+### Anniversary Badges
+| Badge | Duration | Icon | Color | Points Reward |
+|-------|----------|------|-------|---------------|
+| 1 Year Member | 365 days | calendar | default | 1,000 |
+| 2 Year Member | 730 days | calendar | silver | 2,000 |
+| 5 Year Member | 1825 days | heart | gold | 5,000 |
+
+### Learnings
+- Anniversary badges use member_anniversary criteria type with days as the criteria_value
+- Badge awarding happens automatically when anniversary reward is issued
+- Error handling ensures badge failure doesn't prevent reward issuance
+- Lazy import of GamificationService in _award_anniversary_badge() avoids circular imports
+- Only milestone years (1, 2, 5) get special badges - other years skip badge awarding
+
+### Verification
+- [x] 1 Year Member badge created (renamed from "Loyal Member")
+- [x] 2 Year Member badge created (730 days, silver, 2000 points)
+- [x] 5 Year Member badge created (1825 days, gold, 5000 points)
+- [x] Badges awarded when anniversary reward issued (via award_anniversary_badge)
+- [x] Integration with gamification system (uses GamificationService)
+
