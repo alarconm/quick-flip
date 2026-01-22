@@ -111,6 +111,8 @@ interface SettingsResponse {
       reward_amount: number;
       email_days_before: number;
       message: string;
+      tiered_rewards_enabled: boolean;
+      tiered_rewards: Record<string, number>;
     };
   };
   tenant: {
@@ -1287,12 +1289,91 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
 
               <Divider />
 
+              <Checkbox
+                label="Enable tiered anniversary rewards"
+                checked={getValue('anniversary', 'tiered_rewards_enabled', false)}
+                onChange={(value) => handleChange('anniversary', 'tiered_rewards_enabled', value)}
+                helpText="Give different reward amounts based on anniversary year (e.g., Year 1 = $5, Year 2 = $10, Year 5 = $25)"
+                disabled={!getValue('anniversary', 'enabled', false)}
+              />
+
+              {getValue('anniversary', 'tiered_rewards_enabled', false) && getValue('anniversary', 'enabled', false) && (
+                <BlockStack gap="300">
+                  <Text as="h4" variant="headingSm">Tiered Reward Amounts</Text>
+                  <Text as="p" variant="bodySm" tone="subdued">
+                    Set custom reward amounts for specific anniversary years. Years not configured will use the default amount above.
+                  </Text>
+                  <BlockStack gap="200">
+                    {[1, 2, 3, 5, 10].map((year) => {
+                      const tieredRewards = getValue('anniversary', 'tiered_rewards', {}) as Record<string, number>;
+                      const currentValue = tieredRewards[String(year)] ?? '';
+                      const rewardType = getValue('anniversary', 'reward_type', 'points');
+                      return (
+                        <InlineStack key={year} gap="200" blockAlign="center">
+                          <Box minWidth="100px">
+                            <Text as="span" variant="bodyMd" fontWeight="semibold">
+                              Year {year}:
+                            </Text>
+                          </Box>
+                          <Box width="150px">
+                            <TextField
+                              label={`Year ${year} reward`}
+                              labelHidden
+                              type="number"
+                              value={String(currentValue)}
+                              onChange={(value) => {
+                                const newTieredRewards = { ...tieredRewards };
+                                if (value === '' || value === '0') {
+                                  delete newTieredRewards[String(year)];
+                                } else {
+                                  newTieredRewards[String(year)] = parseFloat(value) || 0;
+                                }
+                                handleChange('anniversary', 'tiered_rewards', newTieredRewards);
+                              }}
+                              prefix={rewardType === 'points' ? '' : '$'}
+                              suffix={rewardType === 'points' ? 'pts' : ''}
+                              placeholder={`${getValue('anniversary', 'reward_amount', 100)}`}
+                              autoComplete="off"
+                            />
+                          </Box>
+                          <Text as="span" variant="bodySm" tone="subdued">
+                            {currentValue ? '' : '(uses default)'}
+                          </Text>
+                        </InlineStack>
+                      );
+                    })}
+                  </BlockStack>
+                  <Banner tone="info">
+                    <p>
+                      {(() => {
+                        const tieredRewards = getValue('anniversary', 'tiered_rewards', {}) as Record<string, number>;
+                        const rewardType = getValue('anniversary', 'reward_type', 'points');
+                        const defaultAmount = getValue('anniversary', 'reward_amount', 100);
+                        const formatAmount = (amount: number) =>
+                          rewardType === 'points' ? `${amount} points` : `$${amount}`;
+                        const examples = [];
+                        for (const year of [1, 2, 5]) {
+                          const amount = tieredRewards[String(year)] ?? defaultAmount;
+                          examples.push(`Year ${year}: ${formatAmount(amount)}`);
+                        }
+                        return `Example: ${examples.join(', ')}`;
+                      })()}
+                    </p>
+                  </Banner>
+                </BlockStack>
+              )}
+
+              <Divider />
+
               <BlockStack gap="200">
                 <Text as="h4" variant="headingSm">How Anniversary Rewards Work</Text>
                 <Text as="p" variant="bodySm" tone="subdued">
                   When enabled, members will automatically receive their reward on the anniversary
                   of their membership enrollment. The reward is delivered based on the reward type
                   you select above. A celebratory email is sent according to your timing preference.
+                  {getValue('anniversary', 'tiered_rewards_enabled', false) && (
+                    ' With tiered rewards enabled, members receive different amounts based on their anniversary year.'
+                  )}
                 </Text>
               </BlockStack>
             </BlockStack>

@@ -22,6 +22,8 @@ def get_anniversary_settings(tenant):
         'reward_amount': anniversary_settings.get('reward_amount', 100),
         'email_days_before': anniversary_settings.get('email_days_before', 0),  # 0, 1, 3, or 7
         'message': anniversary_settings.get('message', 'Happy Anniversary! Thank you for being a loyal member!'),
+        'tiered_rewards_enabled': anniversary_settings.get('tiered_rewards_enabled', False),
+        'tiered_rewards': anniversary_settings.get('tiered_rewards', {}),
     }
 
 
@@ -100,6 +102,32 @@ def update_settings():
                 'error': 'Invalid reward_amount. Must be a non-negative number'
             }), 400
 
+    # Validate tiered_rewards if provided
+    tiered_rewards = data.get('tiered_rewards')
+    if tiered_rewards is not None:
+        if not isinstance(tiered_rewards, dict):
+            return jsonify({
+                'error': 'Invalid tiered_rewards. Must be an object mapping years to amounts'
+            }), 400
+        # Validate each tier entry
+        for year_str, amount in tiered_rewards.items():
+            try:
+                year = int(year_str)
+                if year < 1:
+                    raise ValueError()
+            except (ValueError, TypeError):
+                return jsonify({
+                    'error': f'Invalid tiered_rewards year "{year_str}". Years must be positive integers'
+                }), 400
+            try:
+                amount = float(amount)
+                if amount < 0:
+                    raise ValueError()
+            except (ValueError, TypeError):
+                return jsonify({
+                    'error': f'Invalid tiered_rewards amount for year {year_str}. Must be a non-negative number'
+                }), 400
+
     # Update tenant settings
     if not g.tenant.settings:
         g.tenant.settings = {}
@@ -113,6 +141,8 @@ def update_settings():
         'reward_amount': data.get('reward_amount', current_anniversary.get('reward_amount', 100)),
         'email_days_before': data.get('email_days_before', current_anniversary.get('email_days_before', 0)),
         'message': data.get('message', current_anniversary.get('message', 'Happy Anniversary! Thank you for being a loyal member!')),
+        'tiered_rewards_enabled': data.get('tiered_rewards_enabled', current_anniversary.get('tiered_rewards_enabled', False)),
+        'tiered_rewards': data.get('tiered_rewards', current_anniversary.get('tiered_rewards', {})),
     }
 
     flag_modified(g.tenant, 'settings')

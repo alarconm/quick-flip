@@ -52,7 +52,39 @@ class AnniversaryService:
             'reward_amount': anniversary_settings.get('reward_amount', 100),  # Default 100 points or $10
             'email_days_before': anniversary_settings.get('email_days_before', 0),  # 0 = on anniversary
             'message': anniversary_settings.get('message', 'Happy Anniversary! Thank you for being a loyal member!'),
+            'tiered_rewards_enabled': anniversary_settings.get('tiered_rewards_enabled', False),
+            'tiered_rewards': anniversary_settings.get('tiered_rewards', {}),
         }
+
+    def get_reward_amount_for_year(self, anniversary_year: int) -> float:
+        """
+        Get the reward amount for a specific anniversary year.
+
+        If tiered rewards are enabled and a tier is configured for the year,
+        returns the tiered amount. Otherwise returns the default reward_amount.
+
+        Args:
+            anniversary_year: The anniversary year (1, 2, 3, etc.)
+
+        Returns:
+            The reward amount to issue for this anniversary year.
+        """
+        settings = self.get_anniversary_settings()
+
+        # If tiered rewards are disabled, use default amount
+        if not settings.get('tiered_rewards_enabled', False):
+            return settings['reward_amount']
+
+        tiered_rewards = settings.get('tiered_rewards', {})
+
+        # Check if there's a configured amount for this specific year
+        # Keys in the dict are strings (from JSON)
+        year_key = str(anniversary_year)
+        if year_key in tiered_rewards:
+            return float(tiered_rewards[year_key])
+
+        # Fall back to default amount if year not configured
+        return settings['reward_amount']
 
     def get_todays_anniversaries(self) -> List[Member]:
         """
@@ -171,7 +203,8 @@ class AnniversaryService:
         anniversary_year = self.get_anniversary_year(member)
 
         reward_type = settings['reward_type']
-        reward_amount = settings['reward_amount']
+        # Get reward amount - use tiered amount if configured, otherwise default
+        reward_amount = self.get_reward_amount_for_year(anniversary_year)
 
         result = {
             'success': True,

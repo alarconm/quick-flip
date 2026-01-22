@@ -118,9 +118,14 @@ DEFAULT_SETTINGS = {
     'anniversary': {
         'enabled': False,  # Master toggle for anniversary rewards
         'reward_type': 'points',  # points, credit, or discount_code
-        'reward_amount': 100,  # Amount of points/credit or discount percentage
+        'reward_amount': 100,  # Amount of points/credit or discount percentage (default/base amount)
         'email_days_before': 0,  # 0 = on anniversary, 1, 3, or 7 days before
         'message': 'Happy Anniversary! Thank you for being a loyal member!',  # Customizable message
+        'tiered_rewards_enabled': False,  # Enable different rewards per anniversary year
+        'tiered_rewards': {  # Reward amounts by anniversary year (overrides reward_amount)
+            # Example: '1': 5, '2': 10, '5': 25, '10': 50
+            # Years not configured will use the default reward_amount
+        },
     }
 }
 

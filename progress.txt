@@ -1935,3 +1935,93 @@ Reminders run 1 hour before rewards to ensure members receive advance notice bef
 - [x] Only sent if advance email days > 0 (email_days_before check in process_anniversary_reminders)
 - [x] Respects member email preferences (checks member.email exists and member.status is active)
 
+---
+
+## Story: AR-010 - Add tiered anniversary rewards
+Date: 2026-01-22
+
+### What I Did
+- Added tiered rewards configuration to anniversary settings:
+  - `tiered_rewards_enabled`: Boolean toggle to enable tiered rewards
+  - `tiered_rewards`: Object mapping anniversary years to reward amounts (e.g., {"1": 5, "2": 10, "5": 25})
+- Updated AnniversaryService with get_reward_amount_for_year() method:
+  - Checks if tiered rewards are enabled
+  - Returns configured amount for specific years, or falls back to default reward_amount
+  - Called during issue_anniversary_reward() to determine the correct amount
+- Updated anniversary API endpoints:
+  - GET /api/anniversary/settings returns tiered_rewards_enabled and tiered_rewards
+  - PUT /api/anniversary/settings accepts and validates tiered rewards configuration
+  - Validates years are positive integers and amounts are non-negative numbers
+- Added comprehensive UI in EmbeddedSettings.tsx:
+  - Checkbox to enable/disable tiered rewards
+  - Input fields for common anniversary years (1, 2, 3, 5, 10)
+  - Dynamic prefix/suffix based on reward type (points vs credit)
+  - Placeholder shows default amount when tier not configured
+  - Info banner showing example reward progression
+  - Help text explaining how tiered rewards work
+
+### Files Changed
+- app/utils/settings_defaults.py:
+  - Added tiered_rewards_enabled (default: false)
+  - Added tiered_rewards object to anniversary settings
+- app/api/anniversary.py:
+  - Added tiered_rewards_enabled and tiered_rewards to get_anniversary_settings()
+  - Added validation for tiered_rewards in PUT /settings endpoint
+  - Added tiered_rewards fields to settings merge logic
+- app/services/anniversary_service.py:
+  - Added get_reward_amount_for_year() method (~25 lines)
+  - Updated get_anniversary_settings() to include tiered rewards fields
+  - Updated issue_anniversary_reward() to call get_reward_amount_for_year()
+- frontend/src/embedded/pages/EmbeddedSettings.tsx:
+  - Updated SettingsResponse interface with tiered rewards types
+  - Added tiered rewards UI section (~60 lines)
+
+### UI Features
+- **Enable Toggle**: Checkbox to turn on tiered rewards feature
+- **Year Input Fields**: Pre-configured fields for years 1, 2, 3, 5, and 10
+- **Smart Placeholders**: Shows default amount when tier not configured
+- **Dynamic Formatting**: Prefix ($) or suffix (pts) based on reward type
+- **Example Banner**: Shows preview of reward progression
+- **Conditional Display**: Only shows when tiered rewards enabled
+- **Disabled State**: All fields disabled when anniversary rewards off
+
+### Example Configuration
+```json
+{
+  "anniversary": {
+    "enabled": true,
+    "reward_type": "credit",
+    "reward_amount": 5,
+    "tiered_rewards_enabled": true,
+    "tiered_rewards": {
+      "1": 5,
+      "2": 10,
+      "5": 25,
+      "10": 50
+    }
+  }
+}
+```
+
+With this configuration:
+- Year 1 anniversary: $5 credit
+- Year 2 anniversary: $10 credit
+- Year 3 anniversary: $5 credit (uses default)
+- Year 4 anniversary: $5 credit (uses default)
+- Year 5 anniversary: $25 credit
+- Year 10 anniversary: $50 credit
+
+### Learnings
+- JSON keys are always strings, so year lookup uses str(anniversary_year)
+- Default fallback ensures all years receive rewards even if not configured
+- UI allows clearing a tier by setting empty/0 to use default amount
+- Pre-configured common milestone years (1, 2, 3, 5, 10) cover most use cases
+- Banner preview helps merchants visualize their reward progression
+
+### Verification
+- [x] Support different rewards per anniversary year (tiered_rewards object)
+- [x] Example: Year 1 = $5, Year 2 = $10, Year 5 = $25 (configurable via UI)
+- [x] Configurable tiers in settings (PUT /api/anniversary/settings with validation)
+- [x] Default to base amount if tier not configured (get_reward_amount_for_year fallback)
+- [x] UI to configure tiered rewards (EmbeddedSettings.tsx Anniversary Rewards section)
+
