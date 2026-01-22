@@ -1514,3 +1514,58 @@ Date: 2026-01-22
 - [x] Dropdown for advance email days (Select with 4 options)
 - [x] Settings save successfully (uses existing handleChange/getValue pattern)
 
+---
+
+## Story: AR-004 - Create anniversary reward service
+Date: 2026-01-22
+
+### What I Did
+- Created AnniversaryService class in app/services/anniversary_service.py
+- Implemented all required methods:
+  - get_todays_anniversaries() - finds members with anniversary today
+  - get_anniversary_year(member) - calculates 1st, 2nd, 3rd year, etc.
+  - issue_anniversary_reward(member_id) - issues reward and tracks it
+  - get_members_with_upcoming_anniversaries() - for preview/reporting
+  - process_anniversary_rewards() - batch process all today's anniversaries
+  - get_anniversary_stats() - statistics for admin UI
+- Added `last_anniversary_reward_year` column to Member model for duplicate prevention
+- Added `ANNIVERSARY_REWARD` to CreditEventType enum
+- Created Alembic migration z4a5b6c7d8e9_add_anniversary_reward_field.py
+- Supports all three reward types:
+  - Points: Updates member.points_balance and creates PointsTransaction
+  - Credit: Uses store_credit_service.add_credit() with sync to Shopify
+  - Discount Code: Uses shopify_client.create_reward_discount_code()
+- Added ordinal number helper (_ordinal) for "1st", "2nd", "3rd" formatting
+
+### Files Changed
+- app/services/anniversary_service.py (new - 360 lines)
+- app/models/member.py (added last_anniversary_reward_year column)
+- app/models/promotions.py (added ANNIVERSARY_REWARD to CreditEventType)
+- migrations/versions/z4a5b6c7d8e9_add_anniversary_reward_field.py (new migration)
+- progress.txt (updated)
+
+### Service Methods
+| Method | Purpose |
+|--------|---------|
+| get_anniversary_settings() | Get tenant's anniversary config |
+| get_todays_anniversaries() | Find members with anniversary today |
+| get_members_with_upcoming_anniversaries(days) | Preview upcoming anniversaries |
+| get_anniversary_year(member) | Calculate which anniversary year |
+| issue_anniversary_reward(member_id) | Issue reward to single member |
+| process_anniversary_rewards() | Batch process all anniversaries today |
+| get_anniversary_stats() | Statistics for admin dashboard |
+
+### Learnings
+- Followed BirthdayService pattern for consistency
+- Member model already had anniversary helper methods from AR-001
+- Using last_anniversary_reward_year prevents duplicate rewards for same year
+- Discount codes are tied to specific customer and expire in 30 days
+
+### Verification
+- [x] AnniversaryService class in app/services/anniversary_service.py
+- [x] get_todays_anniversaries(tenant_id) method
+- [x] get_anniversary_year(member) method (1st, 2nd, 3rd year, etc.)
+- [x] issue_anniversary_reward(member_id) method
+- [x] Track anniversary rewards issued (prevent duplicates for same year)
+- [x] Support all three reward types (points, credit, discount)
+

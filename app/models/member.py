@@ -140,6 +140,9 @@ class Member(db.Model):
     birthday = db.Column(db.Date)  # Store as date (year 2000 + month/day)
     last_birthday_reward_year = db.Column(db.Integer)  # Track last year reward was given
 
+    # Anniversary rewards
+    last_anniversary_reward_year = db.Column(db.Integer)  # Track last year anniversary reward was given
+
     # Metadata
     notes = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
