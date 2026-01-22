@@ -52,6 +52,8 @@ from .guest_points import GuestPoints
 from .review_prompt import ReviewPrompt, ReviewPromptResponse
 from .support_ticket import SupportTicket, TicketStatus, TicketSatisfaction
 from .nudge_config import NudgeConfig, NudgeType, seed_nudge_configs, DEFAULT_NUDGE_TEMPLATES, DEFAULT_NUDGE_FREQUENCY
+from .nudge_sent import NudgeSent
+from .loyalty_page import LoyaltyPage, DEFAULT_PAGE_CONFIG
 
 __all__ = [
     'Tenant',
@@ -125,4 +127,9 @@ __all__ = [
     'seed_nudge_configs',
     'DEFAULT_NUDGE_TEMPLATES',
     'DEFAULT_NUDGE_FREQUENCY',
+    # Nudge Sent
+    'NudgeSent',
+    # Loyalty Page Builder
+    'LoyaltyPage',
+    'DEFAULT_PAGE_CONFIG',
 ]

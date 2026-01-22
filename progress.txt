@@ -2736,3 +2736,46 @@ Date: 2026-01-22
 - Action buttons navigate within the extension when possible
 - Dismissing records in NudgeSent with `delivery_method='in_app'` for consistent tracking
 - Uses existing Shopify Banner component for native look and feel
+
+---
+
+## Story: LP-001 - Create page configuration model
+Date: 2026-01-22
+
+### What I Did
+- Created LoyaltyPage model in `app/models/loyalty_page.py`
+- Added Alembic migration for loyalty_pages table
+- Updated `app/models/__init__.py` to export the new model
+
+### Model Features
+- **Core Fields**: id, tenant_id, page_config (JSON), is_published, published_at, created_at, updated_at
+- **Draft Support**: draft_config field for editing before publishing, version tracking
+- **Methods**: publish(), unpublish(), discard_draft(), has_unsaved_changes()
+- **Helper**: get_or_create() class method for tenant page retrieval
+
+### Database Schema
+```sql
+CREATE TABLE loyalty_pages (
+    id INTEGER PRIMARY KEY,
+    tenant_id INTEGER NOT NULL REFERENCES tenants(id),
+    page_config JSON NOT NULL,
+    draft_config JSON,
+    is_published BOOLEAN NOT NULL DEFAULT FALSE,
+    published_at TIMESTAMP,
+    version INTEGER NOT NULL DEFAULT 1,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    UNIQUE(tenant_id)
+);
+```
+
+### Files Changed
+- `app/models/loyalty_page.py` - New model file (~230 lines)
+- `app/models/__init__.py` - Added LoyaltyPage and DEFAULT_PAGE_CONFIG exports
+- `migrations/versions/e9f0a1b2c3d4_add_loyalty_pages_table.py` - New migration
+
+### Acceptance Criteria Verification
+- [x] LoyaltyPage model with: id, tenant_id, page_config (JSON), is_published, published_at, created_at, updated_at
+- [x] page_config stores sections, styles, and content (DEFAULT_PAGE_CONFIG defined)
+- [x] Alembic migration created
+- [x] Support for draft and published versions (draft_config field + publish/unpublish methods)
