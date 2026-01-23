@@ -441,6 +441,8 @@ def fix_schema():
         # Members - Birthday rewards columns
         ("members", "birthday", "DATE"),
         ("members", "last_birthday_reward_year", "INTEGER"),
+        # Members - Anniversary rewards columns
+        ("members", "last_anniversary_reward_year", "INTEGER"),
         # NudgesSent - Effectiveness tracking columns (NR-009)
         ("nudges_sent", "converted_at", "TIMESTAMP"),
         ("nudges_sent", "order_id", "VARCHAR(100)"),

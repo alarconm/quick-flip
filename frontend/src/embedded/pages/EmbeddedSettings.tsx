@@ -1119,35 +1119,43 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
         >
           <Card>
             <BlockStack gap="400">
-              <Checkbox
-                label="Enable self-signup"
-                checked={getValue('features', 'self_signup_enabled', true)}
-                onChange={(value) => handleChange('features', 'self_signup_enabled', value)}
-                helpText="Allow customers to sign up for membership themselves"
-              />
-
-              <Checkbox
-                label="Enable points system"
-                checked={getValue('features', 'points_enabled', false)}
-                onChange={(value) => handleChange('features', 'points_enabled', value)}
-                helpText="Award points for purchases that can be redeemed for rewards"
-              />
-
-              <Checkbox
-                label="Enable referral program"
-                checked={getValue('features', 'referrals_enabled', false)}
-                onChange={(value) => handleChange('features', 'referrals_enabled', value)}
-                helpText="Allow members to earn rewards by referring new customers"
-              />
+              <Text as="h3" variant="headingSm">Core Features</Text>
+              <Box paddingInlineStart="200">
+                <BlockStack gap="300">
+                  <Checkbox
+                    label="Enable self-signup"
+                    checked={getValue('features', 'self_signup_enabled', true)}
+                    onChange={(value) => handleChange('features', 'self_signup_enabled', value)}
+                    helpText="Allow customers to sign up for membership themselves"
+                  />
+                  <Checkbox
+                    label="Enable points system"
+                    checked={getValue('features', 'points_enabled', false)}
+                    onChange={(value) => handleChange('features', 'points_enabled', value)}
+                    helpText="Award points for purchases that can be redeemed for rewards"
+                  />
+                  <Checkbox
+                    label="Enable referral program"
+                    checked={getValue('features', 'referrals_enabled', false)}
+                    onChange={(value) => handleChange('features', 'referrals_enabled', value)}
+                    helpText="Allow members to earn rewards by referring new customers"
+                  />
+                </BlockStack>
+              </Box>
 
               <Divider />
 
-              <Checkbox
-                label="Show advanced features"
-                checked={getValue('features', 'advanced_features_enabled', false)}
-                onChange={(value) => handleChange('features', 'advanced_features_enabled', value)}
-                helpText="Shows Promotions, Points & Rewards, and Membership Tiers in the navigation sidebar. Perfect for power users."
-              />
+              <Text as="h3" variant="headingSm">Advanced Options</Text>
+              <Box paddingInlineStart="200">
+                <BlockStack gap="300">
+                  <Checkbox
+                    label="Show advanced features"
+                    checked={getValue('features', 'advanced_features_enabled', false)}
+                    onChange={(value) => handleChange('features', 'advanced_features_enabled', value)}
+                    helpText="Shows Promotions, Points & Rewards, and Membership Tiers in the navigation sidebar. Perfect for power users."
+                  />
+                </BlockStack>
+              </Box>
             </BlockStack>
           </Card>
         </Layout.AnnotatedSection>
@@ -1180,13 +1188,20 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
         >
           <Card>
             <BlockStack gap="400">
-              <Checkbox
-                label="Enable auto-enrollment"
-                checked={getValue('auto_enrollment', 'enabled', true)}
-                onChange={(value) => handleChange('auto_enrollment', 'enabled', value)}
-                helpText="Automatically enroll customers when they make their first purchase"
-              />
+              <Box paddingInlineStart="200">
+                <BlockStack gap="300">
+                  <Checkbox
+                    label="Enable auto-enrollment"
+                    checked={getValue('auto_enrollment', 'enabled', true)}
+                    onChange={(value) => handleChange('auto_enrollment', 'enabled', value)}
+                    helpText="Automatically enroll customers when they make their first purchase"
+                  />
+                </BlockStack>
+              </Box>
 
+              <Divider />
+
+              <Text as="h3" variant="headingSm">Enrollment Conditions</Text>
               <TextField
                 label="Minimum Order Value"
                 type="number"
@@ -1210,6 +1225,7 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
         >
           <Card>
             <BlockStack gap="400">
+              <Text as="h3" variant="headingSm">Delivery Method</Text>
               <Select
                 label="Reward Delivery Method"
                 options={[
@@ -1225,26 +1241,29 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
 
               <Divider />
 
-              <Checkbox
-                label="Enable purchase cashback"
-                checked={getValue('cashback', 'purchase_cashback_enabled', true)}
-                onChange={(value) => handleChange('cashback', 'purchase_cashback_enabled', value)}
-                helpText="Award cashback percentage on purchases based on tier"
-              />
-
-              <Checkbox
-                label="Enable trade-in credit"
-                checked={getValue('cashback', 'trade_in_credit_enabled', true)}
-                onChange={(value) => handleChange('cashback', 'trade_in_credit_enabled', value)}
-                helpText="Award bonus credit on trade-ins based on tier"
-              />
-
-              <Checkbox
-                label="Same-transaction bonus"
-                checked={getValue('cashback', 'same_transaction_bonus', true)}
-                onChange={(value) => handleChange('cashback', 'same_transaction_bonus', value)}
-                helpText="Apply tier benefits to the order that includes membership purchase"
-              />
+              <Text as="h3" variant="headingSm">Reward Types</Text>
+              <Box paddingInlineStart="200">
+                <BlockStack gap="300">
+                  <Checkbox
+                    label="Enable purchase cashback"
+                    checked={getValue('cashback', 'purchase_cashback_enabled', true)}
+                    onChange={(value) => handleChange('cashback', 'purchase_cashback_enabled', value)}
+                    helpText="Award cashback percentage on purchases based on tier"
+                  />
+                  <Checkbox
+                    label="Enable trade-in credit"
+                    checked={getValue('cashback', 'trade_in_credit_enabled', true)}
+                    onChange={(value) => handleChange('cashback', 'trade_in_credit_enabled', value)}
+                    helpText="Award bonus credit on trade-ins based on tier"
+                  />
+                  <Checkbox
+                    label="Same-transaction bonus"
+                    checked={getValue('cashback', 'same_transaction_bonus', true)}
+                    onChange={(value) => handleChange('cashback', 'same_transaction_bonus', value)}
+                    helpText="Apply tier benefits to the order that includes membership purchase"
+                  />
+                </BlockStack>
+              </Box>
             </BlockStack>
           </Card>
         </Layout.AnnotatedSection>
@@ -1257,51 +1276,61 @@ export function EmbeddedSettings({ shop }: SettingsProps) {
         >
           <Card>
             <BlockStack gap="400">
-              <Checkbox
-                label="Enable trade-ins"
-                checked={getValue('trade_ins', 'enabled', true)}
-                onChange={(value) => handleChange('trade_ins', 'enabled', value)}
-              />
-
-              <Checkbox
-                label="Allow guest trade-ins"
-                checked={getValue('trade_ins', 'allow_guest_trade_ins', true)}
-                onChange={(value) => handleChange('trade_ins', 'allow_guest_trade_ins', value)}
-                helpText="Allow non-members to submit trade-ins (no tier bonus)"
-              />
+              <Text as="h3" variant="headingSm">Trade-In Options</Text>
+              <Box paddingInlineStart="200">
+                <BlockStack gap="300">
+                  <Checkbox
+                    label="Enable trade-ins"
+                    checked={getValue('trade_ins', 'enabled', true)}
+                    onChange={(value) => handleChange('trade_ins', 'enabled', value)}
+                    helpText="Allow customers to submit items for trade-in credit"
+                  />
+                  <Checkbox
+                    label="Allow guest trade-ins"
+                    checked={getValue('trade_ins', 'allow_guest_trade_ins', true)}
+                    onChange={(value) => handleChange('trade_ins', 'allow_guest_trade_ins', value)}
+                    helpText="Allow non-members to submit trade-ins (no tier bonus)"
+                  />
+                  <Checkbox
+                    label="Require photo uploads"
+                    checked={getValue('trade_ins', 'require_photos', false)}
+                    onChange={(value) => handleChange('trade_ins', 'require_photos', value)}
+                    helpText="Customers must upload photos when submitting trade-ins"
+                  />
+                </BlockStack>
+              </Box>
 
               <Divider />
 
-              <TextField
-                label="Auto-Approve Under"
-                type="number"
-                value={String(getValue('trade_ins', 'auto_approve_under', 50))}
-                onChange={(value) =>
-                  handleChange('trade_ins', 'auto_approve_under', parseFloat(value) || 0)
-                }
-                prefix="$"
-                helpText="Trade-ins under this amount will be automatically approved"
-                autoComplete="off"
-              />
-
-              <TextField
-                label="Require Review Over"
-                type="number"
-                value={String(getValue('trade_ins', 'require_review_over', 500))}
-                onChange={(value) =>
-                  handleChange('trade_ins', 'require_review_over', parseFloat(value) || 0)
-                }
-                prefix="$"
-                helpText="Trade-ins over this amount will require manual review"
-                autoComplete="off"
-              />
-
-              <Checkbox
-                label="Require photo uploads"
-                checked={getValue('trade_ins', 'require_photos', false)}
-                onChange={(value) => handleChange('trade_ins', 'require_photos', value)}
-                helpText="Customers must upload photos when submitting trade-ins"
-              />
+              <Text as="h3" variant="headingSm">Approval Thresholds</Text>
+              <InlineStack gap="400" wrap={false}>
+                <Box minWidth="200px" width="50%">
+                  <TextField
+                    label="Auto-Approve Under"
+                    type="number"
+                    value={String(getValue('trade_ins', 'auto_approve_under', 50))}
+                    onChange={(value) =>
+                      handleChange('trade_ins', 'auto_approve_under', parseFloat(value) || 0)
+                    }
+                    prefix="$"
+                    helpText="Automatically approved"
+                    autoComplete="off"
+                  />
+                </Box>
+                <Box minWidth="200px" width="50%">
+                  <TextField
+                    label="Require Review Over"
+                    type="number"
+                    value={String(getValue('trade_ins', 'require_review_over', 500))}
+                    onChange={(value) =>
+                      handleChange('trade_ins', 'require_review_over', parseFloat(value) || 0)
+                    }
+                    prefix="$"
+                    helpText="Requires manual review"
+                    autoComplete="off"
+                  />
+                </Box>
+              </InlineStack>
             </BlockStack>
           </Card>
         </Layout.AnnotatedSection>
