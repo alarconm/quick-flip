@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TradeUp Launch Guide - Printable Version</title>
+    <style>
+        /* Reset and base styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 11pt;
+            line-height: 1.5;
+            color: #1a1a1a;
+            background: #fff;
+            padding: 0.5in;
+            max-width: 8.5in;
+            margin: 0 auto;
+        }
+
+        /* Print-specific styles */
+        @media print {
+            body {
+                padding: 0;
+                font-size: 10pt;
+            }
+
+            .no-print {
+                display: none !important;
+            }
+
+            .page-break {
+                page-break-before: always;
+            }
+
+            .avoid-break {
+                page-break-inside: avoid;
+            }
+
+            a {
+                text-decoration: none;
+                color: #1a1a1a;
+            }
+
+            h1, h2, h3 {
+                page-break-after: avoid;
+            }
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            border-bottom: 3px solid #5c6ac4;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 28pt;
+            color: #5c6ac4;
+            margin-bottom: 8px;
+        }
+
+        .header .subtitle {
+            font-size: 14pt;
+            color: #637381;
+            font-style: italic;
+        }
+
+        .header .date {
+            font-size: 10pt;
+            color: #919eab;
+            margin-top: 10px;
+        }
+
+        /* Table of Contents */
+        .toc {
+            background: #f9fafb;
+            border: 1px solid #dfe3e8;
+            border-radius: 8px;
+            padding: 20px 30px;
+            margin-bottom: 30px;
+        }
+
+        .toc h2 {
+            color: #5c6ac4;
+            font-size: 14pt;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #dfe3e8;
+            padding-bottom: 8px;
+        }
+
+        .toc ol {
+            columns: 2;
+            column-gap: 40px;
+            list-style-position: inside;
+        }
+
+        .toc li {
+            padding: 4px 0;
+            font-size: 11pt;
+        }
+
+        /* Section headers */
+        h2.section-header {
+            background: #5c6ac4;
+            color: white;
+            padding: 12px 20px;
+            font-size: 16pt;
+            margin: 30px 0 20px 0;
+            border-radius: 4px;
+        }
+
+        h3 {
+            color: #212b36;
+            font-size: 13pt;
+            margin: 20px 0 10px 0;
+            border-bottom: 2px solid #dfe3e8;
+            padding-bottom: 5px;
+        }
+
+        h4 {
+            color: #454f5b;
+            font-size: 11pt;
+            margin: 15px 0 8px 0;
+        }
+
+        /* Paragraphs */
+        p {
+            margin-bottom: 10px;
+        }
+
+        /* Code blocks */
+        pre {
+            background: #f4f6f8;
+            border: 1px solid #dfe3e8;
+            border-left: 4px solid #5c6ac4;
+            padding: 12px 15px;
+            margin: 10px 0;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 9pt;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            border-radius: 0 4px 4px 0;
+        }
+
+        code {
+            background: #f4f6f8;
+            padding: 2px 6px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 9pt;
+            border-radius: 3px;
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            font-size: 10pt;
+        }
+
+        th {
+            background: #5c6ac4;
+            color: white;
+            padding: 10px 12px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        td {
+            padding: 8px 12px;
+            border-bottom: 1px solid #dfe3e8;
+        }
+
+        tr:nth-child(even) {
+            background: #f9fafb;
+        }
+
+        /* Checklists */
+        .checklist {
+            list-style: none;
+            padding: 0;
+        }
+
+        .checklist li {
+            padding: 8px 0 8px 35px;
+            position: relative;
+            border-bottom: 1px dotted #dfe3e8;
+        }
+
+        .checklist li:before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 8px;
+            width: 18px;
+            height: 18px;
+            border: 2px solid #5c6ac4;
+            border-radius: 3px;
+            background: white;
+        }
+
+        /* Alert boxes */
+        .alert {
+            padding: 15px 20px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+
+        .alert-warning {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+        }
+
+        .alert-danger {
+            background: #f8d7da;
+            border-left: 4px solid #dc3545;
+        }
+
+        .alert-info {
+            background: #d1ecf1;
+            border-left: 4px solid #17a2b8;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+        }
+
+        /* Quick Reference Box */
+        .quick-ref {
+            background: #f9fafb;
+            border: 2px solid #5c6ac4;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .quick-ref h3 {
+            color: #5c6ac4;
+            border-bottom: none;
+            margin-top: 0;
+        }
+
+        /* Footer */
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 2px solid #5c6ac4;
+            text-align: center;
+            color: #637381;
+            font-size: 10pt;
+        }
+
+        /* Print button */
+        .print-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #5c6ac4;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+
+        .print-btn:hover {
+            background: #4959bd;
+        }
+
+        @media print {
+            .print-btn {
+                display: none;
+            }
+        }
+
+        /* Two-column layout for some sections */
+        .two-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media print {
+            .two-col {
+                display: block;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<button class="print-btn no-print" onclick="window.print()">Print This Guide</button>
+
+<!-- HEADER -->
+<div class="header">
+    <h1>TradeUp Launch Guide</h1>
+    <div class="subtitle">From Testing to Production - Complete Launch Playbook</div>
+    <div class="date">Your First Monetized Shopify App | Last Updated: January 22, 2026</div>
+</div>
+
+<!-- TABLE OF CONTENTS -->
+<div class="toc avoid-break">
+    <h2>Table of Contents</h2>
+    <ol>
+        <li>Pre-Launch Checklist</li>
+        <li>Local Development & Testing</li>
+        <li>Staging Environment Testing</li>
+        <li>App Store Submission</li>
+        <li>Production Deployment</li>
+        <li>Post-Launch Monitoring</li>
+        <li>Billing & Monetization</li>
+        <li>Troubleshooting Guide</li>
+        <li>Rollback Procedures</li>
+        <li>Support & Maintenance</li>
+    </ol>
+</div>
+
+<!-- SECTION 1 -->
+<h2 class="section-header">1. Pre-Launch Checklist</h2>
+
+<h3>1.1 Code Quality Verification</h3>
+<pre># Run the full test suite
+cd C:\Users\malar\OneDrive\Documents\Coding Projects\tradeup
+python -m pytest tests/ -v --tb=short
+
+# Expected: 500+ tests passing
+# If any failures, fix them before proceeding</pre>
+
+<h3>1.2 Security Checklist</h3>
+<ul class="checklist">
+    <li><strong>SECRET_KEY is secure</strong> - Not containing 'secret' or default values</li>
+    <li><strong>Environment variables are production-ready</strong>
+        <br>- SHOPIFY_BILLING_TEST=false (enables real charges)
+        <br>- FLASK_ENV=production
+        <br>- SECRET_KEY is unique and secure</li>
+    <li><strong>No hardcoded credentials</strong> in code</li>
+    <li><strong>HTTPS enforced</strong> for all endpoints</li>
+</ul>
+
+<pre># Generate a secure key if needed
+python -c "import secrets; print(secrets.token_hex(32))"
+
+# Search for potential credential issues
+grep -r "password\|secret\|api_key" app/ --include="*.py" | grep -v "\.pyc"</pre>
+
+<h3>1.3 Database Verification</h3>
+<pre># Check all migrations are applied
+flask db current
+flask db history
+
+# Verify tables exist - use fix-schema endpoint if needed:
+curl -X POST "https://app.cardflowlabs.com/api/admin/fix-schema?key=tradeup-schema-fix-2026"</pre>
+
+<h3>1.4 Billing Configuration</h3>
+<table>
+    <tr><th>Plan</th><th>Price</th><th>Members</th><th>Tiers</th></tr>
+    <tr><td>Free</td><td>$0/mo</td><td>50</td><td>2</td></tr>
+    <tr><td>Starter</td><td>$19/mo</td><td>200</td><td>3</td></tr>
+    <tr><td>Growth</td><td>$49/mo</td><td>1,000</td><td>5</td></tr>
+    <tr><td>Pro</td><td>$99/mo</td><td>Unlimited</td><td>Unlimited</td></tr>
+</table>
+
+<!-- SECTION 2 -->
+<div class="page-break"></div>
+<h2 class="section-header">2. Local Development & Testing</h2>
+
+<h3>2.1 Setting Up Local Environment</h3>
+<pre># Clone and setup
+git clone https://github.com/alarconm/tradeup.git
+cd tradeup
+
+# Create virtual environment
+python -m venv venv
+venv\Scripts\activate  # Windows
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Setup environment variables
+copy .env.example .env
+# Edit .env with your development credentials</pre>
+
+<h3>2.2 Running Locally</h3>
+<pre># Terminal 1: Backend
+python run.py
+# Runs on http://localhost:5000
+
+# Terminal 2: Frontend (optional)
+cd frontend && npm install && npm run dev
+# Runs on http://localhost:5173
+
+# Terminal 3: Shopify Dev Server (for embedded testing)
+npm run dev</pre>
+
+<h3>2.3 Running Tests</h3>
+<pre># Full test suite
+python -m pytest tests/ -v
+
+# Specific test file
+python -m pytest tests/test_members.py -v
+
+# With coverage report
+python -m pytest tests/ --cov=app --cov-report=html
+
+# Quick smoke test
+python -m pytest tests/ -x -q  # Stop on first failure</pre>
+
+<h3>2.4 Manual Testing Checklist</h3>
+
+<h4>Member Management</h4>
+<ul class="checklist">
+    <li>Create a new member</li>
+    <li>Edit member details</li>
+    <li>Search for members (instant search)</li>
+    <li>View member's trade-in history</li>
+    <li>Suspend/reactivate a member</li>
+</ul>
+
+<h4>Trade-Ins</h4>
+<ul class="checklist">
+    <li>Create a new trade-in batch</li>
+    <li>Add items to a batch</li>
+    <li>Approve a trade-in (under auto-approval threshold)</li>
+    <li>Approve a trade-in (over threshold - needs manual approval)</li>
+    <li>Issue store credit from approved trade-in</li>
+</ul>
+
+<h4>Tiers & Membership</h4>
+<ul class="checklist">
+    <li>Create membership tiers</li>
+    <li>Assign tier to member</li>
+    <li>Verify tier benefits apply</li>
+</ul>
+
+<h4>Store Credit</h4>
+<ul class="checklist">
+    <li>Issue manual credit</li>
+    <li>Verify credit appears in Shopify customer metafields</li>
+    <li>Test credit deduction at checkout</li>
+</ul>
+
+<!-- SECTION 3 -->
+<div class="page-break"></div>
+<h2 class="section-header">3. Staging Environment Testing</h2>
+
+<h3>3.1 Deploy to Staging</h3>
+<pre># Ensure you're on the correct branch
+git checkout main
+git pull origin main
+
+# Run pre-deployment validation
+npm run prerelease
+
+# Deploy extensions to staging (not released yet)
+npm run deploy
+# Note the version number: tradeup-by-cardflow-labs-XX</pre>
+
+<h3>3.2 Test in Dev Store</h3>
+<p><strong>Your dev store:</strong> <code>uy288y-nx.myshopify.com</code></p>
+<ol>
+    <li>Open the app in Shopify Admin &rarr; Apps &rarr; TradeUp</li>
+    <li>Complete onboarding if not done</li>
+    <li>Test all core flows from Section 2.4</li>
+</ol>
+
+<h3>3.3 Extension Testing</h3>
+
+<h4>Customer Account Extension</h4>
+<ul class="checklist">
+    <li>Create a test customer account</li>
+    <li>Navigate to the customer account page</li>
+    <li>Verify rewards dashboard displays correctly</li>
+    <li>Check points balance, tier status, referral link</li>
+</ul>
+
+<h4>Checkout Extension</h4>
+<ul class="checklist">
+    <li>Add items to cart as a logged-in member</li>
+    <li>Proceed to checkout</li>
+    <li>Verify tier badge and points display</li>
+</ul>
+
+<h4>Post-Purchase Extension</h4>
+<ul class="checklist">
+    <li>Complete a test purchase</li>
+    <li>Verify celebration message appears</li>
+    <li>Check referral prompt displays</li>
+</ul>
+
+<h3>3.4 Billing Testing</h3>
+<div class="alert alert-warning">
+    <strong>IMPORTANT:</strong> Keep <code>SHOPIFY_BILLING_TEST=true</code> during staging tests!
+</div>
+<ul class="checklist">
+    <li>Go to Settings &rarr; Billing</li>
+    <li>Click "Choose a Plan"</li>
+    <li>Select a paid plan</li>
+    <li>Verify Shopify billing modal appears</li>
+    <li>Complete test purchase (no real charge in test mode)</li>
+    <li>Verify plan is activated</li>
+</ul>
+
+<!-- SECTION 4 -->
+<div class="page-break"></div>
+<h2 class="section-header">4. App Store Submission</h2>
+
+<h3>4.1 App Listing Requirements</h3>
+
+<h4>Required Assets</h4>
+<ul class="checklist">
+    <li><strong>App Icon</strong> (1200x1200 PNG, no rounded corners)</li>
+    <li><strong>Screenshots</strong> (minimum 3, 1600x900 recommended)
+        <br>- Dashboard view
+        <br>- Member management
+        <br>- Trade-in workflow</li>
+    <li><strong>App Description</strong> (detailed, keyword-rich)</li>
+    <li><strong>Key Benefits</strong> (3-5 bullet points)</li>
+    <li><strong>Demo Video</strong> (optional but recommended)</li>
+</ul>
+
+<h4>Required Links</h4>
+<ul class="checklist">
+    <li>Privacy Policy: <code>https://app.cardflowlabs.com/privacy</code></li>
+    <li>Support Email: <code>support@cardflowlabs.com</code></li>
+    <li>FAQ/Documentation URL</li>
+</ul>
+
+<h3>4.2 Submission Checklist</h3>
+<p>In Shopify Partner Dashboard &rarr; Apps &rarr; TradeUp &rarr; App Setup:</p>
+
+<ul class="checklist">
+    <li>App name: "TradeUp by Cardflow Labs"</li>
+    <li>App tagline (max 80 chars)</li>
+    <li>Full description</li>
+    <li>Category: "Loyalty, rewards, and referrals"</li>
+    <li>Pricing model: Recurring charge</li>
+    <li>Plans configured with correct prices</li>
+    <li>Free plan available (for approval)</li>
+    <li>OAuth scopes documented</li>
+</ul>
+
+<h3>4.3 App Review Process</h3>
+<ol>
+    <li><strong>Submit for Review</strong> via Partner Dashboard</li>
+    <li><strong>Review Timeline:</strong> Usually 5-10 business days</li>
+    <li><strong>Common Rejection Reasons:</strong>
+        <ul>
+            <li>Missing privacy policy</li>
+            <li>Unclear app functionality</li>
+            <li>Bugs during testing</li>
+            <li>Excessive permissions requested</li>
+        </ul>
+    </li>
+</ol>
+
+<!-- SECTION 5 -->
+<div class="page-break"></div>
+<h2 class="section-header">5. Production Deployment</h2>
+
+<h3>5.1 Pre-Production Checklist</h3>
+<pre># 1. Ensure all tests pass
+python -m pytest tests/ -v
+# Must be 100% passing
+
+# 2. Run validation
+npm run prerelease
+
+# 3. Verify environment variables in Railway
+railway variables</pre>
+
+<div class="alert alert-info">
+    <strong>Required for production:</strong>
+    <ul style="margin: 10px 0 0 20px;">
+        <li>SECRET_KEY (secure, unique)</li>
+        <li>DATABASE_URL</li>
+        <li>SHOPIFY_API_KEY</li>
+        <li>SHOPIFY_API_SECRET</li>
+        <li><strong>SHOPIFY_BILLING_TEST=false</strong> (CRITICAL!)</li>
+        <li>SENTRY_DSN (for error tracking)</li>
+    </ul>
+</div>
+
+<h3>5.2 Enable Production Billing</h3>
+<div class="alert alert-danger">
+    <strong>THIS IS THE MOST IMPORTANT STEP!</strong>
+</div>
+<pre># In Railway, set billing to production mode:
+railway variables --set "SHOPIFY_BILLING_TEST=false"
+
+# Verify it's set correctly:
+railway variables | grep BILLING
+# Should show: SHOPIFY_BILLING_TEST=false</pre>
+
+<h3>5.3 Deploy Backend</h3>
+<pre># Option 1: Auto-deploy via git push
+git push origin main
+# Railway auto-deploys from main branch
+
+# Option 2: Manual deploy
+railway up
+
+# Verify deployment:
+railway deployment list
+curl https://app.cardflowlabs.com/health
+# Should return: {"service":"tradeup","status":"healthy"}</pre>
+
+<h3>5.4 Deploy Shopify Extensions</h3>
+<pre># Deploy all extensions
+npm run deploy
+
+# Note the version number (e.g., tradeup-by-cardflow-labs-18)
+
+# Release to production (makes it live for all users)
+npm run release --version=tradeup-by-cardflow-labs-18
+
+# Create git tag for this release
+npm run version:minor  # If new features
+npm run version:patch  # If bug fixes only</pre>
+
+<h3>5.5 Verify Production Deployment</h3>
+<pre># 1. Health check
+curl https://app.cardflowlabs.com/health
+
+# 2. API endpoints
+curl https://app.cardflowlabs.com/api/dashboard/stats \
+  -H "X-Shopify-Shop-Domain: uy288y-nx.myshopify.com"
+
+# 3. Open app in Shopify Admin
+# https://admin.shopify.com/store/YOUR-STORE/apps/tradeup-2</pre>
+
+<!-- SECTION 6 -->
+<div class="page-break"></div>
+<h2 class="section-header">6. Post-Launch Monitoring</h2>
+
+<h3>6.1 Error Monitoring (Sentry)</h3>
+<p><strong>Dashboard:</strong> https://sentry.io</p>
+
+<table>
+    <tr><th>Metric</th><th>Target</th><th>Action if Exceeded</th></tr>
+    <tr><td>Error rate</td><td>&lt; 1%</td><td>Investigate immediately</td></tr>
+    <tr><td>New errors</td><td>0</td><td>Fix within 24 hours</td></tr>
+</table>
+
+<h3>6.2 Railway Monitoring</h3>
+<pre># View live logs
+railway logs -f
+
+# Check deployment status
+railway deployment list
+
+# Monitor resources
+railway status</pre>
+
+<h3>6.3 Key Metrics to Track</h3>
+<table>
+    <tr><th>Metric</th><th>Target</th><th>Action if Below</th></tr>
+    <tr><td>Uptime</td><td>99.9%</td><td>Investigate Railway issues</td></tr>
+    <tr><td>Error Rate</td><td>&lt; 1%</td><td>Check Sentry, fix bugs</td></tr>
+    <tr><td>API Response Time</td><td>&lt; 500ms</td><td>Optimize slow endpoints</td></tr>
+    <tr><td>Install Rate</td><td>Growing</td><td>Improve app listing</td></tr>
+    <tr><td>Churn Rate</td><td>&lt; 5%/mo</td><td>Analyze feedback, improve UX</td></tr>
+</table>
+
+<h3>6.4 Daily Monitoring Routine (First 2 Weeks)</h3>
+
+<h4>Morning</h4>
+<ul class="checklist">
+    <li>Check Sentry for new errors</li>
+    <li>Review Railway logs for warnings</li>
+    <li>Check app reviews in Partner Dashboard</li>
+</ul>
+
+<h4>Evening</h4>
+<ul class="checklist">
+    <li>Review daily stats</li>
+    <li>Respond to any support emails</li>
+    <li>Note any patterns in issues</li>
+</ul>
+
+<!-- SECTION 7 -->
+<div class="page-break"></div>
+<h2 class="section-header">7. Billing & Monetization</h2>
+
+<h3>7.1 How Shopify Billing Works</h3>
+<ol>
+    <li>Merchant clicks "Choose a Plan" in your app</li>
+    <li>Your app creates a <code>RecurringApplicationCharge</code> via Shopify API</li>
+    <li>Merchant approves charge in Shopify modal</li>
+    <li>Shopify handles all billing, taxes, currency conversion</li>
+    <li><strong>You receive 80% of revenue</strong> (Shopify takes 20%)</li>
+</ol>
+
+<h3>7.2 Billing Flow in TradeUp</h3>
+<div class="alert alert-info">
+    Settings &rarr; Billing &rarr; Choose Plan &rarr; Shopify Approval &rarr; Plan Active
+</div>
+
+<p><strong>Code flow:</strong></p>
+<ol>
+    <li><code>EmbeddedBilling.tsx</code> - Frontend billing page</li>
+    <li><code>app/api/billing.py</code> - API endpoints</li>
+    <li><code>app/services/shopify_billing.py</code> - Billing logic</li>
+    <li>Webhooks handle subscription updates</li>
+</ol>
+
+<h3>7.3 Revenue Tracking</h3>
+<p>In Shopify Partner Dashboard:</p>
+<ul>
+    <li>Finances &rarr; Payouts (see your earnings)</li>
+    <li>Apps &rarr; TradeUp &rarr; Revenue</li>
+</ul>
+
+<p><strong>Shopify pays out:</strong></p>
+<ul>
+    <li>Net 15 terms (paid 15 days after month end)</li>
+    <li>Minimum payout: $25</li>
+</ul>
+
+<h3>7.4 Handling Failed Payments</h3>
+<p>When a merchant's payment fails:</p>
+<ol>
+    <li>Shopify sends <code>app_subscriptions/update</code> webhook</li>
+    <li>Your app receives <code>status: 'frozen'</code></li>
+    <li>App should gracefully limit features</li>
+    <li>Shopify retries payment automatically</li>
+</ol>
+
+<!-- SECTION 8 -->
+<div class="page-break"></div>
+<h2 class="section-header">8. Troubleshooting Guide</h2>
+
+<h3>8.1 App Shows Blank Screen</h3>
+<pre># 1. Check if backend is running
+curl https://app.cardflowlabs.com/health
+
+# 2. Check browser console for errors (F12 -> Console)
+
+# 3. Verify API endpoints
+curl https://app.cardflowlabs.com/api/dashboard/stats \
+  -H "X-Shopify-Shop-Domain: YOUR-STORE.myshopify.com"
+
+# 4. Clear browser cache and reload (Ctrl+Shift+R)</pre>
+
+<h3>8.2 Webhooks Not Processing</h3>
+<pre># 1. Check webhook registration
+shopify app deploy
+
+# 2. Verify webhook endpoints in Partner Dashboard
+# App Setup -> App URL -> Webhooks
+
+# 3. Check Railway logs for webhook errors
+railway logs --filter "webhook"
+
+# 4. Test webhook manually (create a test order)</pre>
+
+<h3>8.3 Store Credit Not Syncing</h3>
+<pre># 1. Check metafield sync
+curl "https://app.cardflowlabs.com/api/members/MEMBER_ID/sync-metafields" \
+  -X POST -H "X-Shopify-Shop-Domain: YOUR-STORE.myshopify.com"
+
+# 2. Verify Shopify API permissions (write_customers scope)
+
+# 3. Check Shopify admin for metafield
+# Customers -> Select customer -> Metafields</pre>
+
+<h3>8.4 Billing Not Working</h3>
+<pre># 1. Verify billing mode
+railway variables | grep BILLING_TEST
+# Should be: false for production, true for testing
+
+# 2. Check billing API
+curl "https://app.cardflowlabs.com/api/billing/plans" \
+  -H "X-Shopify-Shop-Domain: YOUR-STORE.myshopify.com"
+
+# 3. Check Shopify Partner Dashboard for billing errors</pre>
+
+<h3>8.5 Emergency Contacts</h3>
+<table>
+    <tr><th>Service</th><th>Status Page</th></tr>
+    <tr><td>Railway</td><td>https://status.railway.app</td></tr>
+    <tr><td>Shopify</td><td>https://status.shopify.com</td></tr>
+    <tr><td>Sentry</td><td>https://sentry.io</td></tr>
+</table>
+
+<!-- SECTION 9 -->
+<div class="page-break"></div>
+<h2 class="section-header">9. Rollback Procedures</h2>
+
+<h3>9.1 Backend Rollback</h3>
+<pre># 1. List recent deployments
+railway deployment list
+
+# 2. Identify the last working deployment ID
+
+# 3. Rollback via git
+# Option A: Revert git commit and push
+git revert HEAD
+git push origin main
+
+# Option B: Redeploy previous commit
+git checkout &lt;previous-commit-hash&gt;
+railway up
+git checkout main</pre>
+
+<h3>9.2 Extension Rollback</h3>
+<pre># 1. List extension versions
+npx shopify app versions list
+
+# 2. Release a previous version
+npx shopify app release --version=tradeup-by-cardflow-labs-17 --force</pre>
+
+<h3>9.3 Database Rollback</h3>
+<div class="alert alert-danger">
+    <strong>CAUTION:</strong> Database rollback may cause data loss. Always backup first!
+</div>
+<pre># 1. List migrations
+flask db history
+
+# 2. Downgrade to specific revision
+flask db downgrade &lt;revision&gt;</pre>
+
+<h3>9.4 Creating Backups</h3>
+<pre># Database backup (run periodically)
+railway run pg_dump $DATABASE_URL > backup_$(date +%Y%m%d).sql</pre>
+
+<!-- SECTION 10 -->
+<div class="page-break"></div>
+<h2 class="section-header">10. Support & Maintenance</h2>
+
+<h3>10.1 Handling Support Requests</h3>
+<p><strong>Email:</strong> support@cardflowlabs.com</p>
+
+<table>
+    <tr><th>Priority</th><th>Response Time</th><th>Examples</th></tr>
+    <tr><td>Critical</td><td>&lt; 1 hour</td><td>App down, data loss</td></tr>
+    <tr><td>High</td><td>&lt; 4 hours</td><td>Feature broken</td></tr>
+    <tr><td>Medium</td><td>&lt; 24 hours</td><td>Questions, how-to</td></tr>
+    <tr><td>Low</td><td>&lt; 48 hours</td><td>Feature requests</td></tr>
+</table>
+
+<h3>10.2 Responding to App Reviews</h3>
+<p><strong>Positive Reviews:</strong> Thank the merchant, ask for specific feedback</p>
+<p><strong>Negative Reviews:</strong></p>
+<ul>
+    <li>Respond quickly and professionally</li>
+    <li>Apologize for the issue</li>
+    <li>Offer to help directly via support email</li>
+    <li>Update review once issue is resolved</li>
+</ul>
+
+<h3>10.3 Regular Maintenance Tasks</h3>
+
+<h4>Weekly</h4>
+<ul class="checklist">
+    <li>Review Sentry errors</li>
+    <li>Check Railway resource usage</li>
+    <li>Review new app reviews</li>
+    <li>Respond to support emails</li>
+</ul>
+
+<h4>Monthly</h4>
+<ul class="checklist">
+    <li>Review analytics and growth metrics</li>
+    <li>Update dependencies if needed</li>
+    <li>Review and archive old logs</li>
+    <li>Test backup restoration</li>
+</ul>
+
+<h4>Quarterly</h4>
+<ul class="checklist">
+    <li>Security audit</li>
+    <li>Performance review</li>
+    <li>Feature roadmap planning</li>
+    <li>Pricing review</li>
+</ul>
+
+<!-- QUICK REFERENCE -->
+<div class="page-break"></div>
+<div class="quick-ref">
+    <h3>Quick Reference Commands</h3>
+    <pre style="background: white; border: none; margin: 0;">
+# === Development ===
+python run.py                    # Run backend locally
+npm run dev                      # Run with Shopify dev server
+
+# === Testing ===
+python -m pytest tests/ -v       # Run all tests
+python -m pytest tests/ -x       # Stop on first failure
+npm run validate                 # Run validation checks
+
+# === Deployment ===
+npm run prerelease               # Pre-deployment validation
+npm run deploy                   # Deploy extensions (staging)
+npm run release --version=XX     # Release to production
+npm run version:patch            # Bump version (x.x.1)
+npm run version:minor            # Bump version (x.1.0)
+
+# === Monitoring ===
+railway logs -f                  # Live logs
+railway deployment list          # Deployment history
+curl https://app.cardflowlabs.com/health  # Health check
+
+# === Emergency ===
+git revert HEAD && git push      # Revert last commit
+railway up                       # Force redeploy</pre>
+</div>
+
+<!-- FINAL CHECKLIST -->
+<div class="page-break"></div>
+<h2 class="section-header">Final Checklist Before Going Live</h2>
+
+<ul class="checklist">
+    <li>All tests passing (500+)</li>
+    <li><code>SHOPIFY_BILLING_TEST=false</code> in Railway</li>
+    <li><code>SECRET_KEY</code> is secure and unique</li>
+    <li>Sentry error tracking configured</li>
+    <li>All webhooks registered</li>
+    <li>App listing complete with screenshots</li>
+    <li>Privacy policy published</li>
+    <li>Support email configured</li>
+    <li>Billing plans verified</li>
+    <li>Extensions deployed and released</li>
+    <li>Test purchase completed on real store</li>
+    <li>Monitoring dashboards set up</li>
+</ul>
+
+<div class="alert alert-success" style="margin-top: 30px;">
+    <strong>Congratulations on launching TradeUp!</strong><br>
+    If you run into any issues, check this guide first, then reach out to Shopify Partner support if needed.
+</div>
+
+<!-- FOOTER -->
+<div class="footer">
+    <p><strong>TradeUp by Cardflow Labs</strong></p>
+    <p>Support: support@cardflowlabs.com | Privacy: privacy@cardflowlabs.com</p>
+    <p style="margin-top: 10px; font-size: 9pt;">Last Updated: January 22, 2026</p>
+</div>
+
+</body>
+</html>
