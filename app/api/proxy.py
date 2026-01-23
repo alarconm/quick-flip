@@ -454,16 +454,17 @@ def get_tiers():
 
     tiers_data = []
     for tier in tiers:
+        benefits = tier.benefits or {}
         tiers_data.append({
             'id': tier.id,
             'name': tier.name,
             'is_current': tier.id == current_tier_id,
             'earning_multiplier': float(getattr(tier, 'points_earning_multiplier', 1) or 1),
             'discount_percent': float(tier.purchase_cashback_pct or 0),
-            'trade_in_bonus_pct': float(tier.trade_in_bonus_pct or 0),
+            'trade_in_bonus_pct': float(tier.bonus_rate or 0) * 100,  # Convert from decimal (0.05) to percent (5)
             'monthly_credit': float(tier.monthly_credit_amount or 0),
-            'free_shipping_threshold': float(tier.free_shipping_threshold) if tier.free_shipping_threshold else None,
-            'benefits': tier.benefits or {}
+            'free_shipping_threshold': float(benefits.get('free_shipping_threshold')) if benefits.get('free_shipping_threshold') else None,
+            'benefits': benefits
         })
 
     return jsonify({
