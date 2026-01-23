@@ -738,7 +738,9 @@ class ShopifyClient:
                         id
                         title
                         handle
-                        productsCount
+                        productsCount {
+                            count
+                        }
                     }
                 }
             }
@@ -765,11 +767,12 @@ class ShopifyClient:
             edges = collections_data.get('edges', [])
             for edge in edges:
                 node = edge.get('node', {})
+                products_count = node.get('productsCount', {})
                 all_collections.append({
                     'id': node.get('id'),
                     'title': node.get('title'),
                     'handle': node.get('handle'),
-                    'productsCount': node.get('productsCount', 0)
+                    'productsCount': products_count.get('count', 0) if isinstance(products_count, dict) else 0
                 })
 
             page_info = collections_data.get('pageInfo', {})
@@ -971,7 +974,9 @@ class ShopifyClient:
                         id
                         title
                         handle
-                        productsCount
+                        productsCount {
+                            count
+                        }
                         ruleSet {
                             appliedDisjunctively
                         }
@@ -1001,11 +1006,12 @@ class ShopifyClient:
                 if not include_smart and is_smart:
                     continue
 
+                products_count = node.get('productsCount', {})
                 all_collections.append({
                     'id': node.get('id'),
                     'title': node.get('title'),
                     'handle': node.get('handle'),
-                    'productsCount': node.get('productsCount', 0),
+                    'productsCount': products_count.get('count', 0) if isinstance(products_count, dict) else 0,
                     'isSmart': is_smart
                 })
 
