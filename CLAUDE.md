@@ -9,6 +9,49 @@ TradeUp is a **Shopify embedded app** for loyalty programs, trade-in management,
 - **Test Store**: uy288y-nx.myshopify.com (ORB Sports Cards)
 - **Repository**: https://github.com/alarconm/tradeup
 
+## Claude Code Best Practices
+
+### Use Tasks for Complex Work
+**IMPORTANT**: For any multi-step work, use the new **Tasks** feature instead of TodoWrite:
+
+```bash
+# To share tasks across sessions, start Claude with:
+CLAUDE_CODE_TASK_LIST_ID=tradeup claude
+```
+
+**When to use Tasks:**
+- Multi-step feature implementations
+- Bug fixes requiring changes across multiple files
+- Any work that might span multiple sessions
+- Coordinating work across subagents
+
+**How to use:**
+- Press `Ctrl+T` to toggle task list view
+- Use `/tasks` command to list/manage tasks
+- Ask Claude to "create tasks for..." when starting complex work
+- Tasks support dependencies (Task B blocked by Task A)
+- Tasks persist in `~/.claude/tasks/` across sessions
+
+**Task workflow:**
+1. Break down work into tasks with dependencies
+2. Mark tasks as in_progress when starting
+3. Mark tasks as completed immediately when done
+4. Use blockers to track dependencies between tasks
+
+### Multi-Session Coordination
+For parallel development (backend + frontend + testing):
+```bash
+# Terminal 1: Backend
+CLAUDE_CODE_TASK_LIST_ID=tradeup claude
+
+# Terminal 2: Frontend
+CLAUDE_CODE_TASK_LIST_ID=tradeup claude
+
+# Terminal 3: Testing
+CLAUDE_CODE_TASK_LIST_ID=tradeup claude
+```
+All sessions share the same task list and see real-time updates.
+
 ## Current Status (January 21, 2026)
 
 **READY FOR APP STORE SUBMISSION** - 89 E2E tests passing. See `docs/E2E_TEST_REPORT.md`.
