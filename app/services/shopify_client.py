@@ -783,54 +783,55 @@ class ShopifyClient:
 
     def get_product_tags(self) -> List[str]:
         """
-        Get all unique product tags from Shopify.
+        Get all unique product tags from Shopify using the productTags query.
+
+        This uses Shopify's dedicated productTags endpoint which is much more
+        efficient than iterating through all products - works for stores with
+        any number of products.
 
         Returns:
-            List of unique tag strings
+            List of unique tag strings (sorted alphabetically)
         """
+        # Use Shopify's productTags query - returns tags directly without
+        # needing to iterate through products. Much faster and complete.
         query = """
         query getProductTags($first: Int!, $after: String) {
-            products(first: $first, after: $after) {
+            productTags(first: $first, after: $after) {
                 pageInfo {
                     hasNextPage
                     endCursor
                 }
                 edges {
-                    node {
-                        tags
-                    }
+                    node
                 }
             }
         }
         """
 
-        all_tags = set()
+        all_tags = []
         has_next_page = True
         cursor = None
 
-        # Increased limit to 2500 products to capture more tags
-        max_pages = 25
-
-        while has_next_page and max_pages > 0:
-            variables = {'first': 100}
+        while has_next_page:
+            variables = {'first': 250}  # Max allowed by Shopify
             if cursor:
                 variables['after'] = cursor
 
             result = self._execute_query(query, variables)
-            products_data = result.get('products', {})
+            tags_data = result.get('productTags', {})
 
-            edges = products_data.get('edges', [])
+            edges = tags_data.get('edges', [])
             for edge in edges:
-                node = edge.get('node', {})
-                tags = node.get('tags', [])
-                all_tags.update(tags)
+                # productTags returns tags directly as 'node' (string)
+                tag = edge.get('node')
+                if tag:
+                    all_tags.append(tag)
 
-            page_info = products_data.get('pageInfo', {})
+            page_info = tags_data.get('pageInfo', {})
             has_next_page = page_info.get('hasNextPage', False)
             cursor = page_info.get('endCursor')
-            max_pages -= 1
 
-        return sorted(list(all_tags))
+        return sorted(all_tags)
 
     def get_product_collections(self, product_ids: List[str]) -> Dict[str, List[str]]:
         """
