@@ -203,7 +203,7 @@ async function fetchEventSources(
     end_datetime: localDatetimeToUTC(endDatetime),
   });
   const response = await authFetch(
-    `${getApiUrl()}/store_credit_events/sources?${params}`,
+    `${getApiUrl()}/store-credit-events/sources?${params}`,
     shop
   );
   if (!response.ok) throw new Error('Failed to fetch order sources');
@@ -230,7 +230,7 @@ async function previewBulkEvent(
     end_datetime: localDatetimeToUTC(data.end_datetime),
   };
   const response = await authFetch(
-    `${getApiUrl()}/store_credit_events/preview`,
+    `${getApiUrl()}/store-credit-events/preview`,
     shop,
     {
       method: 'POST',
@@ -262,7 +262,7 @@ async function runBulkEvent(
     end_datetime: localDatetimeToUTC(data.end_datetime),
   };
   const response = await authFetch(
-    `${getApiUrl()}/store_credit_events/run`,
+    `${getApiUrl()}/store-credit-events/run`,
     shop,
     {
       method: 'POST',
