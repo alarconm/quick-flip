@@ -193,7 +193,10 @@ class StoreCreditEventsService:
         end_cursor = None
 
         # Shopify search query uses snake_case field names with lowercase values
-        status_filter = '(financial_status:paid OR financial_status:authorized)' if include_authorized else 'financial_status:paid'
+        # CRITICAL: Must include status:any to get ALL orders (open, closed, archived, cancelled)
+        # Without this, Shopify defaults to only status:open which misses most completed orders
+        financial_filter = '(financial_status:paid OR financial_status:authorized)' if include_authorized else 'financial_status:paid'
+        status_filter = f"status:any AND {financial_filter}"
 
         # Determine if we need line items for filtering
         need_line_items = bool(collection_ids or product_tags)
