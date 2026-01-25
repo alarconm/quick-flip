@@ -409,7 +409,8 @@ export function EmbeddedStoreCreditEvents({ shop }: StoreCreditEventsProps) {
 
   // Bulk event mutations
   const fetchSourcesMutation = useMutation({
-    mutationFn: () => fetchEventSources(shop, bulkForm.start_datetime, bulkForm.end_datetime),
+    mutationFn: ({ start, end }: { start: string; end: string }) =>
+      fetchEventSources(shop, start, end),
     onSuccess: (data) => setAvailableSources(data.sources),
   });
 
@@ -576,7 +577,11 @@ export function EmbeddedStoreCreditEvents({ shop }: StoreCreditEventsProps) {
     const newForm = { ...bulkForm, [field]: value };
     setBulkForm(newForm);
     if (newForm.start_datetime && newForm.end_datetime) {
-      fetchSourcesMutation.mutate();
+      // Pass values directly to avoid stale closure issue
+      fetchSourcesMutation.mutate({
+        start: newForm.start_datetime,
+        end: newForm.end_datetime,
+      });
     }
   }, [bulkForm, fetchSourcesMutation]);
 
