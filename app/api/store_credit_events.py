@@ -83,10 +83,13 @@ def preview_event():
     if not data:
         return jsonify({'error': 'Request body required'}), 400
 
-    required = ['start_datetime', 'end_datetime', 'sources']
+    required = ['start_datetime', 'end_datetime']
     for field in required:
         if field not in data:
             return jsonify({'error': f'{field} is required'}), 400
+
+    # Sources is optional - empty list means all sources
+    sources = data.get('sources', [])
 
     # Validate filter parameters
     try:
@@ -103,7 +106,7 @@ def preview_event():
         result = service.preview_event(
             start_datetime=data['start_datetime'],
             end_datetime=data['end_datetime'],
-            sources=data['sources'],
+            sources=sources,
             credit_percent=data.get('credit_percent', 10),
             include_authorized=data.get('include_authorized', True),
             collection_ids=collection_ids,

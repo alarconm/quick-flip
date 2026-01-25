@@ -158,8 +158,8 @@ class StoreCreditEventsService:
 
             return result.get('data', {})
 
-    def _execute_rest(self, path: str) -> Dict[str, Any]:
-        """Execute a REST API request."""
+    def _execute_rest(self, path: str) -> tuple:
+        """Execute a REST API request. Returns (json_data, headers) tuple."""
         headers = {
             'X-Shopify-Access-Token': self.access_token,
             'Content-Type': 'application/json'
@@ -168,7 +168,7 @@ class StoreCreditEventsService:
         url = f'https://{self.shop_domain}{path}'
 
         with httpx.Client() as client:
-            response = client.get(url, headers=headers, timeout=30.0)
+            response = client.get(url, headers=headers, timeout=60.0)
             response.raise_for_status()
             return response.json(), response.headers
 
@@ -182,7 +182,10 @@ class StoreCreditEventsService:
         Fetch orders using REST API with status:any to get ALL orders.
         This is more reliable than GraphQL for getting all order statuses.
         """
+        import logging
         from urllib.parse import urlencode
+
+        logger = logging.getLogger(__name__)
 
         # Normalize datetime format
         start_iso = start_datetime if 'T' in start_datetime else f"{start_datetime}T00:00:00Z"
@@ -200,27 +203,36 @@ class StoreCreditEventsService:
         path = f'/admin/api/{self.api_version}/orders.json?{urlencode(params)}'
         collected = []
 
-        while path:
-            data, headers = self._execute_rest(path)
-            orders = data.get('orders', [])
-            collected.extend(orders)
+        logger.info(f"[REST] Fetching orders: {start_iso} to {end_iso}")
 
-            # Parse Link header for pagination
-            link_header = headers.get('link', '')
-            next_link = None
-            if link_header:
-                for part in link_header.split(','):
-                    if 'rel="next"' in part:
-                        # Extract URL from <url>; rel="next"
-                        next_link = part.split(';')[0].strip().strip('<>')
-                        break
+        try:
+            while path:
+                data, headers = self._execute_rest(path)
+                orders = data.get('orders', [])
+                collected.extend(orders)
+                logger.info(f"[REST] Fetched {len(orders)} orders, total: {len(collected)}")
 
-            if next_link:
-                path = next_link.replace(f'https://{self.shop_domain}', '')
-            else:
-                path = None
+                # Parse Link header for pagination
+                link_header = headers.get('link', '')
+                next_link = None
+                if link_header:
+                    for part in link_header.split(','):
+                        if 'rel="next"' in part:
+                            # Extract URL from <url>; rel="next"
+                            next_link = part.split(';')[0].strip().strip('<>')
+                            break
 
-        return collected
+                if next_link:
+                    path = next_link.replace(f'https://{self.shop_domain}', '')
+                else:
+                    path = None
+
+            logger.info(f"[REST] Total orders fetched: {len(collected)}")
+            return collected
+
+        except Exception as e:
+            logger.error(f"[REST] Error fetching orders: {str(e)}")
+            raise
 
     def fetch_orders(
         self,
