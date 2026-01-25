@@ -410,12 +410,12 @@ class StoreCreditEventsService:
             source = order.source_name or 'unknown'
             by_source[source] = by_source.get(source, 0) + 1
 
-        # Top customers
+        # All customers sorted by credit amount (descending)
         top_customers = sorted(
             credits.values(),
             key=lambda c: c.credit_amount,
             reverse=True
-        )[:10]
+        )
 
         # Orders without customers
         orders_without_customer = len([o for o in orders if not o.customer_id])

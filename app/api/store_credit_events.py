@@ -200,7 +200,40 @@ def run_event():
             product_tags=product_tags,
             audience=audience
         )
-        return jsonify(result)
+
+        # Transform to frontend-expected format
+        # Frontend expects: { job_id, success_count, failure_count, total_credit_issued, errors, results }
+        summary = result.get('summary', {})
+        results_list = result.get('results', [])
+
+        # Extract errors from failed results
+        errors = [
+            f"{r.get('customer_email', r.get('customer_id', 'Unknown'))}: {r.get('error', 'Unknown error')}"
+            for r in results_list
+            if not r.get('success') and not r.get('skipped')
+        ]
+
+        response = {
+            'job_id': result.get('event', {}).get('job_id', job_id),
+            'success_count': summary.get('successful', 0),
+            'failure_count': summary.get('failed', 0),
+            'skipped_count': summary.get('skipped', 0),
+            'total_credit_issued': summary.get('total_credited', 0),
+            'errors': errors,
+            # Include full results list for detailed view
+            'results': [
+                {
+                    'customer_id': r.get('customer_id', ''),
+                    'customer_email': r.get('customer_email', ''),
+                    'credit_amount': r.get('credit_amount', 0),
+                    'success': r.get('success', False),
+                    'skipped': r.get('skipped', False),
+                    'error': r.get('error'),
+                }
+                for r in results_list
+            ],
+        }
+        return jsonify(response)
 
     except ValueError as e:
         # Datetime validation errors

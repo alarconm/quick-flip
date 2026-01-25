@@ -115,8 +115,17 @@ interface BulkEventResult {
   job_id: string;
   success_count: number;
   failure_count: number;
+  skipped_count?: number;
   total_credit_issued: number;
   errors: string[];
+  results?: Array<{
+    customer_id: string;
+    customer_email: string;
+    credit_amount: number;
+    success: boolean;
+    skipped: boolean;
+    error?: string;
+  }>;
 }
 
 interface OrderSource {
@@ -1335,15 +1344,68 @@ export function EmbeddedStoreCreditEvents({ shop }: StoreCreditEventsProps) {
                 >
                   <p>
                     Issued {formatCurrency(bulkResult.total_credit_issued)} in store credit to {bulkResult.success_count} customers.
+                    {bulkResult.skipped_count && bulkResult.skipped_count > 0 && ` ${bulkResult.skipped_count} skipped (already received).`}
                     {bulkResult.failure_count > 0 && ` ${bulkResult.failure_count} failed.`}
                   </p>
                 </Banner>
+
+                {/* Summary stats */}
+                <InlineGrid columns={isMobile ? 2 : 4} gap="300">
+                  <Card>
+                    <BlockStack gap="100">
+                      <Text as="span" variant="bodySm" tone="subdued">Successful</Text>
+                      <Text as="p" variant="headingLg" tone="success">{bulkResult.success_count}</Text>
+                    </BlockStack>
+                  </Card>
+                  <Card>
+                    <BlockStack gap="100">
+                      <Text as="span" variant="bodySm" tone="subdued">Total Credited</Text>
+                      <Text as="p" variant="headingLg" tone="success">{formatCurrency(bulkResult.total_credit_issued)}</Text>
+                    </BlockStack>
+                  </Card>
+                  <Card>
+                    <BlockStack gap="100">
+                      <Text as="span" variant="bodySm" tone="subdued">Skipped</Text>
+                      <Text as="p" variant="headingLg">{bulkResult.skipped_count || 0}</Text>
+                    </BlockStack>
+                  </Card>
+                  <Card>
+                    <BlockStack gap="100">
+                      <Text as="span" variant="bodySm" tone="subdued">Failed</Text>
+                      <Text as="p" variant="headingLg" tone={bulkResult.failure_count > 0 ? 'critical' : undefined}>{bulkResult.failure_count}</Text>
+                    </BlockStack>
+                  </Card>
+                </InlineGrid>
+
+                {/* Full list of all credit issuances */}
+                {bulkResult.results && bulkResult.results.length > 0 && (
+                  <Card>
+                    <BlockStack gap="300">
+                      <Text as="h4" variant="headingSm">All Credit Issuances ({bulkResult.results.length} total)</Text>
+                      <DataTable
+                        columnContentTypes={['text', 'numeric', 'text']}
+                        headings={['Customer', 'Credit Amount', 'Status']}
+                        rows={bulkResult.results.map((r) => [
+                          r.customer_email || r.customer_id || 'Unknown',
+                          formatCurrency(r.credit_amount || 0),
+                          r.success && !r.skipped ? (
+                            <Badge key={r.customer_id} tone="success">Issued</Badge>
+                          ) : r.skipped ? (
+                            <Badge key={r.customer_id}>Already Received</Badge>
+                          ) : (
+                            <Badge key={r.customer_id} tone="critical">{r.error || 'Failed'}</Badge>
+                          ),
+                        ])}
+                      />
+                    </BlockStack>
+                  </Card>
+                )}
 
                 {bulkResult.errors && bulkResult.errors.length > 0 && (
                   <Card>
                     <BlockStack gap="200">
                       <Text as="h4" variant="headingSm" tone="critical">Errors</Text>
-                      {bulkResult.errors.slice(0, 10).map((error, i) => (
+                      {bulkResult.errors.map((error, i) => (
                         <Text as="p" variant="bodySm" key={i}>{error}</Text>
                       ))}
                     </BlockStack>
@@ -1386,11 +1448,11 @@ export function EmbeddedStoreCreditEvents({ shop }: StoreCreditEventsProps) {
                 {bulkPreview.top_customers && bulkPreview.top_customers.length > 0 && (
                   <Card>
                     <BlockStack gap="300">
-                      <Text as="h4" variant="headingSm">Top Customers by Credit</Text>
+                      <Text as="h4" variant="headingSm">All Customers to Receive Credit ({bulkPreview.top_customers.length} total)</Text>
                       <DataTable
                         columnContentTypes={['text', 'text', 'numeric', 'numeric', 'numeric']}
                         headings={['Customer', 'Email', 'Orders', 'Spent', 'Credit']}
-                        rows={bulkPreview.top_customers.slice(0, 5).map((customer) => [
+                        rows={bulkPreview.top_customers.map((customer) => [
                           customer.name || 'Guest',
                           customer.email || '-',
                           customer.order_count || 0,
