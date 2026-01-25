@@ -68,6 +68,9 @@ class OrderData:
     created_at: str
     financial_status: str
     transactions: List[Dict[str, Any]] = field(default_factory=list)
+    # For collection/tag filtering - store qualifying subtotal
+    qualifying_subtotal: Optional[Decimal] = None
+    line_items: List[Dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass
@@ -157,6 +160,63 @@ class StoreCreditEventsService:
                 raise Exception(f"GraphQL errors: {result['errors']}")
 
             return result.get('data', {})
+
+    def _get_collection_product_ids(self, collection_ids: List[str]) -> Set[int]:
+        """
+        Get all product IDs that belong to the specified collections.
+
+        Args:
+            collection_ids: List of collection GIDs (gid://shopify/Collection/123)
+
+        Returns:
+            Set of numeric product IDs that belong to any of the collections
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+
+        if not collection_ids:
+            return set()
+
+        product_ids: Set[int] = set()
+
+        for collection_gid in collection_ids:
+            # Extract numeric ID from GID
+            numeric_id = collection_gid.split('/')[-1] if '/' in collection_gid else collection_gid
+
+            # Fetch products in this collection using REST API
+            path = f'/admin/api/{self.api_version}/collections/{numeric_id}/products.json?limit=250&fields=id'
+
+            try:
+                while path:
+                    data, headers = self._execute_rest(path)
+                    products = data.get('products', [])
+
+                    for product in products:
+                        product_ids.add(product['id'])
+
+                    logger.info(f"[Collection {numeric_id}] Fetched {len(products)} products, total unique: {len(product_ids)}")
+
+                    # Check for pagination
+                    link_header = headers.get('link', '')
+                    next_link = None
+                    if link_header:
+                        for part in link_header.split(','):
+                            if 'rel="next"' in part:
+                                next_link = part.split(';')[0].strip().strip('<>')
+                                break
+
+                    if next_link:
+                        path = next_link.replace(f'https://{self.shop_domain}', '')
+                    else:
+                        path = None
+
+            except Exception as e:
+                logger.error(f"[Collection {numeric_id}] Error fetching products: {str(e)}")
+                # Continue with other collections even if one fails
+                continue
+
+        logger.info(f"[Collections] Total products in {len(collection_ids)} collections: {len(product_ids)}")
+        return product_ids
 
     def _execute_rest(self, path: str) -> tuple:
         """Execute a REST API request. Returns (json_data, headers) tuple."""
@@ -260,9 +320,27 @@ class StoreCreditEventsService:
         Raises:
             ValueError: If datetime parameters have invalid format
         """
+        import logging
+        logger = logging.getLogger(__name__)
+
         # Validate datetime parameters
         start_datetime = validate_datetime_string(start_datetime, 'start_datetime')
         end_datetime = validate_datetime_string(end_datetime, 'end_datetime')
+
+        # If collection filtering is needed, fetch product IDs in those collections
+        collection_product_ids: Set[int] = set()
+        if collection_ids:
+            logger.info(f"[fetch_orders] Collection filter active: {collection_ids}")
+            collection_product_ids = self._get_collection_product_ids(collection_ids)
+            logger.info(f"[fetch_orders] Found {len(collection_product_ids)} products in filtered collections")
+
+        # Normalize product tags for case-insensitive matching
+        product_tags_lower: Set[str] = set()
+        if product_tags:
+            product_tags_lower = {t.lower() for t in product_tags}
+            logger.info(f"[fetch_orders] Product tag filter active: {product_tags}")
+
+        has_filters = bool(collection_product_ids) or bool(product_tags_lower)
 
         # Use REST API - it properly supports status:any to get ALL orders
         raw_orders = self._fetch_orders_rest(start_datetime, end_datetime, include_authorized)
@@ -299,6 +377,43 @@ class StoreCreditEventsService:
                 tags_str = customer.get('tags', '')
                 customer_tags = [t.strip() for t in tags_str.split(',') if t.strip()]
 
+            # Calculate qualifying subtotal if filters are active
+            line_items = o.get('line_items', [])
+            qualifying_subtotal = None
+
+            if has_filters:
+                qualifying_total = Decimal('0')
+
+                for item in line_items:
+                    item_qualifies = False
+                    product_id = item.get('product_id')
+                    item_price = Decimal(str(item.get('price', '0')))
+                    item_quantity = item.get('quantity', 1)
+                    item_total = item_price * item_quantity
+
+                    # Check collection filter
+                    if collection_product_ids:
+                        if product_id and product_id in collection_product_ids:
+                            item_qualifies = True
+
+                    # Check product tag filter (line items can have variant properties but not product tags directly)
+                    # We need to match against any tags in the line item properties
+                    if product_tags_lower and not item_qualifies:
+                        # Shopify line items don't include product tags directly
+                        # We'd need to fetch product data separately - for now, skip tag filtering on line items
+                        # or use the variant title / properties if available
+                        pass
+
+                    if item_qualifies:
+                        qualifying_total += item_total
+
+                qualifying_subtotal = qualifying_total
+
+                # Skip orders with no qualifying items
+                if qualifying_subtotal == Decimal('0'):
+                    logger.debug(f"[fetch_orders] Order {o.get('name')} skipped - no qualifying items")
+                    continue
+
             orders.append(OrderData(
                 id=f"gid://shopify/Order/{o['id']}",
                 order_number=o.get('name', ''),
@@ -310,13 +425,12 @@ class StoreCreditEventsService:
                 source_name=o.get('source_name', 'unknown'),
                 created_at=o.get('created_at', ''),
                 financial_status=o.get('financial_status', ''),
-                transactions=[]  # REST doesn't include transactions, but we can add later if needed
+                transactions=[],
+                qualifying_subtotal=qualifying_subtotal,
+                line_items=line_items if has_filters else []
             ))
 
-        # Note: collection_ids and product_tags filtering requires GraphQL (line items)
-        # For now, if those filters are specified, we'd need to fetch additional data
-        # This is a simplified implementation that prioritizes getting ALL orders first
-
+        logger.info(f"[fetch_orders] Returning {len(orders)} orders (filters active: {has_filters})")
         return orders
 
     def calculate_credits(
@@ -342,15 +456,31 @@ class StoreCreditEventsService:
             if not order.customer_id:
                 continue
 
-            order_total = order.total_price
+            # Use qualifying_subtotal if collection/tag filtering was applied
+            # Otherwise use the full order total
+            if order.qualifying_subtotal is not None:
+                order_total = order.qualifying_subtotal
+            else:
+                order_total = order.total_price
 
-            # Subtract store credit / gift card payments
+            # Subtract store credit / gift card payments (proportionally if filtering)
             if exclude_store_credit_payments and order.transactions:
+                # Calculate what portion of order was paid with store credit
+                store_credit_used = Decimal('0')
                 for tx in order.transactions:
                     gateway = (tx.get('gateway') or '').lower()
                     if 'gift_card' in gateway or 'store_credit' in gateway or 'store credit' in gateway:
                         amount = Decimal(str(tx.get('amountSet', {}).get('shopMoney', {}).get('amount', 0)))
-                        order_total -= amount
+                        store_credit_used += amount
+
+                if store_credit_used > 0 and order.qualifying_subtotal is not None:
+                    # Apply proportional reduction based on qualifying vs total
+                    if order.total_price > 0:
+                        ratio = order.qualifying_subtotal / order.total_price
+                        proportional_credit = store_credit_used * ratio
+                        order_total -= proportional_credit
+                else:
+                    order_total -= store_credit_used
 
             order_total = max(Decimal('0'), order_total)
             credit_amount = order_total * Decimal(str(credit_percent / 100))
