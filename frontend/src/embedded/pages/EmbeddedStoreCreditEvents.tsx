@@ -869,7 +869,7 @@ export function EmbeddedStoreCreditEvents({ shop }: StoreCreditEventsProps) {
                         </BlockStack>,
                         <Badge
                           key={`audience-${event.id}`}
-                          tone={event.audience === 'all_customers' ? 'info' : 'default'}
+                          tone={event.audience === 'all_customers' ? 'info' : undefined}
                         >
                           {event.audience === 'all_customers' ? 'All Customers' : 'Members Only'}
                         </Badge>,
