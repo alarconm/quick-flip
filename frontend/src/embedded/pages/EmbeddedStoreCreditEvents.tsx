@@ -181,14 +181,26 @@ async function deleteScheduledEvent(shop: string | null, id: number): Promise<vo
 }
 
 // Bulk event APIs
+/**
+ * Convert a local datetime-local value to ISO UTC string for Shopify API.
+ * datetime-local gives us "2026-01-24T17:00" without timezone.
+ * We need to interpret this as local time and convert to UTC.
+ */
+function localDatetimeToUTC(localDatetime: string): string {
+  if (!localDatetime) return '';
+  // Parse as local time and convert to ISO string (which is UTC with Z suffix)
+  const date = new Date(localDatetime);
+  return date.toISOString();
+}
+
 async function fetchEventSources(
   shop: string | null,
   startDatetime: string,
   endDatetime: string
 ): Promise<{ sources: OrderSource[]; total_orders: number }> {
   const params = new URLSearchParams({
-    start_datetime: startDatetime,
-    end_datetime: endDatetime,
+    start_datetime: localDatetimeToUTC(startDatetime),
+    end_datetime: localDatetimeToUTC(endDatetime),
   });
   const response = await authFetch(
     `${getApiUrl()}/store_credit_events/sources?${params}`,
@@ -211,12 +223,18 @@ async function previewBulkEvent(
     audience?: string;
   }
 ): Promise<BulkEventPreview> {
+  // Convert local datetimes to UTC for Shopify API
+  const payload = {
+    ...data,
+    start_datetime: localDatetimeToUTC(data.start_datetime),
+    end_datetime: localDatetimeToUTC(data.end_datetime),
+  };
   const response = await authFetch(
     `${getApiUrl()}/store_credit_events/preview`,
     shop,
     {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify(payload),
     }
   );
   if (!response.ok) throw new Error('Failed to preview event');
@@ -237,12 +255,18 @@ async function runBulkEvent(
     audience?: string;
   }
 ): Promise<BulkEventResult> {
+  // Convert local datetimes to UTC for Shopify API
+  const payload = {
+    ...data,
+    start_datetime: localDatetimeToUTC(data.start_datetime),
+    end_datetime: localDatetimeToUTC(data.end_datetime),
+  };
   const response = await authFetch(
     `${getApiUrl()}/store_credit_events/run`,
     shop,
     {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify(payload),
     }
   );
   if (!response.ok) throw new Error('Failed to run event');
