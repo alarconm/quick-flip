@@ -539,7 +539,7 @@ export function EmbeddedPoints({ shop }: PointsProps) {
                   { label: 'Trade-in', value: 'trade_in' },
                   { label: 'Referral', value: 'referral' },
                   { label: 'Signup', value: 'signup' },
-                  { label: 'Birthday', value: 'birthday' },
+                  { label: 'Anniversary', value: 'anniversary' },
                 ]}
                 value={ruleForm.trigger_source}
                 onChange={(value) => setRuleForm({ ...ruleForm, trigger_source: value })}

@@ -389,7 +389,7 @@ export function EmbeddedGamification({ shop }: EmbeddedGamificationProps) {
           fontSize: '16px',
         }}
       >
-        {badge.icon === 'trophy' ? <Icon source={StarFilledIcon} /> : badge.icon.charAt(0).toUpperCase()}
+        {badge.icon === 'trophy' ? <Icon source={StarFilledIcon} /> : (badge.icon || 'B').charAt(0).toUpperCase()}
       </div>
       <Text as="span" variant="bodyMd" fontWeight="semibold">{badge.name}</Text>
     </InlineStack>,

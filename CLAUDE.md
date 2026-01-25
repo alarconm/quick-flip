@@ -52,28 +52,31 @@ CLAUDE_CODE_TASK_LIST_ID=tradeup claude
 ```
 All sessions share the same task list and see real-time updates.
 
-## Current Status (January 21, 2026)
+## Current Status (January 24, 2026)
 
 **READY FOR APP STORE SUBMISSION** - 89 E2E tests passing. See `docs/E2E_TEST_REPORT.md`.
 
-**Codebase Review Complete** - 8 new PRDs created for competitive features. See roadmap section below.
+**Codebase Review Complete** - Full review performed January 24, 2026. All systems production-ready.
 
 ### What's Complete
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Backend API (43 modules) | ✅ Complete | All bugs fixed |
-| Frontend (18 admin pages) | ✅ Complete | Including Pending Distributions |
-| Services (30 services) | ✅ Complete | All services functional |
+| Backend API (52 modules) | ✅ Complete | All bugs fixed, no security issues |
+| Frontend (25 admin pages) | ✅ Complete | All pages with error handling & loading states |
+| Services (37 services) | ✅ Complete | All services functional |
+| Database Models (21 models) | ✅ Complete | Proper relationships & constraints |
 | Customer Account Extension | ✅ Complete | 1,211 lines, production ready |
 | Checkout UI Extension | ✅ Complete | Points display, tier badges |
 | Post-Purchase Extension | ✅ Complete | Celebration + referral prompts |
 | POS UI Extension | ✅ Complete | Member lookup for retail |
 | Shopify Billing (4 plans) | ✅ Complete | Free, Starter, Growth, Pro |
-| Webhooks (13/13 handlers) | ✅ Complete | All handlers implemented |
-| Landing Pages (13 variants) | ✅ Complete | Live at /landing/* |
+| Webhooks (24 handlers) | ✅ Complete | All handlers across 6 files |
+| Landing Pages (12 variants) | ✅ Complete | Live at /landing/* |
 | App Proxy | ✅ Complete | Customer rewards page |
 | Pending Distribution Approval | ✅ Complete | Monthly credit approval workflow |
+| Security | ✅ Complete | HMAC webhook verification, JWT auth, rate limiting |
+| Error Monitoring | ✅ Complete | Sentry integration with profiling |
 
 ### All Critical Bugs FIXED
 
@@ -109,9 +112,31 @@ All sessions share the same task list and see real-time updates.
 
 **Note**: These are Shopify Functions (Rust/WebAssembly), not UI extensions. The core app works without them. Tier discounts can still be applied via discount codes.
 
-### Before Going Live
+### Known Minor Issues - ALL FIXED (January 24, 2026)
 
-1. **Set `SHOPIFY_BILLING_TEST=false`** in Railway for production charges
+| Issue | Location | Fix Applied |
+|-------|----------|-------------|
+| Badge TypeError | EmbeddedGamification.tsx:392 | ✅ Added null-safety: `(badge.icon \|\| 'B').charAt(0)` |
+| 'tagged' targeting TODO | tier_service.py:1162 | ✅ Implemented tag matching logic |
+| 'manual' targeting TODO | tier_service.py:1176 | ✅ Implemented member ID list check |
+| Time-windowed stats TODO | tier_service.py:1204 | ✅ Queries TradeInBatch within max_days |
+| orders/fulfilled partial | order_lifecycle.py:984 | ✅ Full implementation with points awarding |
+
+### Pre-Launch Checklist
+
+**Required Before Going Live:**
+- [ ] Set `SHOPIFY_BILLING_TEST=false` in Railway for production charges
+- [ ] Verify `SECRET_KEY` is 32+ characters in Railway production
+- [ ] Confirm `SENTRY_DSN` is configured for error tracking
+- [ ] Run `npm run prerelease` validation
+- [ ] Deploy extensions: `npm run deploy`
+- [ ] Test in dev store before releasing
+- [ ] Release to users: `npm run release --version=X`
+
+**Post-Launch Monitoring:**
+- [ ] Monitor Sentry for errors (first 48 hours critical)
+- [ ] Check Railway logs daily
+- [ ] Have rollback plan ready: `railway rollback <deployment-id>`
 
 ## Quick Commands
 
@@ -190,24 +215,25 @@ This prevents test deployments from affecting real merchants.
 ```
 tradeup/
 ├── app/                    # Flask backend
-│   ├── api/               # 43 REST API modules
-│   ├── models/            # 11 SQLAlchemy models
-│   ├── services/          # 30 business logic services
-│   ├── webhooks/          # 6 webhook handler files (10 implemented topics)
+│   ├── api/               # 52 REST API modules
+│   ├── models/            # 21 SQLAlchemy models
+│   ├── services/          # 37 business logic services
+│   ├── webhooks/          # 6 webhook handler files (24 topics)
 │   └── utils/             # Helpers (sentry.py)
 ├── frontend/              # React SPA (Vite + TypeScript)
 │   ├── src/admin/         # Admin components
-│   ├── src/embedded/      # 17+ Shopify embedded pages
-│   └── src/pages/         # Public pages
+│   ├── src/embedded/      # 25 Shopify embedded pages
+│   └── src/pages/         # Public pages (4)
 ├── extensions/            # Shopify UI extensions (4 active)
 │   ├── checkout-ui/       # Checkout points display
 │   ├── customer-account-ui/  # Customer rewards display (1,211 lines)
 │   ├── post-purchase-ui/  # Post-purchase celebration
 │   └── pos-ui/            # POS member lookup
 ├── extensions-disabled/   # Disabled Shopify Functions (local backup)
-├── landing-pages/         # 13 A/B test variants
-├── migrations/            # Alembic migrations
+├── landing-pages/         # 12 A/B test variants
+├── migrations/            # 36 Alembic migrations
 ├── scripts/               # Dev tools
+├── tests/                 # 17 pytest test files
 └── docs/                  # Documentation files
 ```
 
@@ -364,6 +390,18 @@ Add new columns to `app/api/admin.py` in the `columns_to_add` list.
 
 ## Recent Changes
 
+### January 24, 2026 - Launch Readiness Review & Cleanup
+- ✅ Comprehensive codebase review completed
+- ✅ Updated CLAUDE.md with accurate counts (52 APIs, 25 pages, 37 services, 21 models)
+- ✅ Verified all 24 webhook handlers implemented
+- ✅ Confirmed security: HMAC verification, JWT auth, rate limiting, no SQL injection
+- ✅ Fixed 5 minor issues (Badge null-safety, tier targeting, time-windowed stats, orders/fulfilled)
+- ✅ Removed birthday rewards (not needed - adds friction)
+- ✅ Confirmed anniversary rewards fully implemented (membership anniversary, not birthday)
+- ✅ Analyzed Shopify Functions (checkout-validation, tier-discount) - decided not needed
+- ✅ Competitive analysis: TradeUp has native store credit (differentiator vs Smile.io/Yotpo)
+- **Status: PRODUCTION READY**
+
 ### January 21, 2026 - Professional Deployment Setup
 - ✅ Added npm deploy scripts (deploy, release, version:patch/minor/major)
 - ✅ Created DEPLOYMENT.md with full workflow documentation
@@ -421,7 +459,7 @@ PRDs are stored in `roadmap/epics/` for autonomous execution by Ralph.
 | 05 | Developer Experience | Low | 10 | Existing |
 | 06 | **Code Quality Fixes** | **HIGH** | 8 | **NEW** |
 | 07 | **Gamification System** | **HIGH** | 10 | **NEW** |
-| 08 | **Birthday Rewards** | **HIGH** | 10 | **NEW** |
+| 08 | **Anniversary Rewards** | **HIGH** | 10 | **DONE** |
 | 09 | **Nudges & Reminders** | **HIGH** | 10 | **NEW** |
 | 10 | **Loyalty Page Builder** | **HIGH** | 10 | **NEW** |
 | 11 | **Review Collection** | **HIGH** | 10 | **NEW** |
@@ -436,7 +474,7 @@ PRDs are stored in `roadmap/epics/` for autonomous execution by Ralph.
 
 **Phase 2 - Competitive Parity (30 days)**
 - 07: Gamification System - Badges, achievements, streaks
-- 08: Birthday Rewards - Auto-send birthday rewards
+- 08: Anniversary Rewards - ✅ DONE (auto-send membership anniversary rewards)
 - 09: Nudges & Reminders - Points expiring, tier progress
 - 10: Loyalty Page Builder - Custom rewards page
 

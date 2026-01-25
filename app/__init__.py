@@ -512,11 +512,7 @@ def register_blueprints(app: Flask) -> None:
     from .api.gamification import gamification_bp
     app.register_blueprint(gamification_bp, url_prefix='/api/gamification')
 
-    # Birthday Rewards
-    from .api.birthday import birthday_bp
-    app.register_blueprint(birthday_bp, url_prefix='/api/birthday')
-
-    # Anniversary Rewards
+    # Anniversary Rewards (membership anniversary, not birthday)
     from .api.anniversary import anniversary_bp
     app.register_blueprint(anniversary_bp, url_prefix='/api/anniversary')
 

@@ -192,7 +192,8 @@ class StoreCreditEventsService:
         has_next_page = True
         end_cursor = None
 
-        status_filter = '(displayFinancialStatus:PAID OR displayFinancialStatus:AUTHORIZED)' if include_authorized else 'displayFinancialStatus:PAID'
+        # Shopify search query uses snake_case field names with lowercase values
+        status_filter = '(financial_status:paid OR financial_status:authorized)' if include_authorized else 'financial_status:paid'
 
         # Determine if we need line items for filtering
         need_line_items = bool(collection_ids or product_tags)

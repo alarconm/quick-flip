@@ -190,7 +190,8 @@ function localDatetimeToUTC(localDatetime: string): string {
   if (!localDatetime) return '';
   // Parse as local time and convert to ISO string (which is UTC with Z suffix)
   const date = new Date(localDatetime);
-  return date.toISOString();
+  // Remove milliseconds - Shopify search doesn't handle .000 well
+  return date.toISOString().replace(/\.\d{3}Z$/, 'Z');
 }
 
 /**
