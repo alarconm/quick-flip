@@ -570,9 +570,12 @@ export function EmbeddedStoreCreditEvents({ shop }: StoreCreditEventsProps) {
       ? new Date(now.getTime() + templateHours * 60 * 60 * 1000)
       : new Date(now.getTime() + 3 * 60 * 60 * 1000);
 
+    const startDatetime = formatLocalDatetime(now);
+    const endDatetime = formatLocalDatetime(endTime);
+
     setBulkForm({
-      start_datetime: formatLocalDatetime(now),
-      end_datetime: formatLocalDatetime(endTime),
+      start_datetime: startDatetime,
+      end_datetime: endDatetime,
       sources: [],
       credit_percent: percent || 10,
       include_authorized: true,
@@ -585,7 +588,10 @@ export function EmbeddedStoreCreditEvents({ shop }: StoreCreditEventsProps) {
     setBulkResult(null);
     setAvailableSources([]);
     setBulkModalOpen(true);
-  }, []);
+
+    // Fetch sources for the default date range
+    fetchSourcesMutation.mutate({ start: startDatetime, end: endDatetime });
+  }, [fetchSourcesMutation]);
 
   const handleBulkDateChange = useCallback((field: 'start_datetime' | 'end_datetime', value: string) => {
     const newForm = { ...bulkForm, [field]: value };
