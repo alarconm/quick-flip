@@ -206,6 +206,9 @@ def list_sources():
     Returns:
         List of sources with order counts
     """
+    import logging
+    logger = logging.getLogger(__name__)
+
     service = get_service_for_tenant()
     if not service:
         return jsonify({'error': 'Shopify not configured for this shop'}), 500
@@ -213,12 +216,16 @@ def list_sources():
     start = request.args.get('start_datetime')
     end = request.args.get('end_datetime')
 
+    logger.info(f"[StoreCreditEvents] /sources called with start={start}, end={end}")
+
     if not start or not end:
         return jsonify({'error': 'start_datetime and end_datetime are required'}), 400
 
     try:
         # Fetch orders with no source filter to see all sources
+        logger.info(f"[StoreCreditEvents] Fetching orders from {start} to {end}")
         orders = service.fetch_orders(start, end, [], include_authorized=True)
+        logger.info(f"[StoreCreditEvents] Found {len(orders)} orders")
 
         # Count by source
         by_source = {}
@@ -238,6 +245,55 @@ def list_sources():
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@store_credit_events_bp.route('/debug-orders', methods=['GET'])
+@require_shopify_auth
+def debug_orders():
+    """
+    Debug endpoint to test order fetching.
+    Shows exactly what Shopify returns for a date range.
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+
+    service = get_service_for_tenant()
+    if not service:
+        return jsonify({'error': 'Shopify not configured for this shop'}), 500
+
+    start = request.args.get('start_datetime')
+    end = request.args.get('end_datetime')
+
+    logger.info(f"[DEBUG] Received start={start}, end={end}")
+
+    if not start or not end:
+        return jsonify({'error': 'start_datetime and end_datetime are required'}), 400
+
+    try:
+        orders = service.fetch_orders(start, end, [], include_authorized=True)
+
+        return jsonify({
+            'debug': True,
+            'start_datetime_received': start,
+            'end_datetime_received': end,
+            'shop_domain': service.shop_domain,
+            'total_orders': len(orders),
+            'orders': [
+                {
+                    'id': o.id,
+                    'order_number': o.order_number,
+                    'created_at': o.created_at,
+                    'source_name': o.source_name,
+                    'total_price': float(o.total_price),
+                    'customer_email': o.customer_email
+                }
+                for o in orders[:20]  # Limit to first 20 for debug
+            ]
+        })
+
+    except Exception as e:
+        logger.error(f"[DEBUG] Error: {str(e)}")
+        return jsonify({'error': str(e), 'start': start, 'end': end}), 500
 
 
 @store_credit_events_bp.route('/templates', methods=['GET'])
