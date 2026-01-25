@@ -11,6 +11,7 @@ World-class promotion system supporting:
 """
 import logging
 from datetime import datetime, time
+import pytz
 
 logger = logging.getLogger(__name__)
 from decimal import Decimal
@@ -146,27 +147,53 @@ class Promotion(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    def is_active_now(self) -> bool:
-        """Check if promotion is currently active."""
+    def is_active_now(self, timezone_str: str = None) -> bool:
+        """
+        Check if promotion is currently active.
+
+        Args:
+            timezone_str: Optional timezone string (e.g., 'America/Los_Angeles').
+                         If not provided, will look up from tenant settings.
+        """
         if not self.active:
             return False
 
-        now = datetime.utcnow()
+        now_utc = datetime.utcnow()
 
-        # Check date range
-        if now < self.starts_at or now > self.ends_at:
+        # Check date range (dates are stored in UTC)
+        if now_utc < self.starts_at or now_utc > self.ends_at:
             return False
 
-        # Check daily time window if set
+        # Check daily time window if set - THIS REQUIRES TIMEZONE CONVERSION
         if self.daily_start_time and self.daily_end_time:
-            current_time = now.time()
-            if not (self.daily_start_time <= current_time <= self.daily_end_time):
-                return False
+            # Get the timezone to use for daily time window checks
+            tz = self._get_timezone(timezone_str)
 
-        # Check active days if set
-        if self.active_days:
+            # Convert current UTC time to local time
+            now_local = datetime.utcnow().replace(tzinfo=pytz.UTC).astimezone(tz)
+            current_time = now_local.time()
+
+            # Handle time windows that cross midnight (e.g., 10 PM - 2 AM)
+            if self.daily_start_time <= self.daily_end_time:
+                # Normal case: start < end (e.g., 5 PM - 8 PM)
+                if not (self.daily_start_time <= current_time <= self.daily_end_time):
+                    return False
+            else:
+                # Midnight crossing: start > end (e.g., 10 PM - 2 AM)
+                if not (current_time >= self.daily_start_time or current_time <= self.daily_end_time):
+                    return False
+
+            # Check active days using local time
+            if self.active_days:
+                active_day_list = [int(d) for d in self.active_days.split(',')]
+                if now_local.weekday() not in active_day_list:
+                    return False
+        elif self.active_days:
+            # No time window but has active days - still need local time for day check
+            tz = self._get_timezone(timezone_str)
+            now_local = datetime.utcnow().replace(tzinfo=pytz.UTC).astimezone(tz)
             active_day_list = [int(d) for d in self.active_days.split(',')]
-            if now.weekday() not in active_day_list:
+            if now_local.weekday() not in active_day_list:
                 return False
 
         # Check max uses
@@ -174,6 +201,30 @@ class Promotion(db.Model):
             return False
 
         return True
+
+    def _get_timezone(self, timezone_str: str = None) -> pytz.BaseTzInfo:
+        """Get timezone for this promotion's tenant."""
+        if timezone_str:
+            try:
+                return pytz.timezone(timezone_str)
+            except pytz.UnknownTimeZoneError:
+                pass
+
+        # Try to get from tenant settings
+        try:
+            from ..models.tenant import Tenant
+            from ..utils.settings_defaults import get_settings_with_defaults
+
+            tenant = Tenant.query.get(self.tenant_id)
+            if tenant and tenant.settings:
+                settings = get_settings_with_defaults(tenant.settings)
+                tz_str = settings.get('general', {}).get('timezone', 'America/Los_Angeles')
+                return pytz.timezone(tz_str)
+        except Exception as e:
+            logger.warning(f"Could not get tenant timezone: {e}")
+
+        # Default to Pacific Time (common for US stores)
+        return pytz.timezone('America/Los_Angeles')
 
     def applies_to_category(self, category_id: int) -> bool:
         """Check if promotion applies to a specific category (legacy)."""
