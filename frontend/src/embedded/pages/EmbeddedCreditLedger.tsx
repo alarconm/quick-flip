@@ -475,7 +475,7 @@ export function EmbeddedCreditLedger({ shop }: CreditLedgerProps) {
               </Popover>
 
               {hasFilters && (
-                <Button onClick={handleClearFilters} plain>
+                <Button onClick={handleClearFilters} variant="plain">
                   Clear all
                 </Button>
               )}
@@ -500,7 +500,7 @@ export function EmbeddedCreditLedger({ shop }: CreditLedgerProps) {
                     <InlineStack gap="100" blockAlign="center">
                       Date
                       <Button
-                        plain
+                        variant="plain"
                         icon={sortBy === 'created_at' ? (sortDir === 'desc' ? ArrowDownIcon : ArrowUpIcon) : undefined}
                         onClick={() => handleSort('created_at')}
                       />
@@ -510,7 +510,7 @@ export function EmbeddedCreditLedger({ shop }: CreditLedgerProps) {
                     <InlineStack gap="100" blockAlign="center">
                       Amount
                       <Button
-                        plain
+                        variant="plain"
                         icon={sortBy === 'amount' ? (sortDir === 'desc' ? ArrowDownIcon : ArrowUpIcon) : undefined}
                         onClick={() => handleSort('amount')}
                       />

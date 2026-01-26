@@ -1131,14 +1131,14 @@ export function EmbeddedStoreCreditEvents({ shop }: StoreCreditEventsProps) {
                               {' - '}
                               {event.date_range_end ? new Date(event.date_range_end).toLocaleDateString() : '—'}
                             </Text>,
-                            <Badge tone="success" key={`success-${event.id}`}>{event.customers_processed}</Badge>,
+                            <Badge tone="success" key={`success-${event.id}`}>{String(event.customers_processed)}</Badge>,
                             event.customers_skipped > 0 ? (
-                              <Badge key={`skipped-${event.id}`}>{event.customers_skipped}</Badge>
+                              <Badge key={`skipped-${event.id}`}>{String(event.customers_skipped)}</Badge>
                             ) : (
                               <Text as="span" key={`skipped-${event.id}`}>0</Text>
                             ),
                             event.customers_failed > 0 ? (
-                              <Badge tone="critical" key={`failed-${event.id}`}>{event.customers_failed}</Badge>
+                              <Badge tone="critical" key={`failed-${event.id}`}>{String(event.customers_failed)}</Badge>
                             ) : (
                               <Text as="span" key={`failed-${event.id}`}>0</Text>
                             ),
