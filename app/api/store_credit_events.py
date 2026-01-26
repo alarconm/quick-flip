@@ -341,8 +341,10 @@ def manual_run_event():
     credit_percent = data.get('credit_percent', 10)
     sources = data.get('sources', [])
     dry_run = data.get('dry_run', True)
+    collection_ids = data.get('collection_ids')  # For testing collection filter
+    product_tags = data.get('product_tags')  # For testing tag filter
 
-    logger.info(f"[ManualRun] shop={shop_domain}, start={start}, end={end}, dry_run={dry_run}")
+    logger.info(f"[ManualRun] shop={shop_domain}, start={start}, end={end}, dry_run={dry_run}, collection_ids={collection_ids}")
 
     if not start or not end:
         return jsonify({'error': 'start_datetime and end_datetime are required'}), 400
@@ -355,9 +357,15 @@ def manual_run_event():
                 sources=sources,
                 credit_percent=credit_percent,
                 include_authorized=True,
-                audience='all_customers'
+                audience='all_customers',
+                collection_ids=collection_ids,
+                product_tags=product_tags
             )
             result['dry_run'] = True
+            result['filters_applied'] = {
+                'collection_ids': collection_ids,
+                'product_tags': product_tags
+            }
             return jsonify(result)
         else:
             result = service.run_event(
@@ -424,6 +432,71 @@ def debug_orders():
     except Exception as e:
         logger.error(f"[DEBUG] Error: {str(e)}")
         return jsonify({'error': str(e), 'start': start, 'end': end}), 500
+
+
+@store_credit_events_bp.route('/debug-collections', methods=['GET'])
+def debug_collections():
+    """
+    Debug endpoint to list collections from a shop.
+    Protected by secret key for testing.
+    """
+    import logging
+    from ..models import Tenant
+    logger = logging.getLogger(__name__)
+
+    key = request.args.get('key')
+    if key != 'tradeup-manual-event-2026':
+        return jsonify({'error': 'Invalid key'}), 403
+
+    shop_domain = request.args.get('shop_domain')
+    if not shop_domain:
+        return jsonify({'error': 'shop_domain is required'}), 400
+
+    tenant = Tenant.query.filter_by(shopify_domain=shop_domain).first()
+    if not tenant or not tenant.shopify_access_token:
+        return jsonify({'error': f'No tenant found for {shop_domain}'}), 404
+
+    from ..services.store_credit_events import StoreCreditEventsService
+    service = StoreCreditEventsService(tenant.shopify_domain, tenant.shopify_access_token)
+
+    try:
+        # Fetch collections using Shopify GraphQL
+        query = """
+        query {
+            collections(first: 50) {
+                edges {
+                    node {
+                        id
+                        title
+                        handle
+                        productsCount {
+                            count
+                        }
+                    }
+                }
+            }
+        }
+        """
+        response = service._graphql_request(query)
+        collections = []
+        for edge in response.get('data', {}).get('collections', {}).get('edges', []):
+            node = edge.get('node', {})
+            collections.append({
+                'id': node.get('id'),
+                'title': node.get('title'),
+                'handle': node.get('handle'),
+                'products_count': node.get('productsCount', {}).get('count', 0)
+            })
+
+        return jsonify({
+            'shop_domain': shop_domain,
+            'collection_count': len(collections),
+            'collections': collections
+        })
+
+    except Exception as e:
+        logger.error(f"[DEBUG Collections] Error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 
 @store_credit_events_bp.route('/history', methods=['GET'])
