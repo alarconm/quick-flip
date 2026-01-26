@@ -1024,6 +1024,84 @@ def delete_discount(discount_id):
         return jsonify({'error': str(e)}), 500
 
 
+@admin_bp.route('/register-test-store', methods=['POST'])
+def register_test_store():
+    """
+    Manually register a test store as a tenant (bypasses OAuth flow).
+
+    This is useful when the OAuth redirect_uri is misconfigured but
+    you still need to test the app on a dev store.
+
+    Call with: POST /api/admin/register-test-store?key=tradeup-schema-fix-2026
+    Body: {"shop_domain": "store-name.myshopify.com"}
+    """
+    key = request.args.get('key')
+    if key != 'tradeup-schema-fix-2026':
+        return jsonify({'error': 'Invalid key'}), 403
+
+    data = request.get_json() or {}
+    shop_domain = data.get('shop_domain')
+
+    if not shop_domain:
+        return jsonify({'error': 'shop_domain required'}), 400
+
+    # Ensure it's a valid myshopify.com domain
+    if not shop_domain.endswith('.myshopify.com'):
+        return jsonify({'error': 'Invalid shop domain - must end with .myshopify.com'}), 400
+
+    try:
+        from ..models import Tenant
+
+        # Check if tenant already exists
+        existing = Tenant.query.filter_by(shopify_domain=shop_domain).first()
+        if existing:
+            return jsonify({
+                'success': True,
+                'message': 'Tenant already exists',
+                'tenant_id': existing.id,
+                'shop_name': existing.shop_name,
+                'is_active': existing.is_active
+            })
+
+        # Create new tenant with minimal info
+        shop_slug = shop_domain.replace('.myshopify.com', '').lower()
+        shop_name = shop_slug.replace('-', ' ').title()
+
+        tenant = Tenant(
+            shop_name=shop_name,
+            shop_slug=shop_slug,
+            shopify_domain=shop_domain,
+            shopify_access_token=None,  # Will need to be set manually or via OAuth later
+            subscription_plan='free',
+            subscription_status='active',
+            subscription_active=True,
+            is_active=True,
+            settings={
+                'general': {
+                    'timezone': 'America/Los_Angeles',
+                    'currency': 'USD',
+                }
+            },
+        )
+        db.session.add(tenant)
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Test store registered successfully',
+            'tenant_id': tenant.id,
+            'shop_name': tenant.shop_name,
+            'shop_domain': tenant.shopify_domain,
+            'note': 'Access token not set - app may have limited functionality until OAuth completes'
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
 @admin_bp.route('/create-new-feature-tables', methods=['POST'])
 def create_new_feature_tables():
     """
