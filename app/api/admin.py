@@ -531,6 +531,52 @@ def fix_schema():
         except Exception:
             results.append({'table': 'bulk_credit_operations', 'index': 'ix_bulk_credit_operations_tenant_id', 'action': 'exists_or_error'})
 
+        # Create store_credit_events table if not exists (for event history tracking)
+        try:
+            create_table_sql = text('''
+                CREATE TABLE IF NOT EXISTS store_credit_events (
+                    id SERIAL PRIMARY KEY,
+                    tenant_id INTEGER NOT NULL REFERENCES tenants(id),
+                    event_uuid VARCHAR(36) NOT NULL UNIQUE,
+                    name VARCHAR(100) NOT NULL,
+                    description TEXT,
+                    credit_amount NUMERIC(10, 2) DEFAULT 0,
+                    credit_percent NUMERIC(5, 2),
+                    filters TEXT,
+                    date_range_start TIMESTAMP,
+                    date_range_end TIMESTAMP,
+                    status VARCHAR(20) DEFAULT 'draft',
+                    customers_targeted INTEGER DEFAULT 0,
+                    customers_processed INTEGER DEFAULT 0,
+                    customers_skipped INTEGER DEFAULT 0,
+                    customers_failed INTEGER DEFAULT 0,
+                    total_credit_amount NUMERIC(12, 2) DEFAULT 0,
+                    execution_results TEXT,
+                    idempotency_tag VARCHAR(100),
+                    error_message TEXT,
+                    credit_expires_at TIMESTAMP,
+                    created_by VARCHAR(100),
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    executed_at TIMESTAMP,
+                    completed_at TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT NOW()
+                )
+            ''')
+            db.session.execute(create_table_sql)
+            results.append({'table': 'store_credit_events', 'action': 'created'})
+
+            # Add indexes
+            index_sqls = [
+                'CREATE INDEX IF NOT EXISTS ix_store_credit_events_tenant_id ON store_credit_events (tenant_id)',
+                'CREATE INDEX IF NOT EXISTS ix_store_credit_events_status ON store_credit_events (status)',
+                'CREATE INDEX IF NOT EXISTS ix_store_credit_events_created_at ON store_credit_events (created_at)'
+            ]
+            for sql in index_sqls:
+                db.session.execute(text(sql))
+            results.append({'table': 'store_credit_events', 'action': 'indexes_created'})
+        except Exception as e:
+            results.append({'table': 'store_credit_events', 'action': f'exists_or_error: {str(e)}'})
+
         db.session.commit()
 
         return jsonify({

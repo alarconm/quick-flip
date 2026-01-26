@@ -426,6 +426,142 @@ def debug_orders():
         return jsonify({'error': str(e), 'start': start, 'end': end}), 500
 
 
+@store_credit_events_bp.route('/history', methods=['GET'])
+@require_shopify_auth
+def list_event_history():
+    """
+    List past store credit events for history/ledger view.
+
+    Query params:
+        page: Page number (default 1)
+        limit: Items per page (default 15, max 100)
+        status: Filter by status (optional)
+
+    Returns:
+        Paginated list of past events with summary stats
+    """
+    from flask import g
+    from ..models.promotions import StoreCreditEvent
+    from ..models import Tenant
+
+    tenant = getattr(g, 'tenant', None)
+    if not tenant:
+        return jsonify({'error': 'No tenant found'}), 500
+
+    page = request.args.get('page', 1, type=int)
+    limit = min(request.args.get('limit', 15, type=int), 100)
+    status = request.args.get('status')
+
+    query = StoreCreditEvent.query.filter_by(tenant_id=tenant.id)
+
+    if status:
+        query = query.filter(StoreCreditEvent.status == status)
+
+    # Sort by created_at descending (newest first)
+    query = query.order_by(StoreCreditEvent.created_at.desc())
+
+    # Paginate
+    pagination = query.paginate(page=page, per_page=limit, error_out=False)
+
+    events = []
+    for event in pagination.items:
+        events.append({
+            'id': event.id,
+            'event_uuid': event.event_uuid,
+            'name': event.name,
+            'description': event.description,
+            'credit_percent': float(event.credit_percent) if event.credit_percent else None,
+            'date_range_start': event.date_range_start.isoformat() if event.date_range_start else None,
+            'date_range_end': event.date_range_end.isoformat() if event.date_range_end else None,
+            'status': event.status,
+            'customers_targeted': event.customers_targeted,
+            'customers_processed': event.customers_processed,
+            'customers_skipped': event.customers_skipped,
+            'customers_failed': event.customers_failed,
+            'total_credit_amount': float(event.total_credit_amount) if event.total_credit_amount else 0,
+            'created_at': event.created_at.isoformat() if event.created_at else None,
+            'executed_at': event.executed_at.isoformat() if event.executed_at else None,
+            'completed_at': event.completed_at.isoformat() if event.completed_at else None,
+        })
+
+    return jsonify({
+        'events': events,
+        'total': pagination.total,
+        'page': page,
+        'pages': pagination.pages if pagination.pages > 0 else 1,
+        'has_next': pagination.has_next,
+        'has_prev': pagination.has_prev
+    })
+
+
+@store_credit_events_bp.route('/history/<int:event_id>', methods=['GET'])
+@require_shopify_auth
+def get_event_details(event_id: int):
+    """
+    Get detailed results for a specific store credit event.
+
+    Returns:
+        Full event details including individual customer results
+    """
+    import json
+    from flask import g
+    from ..models.promotions import StoreCreditEvent
+
+    tenant = getattr(g, 'tenant', None)
+    if not tenant:
+        return jsonify({'error': 'No tenant found'}), 500
+
+    event = StoreCreditEvent.query.filter_by(
+        id=event_id,
+        tenant_id=tenant.id
+    ).first()
+
+    if not event:
+        return jsonify({'error': 'Event not found'}), 404
+
+    # Parse execution results
+    results = []
+    if event.execution_results:
+        try:
+            results = json.loads(event.execution_results)
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    # Parse filters
+    filters = {}
+    if event.filters:
+        try:
+            filters = json.loads(event.filters)
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    return jsonify({
+        'id': event.id,
+        'event_uuid': event.event_uuid,
+        'name': event.name,
+        'description': event.description,
+        'credit_percent': float(event.credit_percent) if event.credit_percent else None,
+        'credit_amount': float(event.credit_amount) if event.credit_amount else 0,
+        'filters': filters,
+        'date_range_start': event.date_range_start.isoformat() if event.date_range_start else None,
+        'date_range_end': event.date_range_end.isoformat() if event.date_range_end else None,
+        'status': event.status,
+        'customers_targeted': event.customers_targeted,
+        'customers_processed': event.customers_processed,
+        'customers_skipped': event.customers_skipped,
+        'customers_failed': event.customers_failed,
+        'total_credit_amount': float(event.total_credit_amount) if event.total_credit_amount else 0,
+        'idempotency_tag': event.idempotency_tag,
+        'credit_expires_at': event.credit_expires_at.isoformat() if event.credit_expires_at else None,
+        'created_by': event.created_by,
+        'created_at': event.created_at.isoformat() if event.created_at else None,
+        'executed_at': event.executed_at.isoformat() if event.executed_at else None,
+        'completed_at': event.completed_at.isoformat() if event.completed_at else None,
+        'error_message': event.error_message,
+        'results': results
+    })
+
+
 @store_credit_events_bp.route('/templates', methods=['GET'])
 def list_templates():
     """

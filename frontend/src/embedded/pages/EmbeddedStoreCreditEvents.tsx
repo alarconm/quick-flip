@@ -133,6 +133,35 @@ interface OrderSource {
   count: number;
 }
 
+// Historical event from the database
+interface HistoricalEvent {
+  id: number;
+  event_uuid: string;
+  name: string;
+  description: string | null;
+  credit_percent: number | null;
+  date_range_start: string | null;
+  date_range_end: string | null;
+  status: string;
+  customers_targeted: number;
+  customers_processed: number;
+  customers_skipped: number;
+  customers_failed: number;
+  total_credit_amount: number;
+  created_at: string | null;
+  executed_at: string | null;
+  completed_at: string | null;
+}
+
+interface HistoryResponse {
+  events: HistoricalEvent[];
+  total: number;
+  page: number;
+  pages: number;
+  has_next: boolean;
+  has_prev: boolean;
+}
+
 const DAY_OPTIONS = [
   { label: 'Monday', value: '0' },
   { label: 'Tuesday', value: '1' },
@@ -296,6 +325,19 @@ async function runBulkEvent(
   return response.json();
 }
 
+// Fetch event history
+async function fetchEventHistory(
+  shop: string | null,
+  page: number = 1
+): Promise<HistoryResponse> {
+  const response = await authFetch(
+    `${getApiUrl()}/store-credit-events/history?page=${page}&limit=15`,
+    shop
+  );
+  if (!response.ok) throw new Error('Failed to fetch event history');
+  return response.json();
+}
+
 export function EmbeddedStoreCreditEvents({ shop }: StoreCreditEventsProps) {
   const queryClient = useQueryClient();
   const { isMobile, isTablet } = useResponsive();
@@ -360,6 +402,14 @@ export function EmbeddedStoreCreditEvents({ shop }: StoreCreditEventsProps) {
     queryKey: ['scheduled-events', shop],
     queryFn: () => fetchScheduledEvents(shop),
     enabled: !!shop,
+  });
+
+  // History state and query
+  const [historyPage, setHistoryPage] = useState(1);
+  const { data: historyData, isLoading: historyLoading, refetch: refetchHistory } = useQuery({
+    queryKey: ['event-history', shop, historyPage],
+    queryFn: () => fetchEventHistory(shop, historyPage),
+    enabled: !!shop && activeTab === 2,  // Only fetch when on history tab
   });
 
   // Memoized options
@@ -471,6 +521,8 @@ export function EmbeddedStoreCreditEvents({ shop }: StoreCreditEventsProps) {
     onSuccess: (data) => {
       setBulkResult(data);
       setBulkPreview(null);
+      // Refresh history so the new event appears
+      queryClient.invalidateQueries({ queryKey: ['event-history'] });
     },
   });
 
@@ -674,6 +726,7 @@ export function EmbeddedStoreCreditEvents({ shop }: StoreCreditEventsProps) {
   const tabs = [
     { id: 'scheduled', content: 'Live Promotions', panelID: 'scheduled-panel' },
     { id: 'bulk', content: 'Post-Event Rewards', panelID: 'bulk-panel' },
+    { id: 'history', content: 'Event History', panelID: 'history-panel' },
   ];
 
   if (!shop) {
@@ -1033,6 +1086,106 @@ export function EmbeddedStoreCreditEvents({ shop }: StoreCreditEventsProps) {
                     </BlockStack>
                   </Card>
                 </BlockStack>
+              )}
+
+              {/* Event History Tab */}
+              {activeTab === 2 && (
+                <Card>
+                  <BlockStack gap="400">
+                    <InlineStack align="space-between" blockAlign="center">
+                      <Text as="h3" variant="headingMd">Past Store Credit Events</Text>
+                      <Button
+                        icon={RefreshIcon}
+                        onClick={() => refetchHistory()}
+                        loading={historyLoading}
+                      >
+                        Refresh
+                      </Button>
+                    </InlineStack>
+
+                    {historyLoading ? (
+                      <BlockStack gap="400">
+                        {[1, 2, 3].map((i) => (
+                          <Box key={i} paddingBlock="300">
+                            <InlineStack gap="400" blockAlign="center">
+                              <Box background="bg-surface-secondary" borderRadius="100" minHeight="20px" minWidth="150px" />
+                              <Box background="bg-surface-secondary" borderRadius="100" minHeight="20px" minWidth="100px" />
+                            </InlineStack>
+                          </Box>
+                        ))}
+                      </BlockStack>
+                    ) : historyData && historyData.events.length > 0 ? (
+                      <>
+                        <DataTable
+                          columnContentTypes={['text', 'text', 'numeric', 'numeric', 'numeric', 'text']}
+                          headings={['Event', 'Date Range', 'Credited', 'Skipped', 'Failed', 'Total Issued']}
+                          rows={historyData.events.map((event) => [
+                            <BlockStack gap="100" key={event.id}>
+                              <Text as="span" fontWeight="semibold">{event.name}</Text>
+                              <Text as="span" variant="bodySm" tone="subdued">
+                                {event.created_at ? new Date(event.created_at).toLocaleString() : '—'}
+                              </Text>
+                            </BlockStack>,
+                            <Text as="span" variant="bodySm" key={event.id}>
+                              {event.date_range_start ? new Date(event.date_range_start).toLocaleDateString() : '—'}
+                              {' - '}
+                              {event.date_range_end ? new Date(event.date_range_end).toLocaleDateString() : '—'}
+                            </Text>,
+                            <Badge tone="success" key={`success-${event.id}`}>{event.customers_processed}</Badge>,
+                            event.customers_skipped > 0 ? (
+                              <Badge key={`skipped-${event.id}`}>{event.customers_skipped}</Badge>
+                            ) : (
+                              <Text as="span" key={`skipped-${event.id}`}>0</Text>
+                            ),
+                            event.customers_failed > 0 ? (
+                              <Badge tone="critical" key={`failed-${event.id}`}>{event.customers_failed}</Badge>
+                            ) : (
+                              <Text as="span" key={`failed-${event.id}`}>0</Text>
+                            ),
+                            <Text as="span" fontWeight="semibold" key={`total-${event.id}`}>
+                              {formatCurrency(event.total_credit_amount)}
+                            </Text>,
+                          ])}
+                        />
+
+                        {/* Pagination */}
+                        {historyData.pages > 1 && (
+                          <InlineStack align="center" gap="200">
+                            <Button
+                              disabled={!historyData.has_prev}
+                              onClick={() => setHistoryPage(p => Math.max(1, p - 1))}
+                            >
+                              Previous
+                            </Button>
+                            <Text as="span" variant="bodySm">
+                              Page {historyData.page} of {historyData.pages}
+                            </Text>
+                            <Button
+                              disabled={!historyData.has_next}
+                              onClick={() => setHistoryPage(p => p + 1)}
+                            >
+                              Next
+                            </Button>
+                          </InlineStack>
+                        )}
+                      </>
+                    ) : (
+                      <EmptyState
+                        heading="No event history yet"
+                        action={{
+                          content: 'Run your first event',
+                          onAction: () => {
+                            setActiveTab(1);
+                            openBulkModal();
+                          },
+                        }}
+                        image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
+                      >
+                        <p>Run a bulk store credit event and it will appear here for your records.</p>
+                      </EmptyState>
+                    )}
+                  </BlockStack>
+                </Card>
               )}
             </Tabs>
           </Layout.Section>

@@ -718,6 +718,111 @@ class StoreCreditEventsService:
 
         return filtered
 
+    def _persist_event(
+        self,
+        job_id: Optional[str],
+        name: str,
+        start_datetime: str,
+        end_datetime: str,
+        sources: List[str],
+        credit_percent: float,
+        collection_ids: Optional[List[str]],
+        product_tags: Optional[List[str]],
+        audience: str,
+        total_customers: int,
+        successful: int,
+        skipped_count: int,
+        failed_count: int,
+        total_credited: float,
+        results: List[Dict[str, Any]]
+    ):
+        """
+        Persist a store credit event to the database for history tracking.
+
+        Args:
+            job_id: Unique job identifier
+            name: Event name
+            start_datetime: Event date range start
+            end_datetime: Event date range end
+            sources: Order sources included
+            credit_percent: Credit percentage
+            collection_ids: Collection filters
+            product_tags: Tag filters
+            audience: Target audience
+            total_customers: Total customers targeted
+            successful: Successfully credited count
+            skipped_count: Skipped count
+            failed_count: Failed count
+            total_credited: Total amount credited
+            results: Detailed results list
+
+        Returns:
+            StoreCreditEvent record or None if persistence fails
+        """
+        import json
+        from ..models.promotions import StoreCreditEvent, StoreCreditEventStatus
+        from ..models import Tenant
+        from ..extensions import db
+
+        try:
+            # Get tenant_id from shop domain
+            tenant = Tenant.query.filter_by(shopify_domain=self.shop_domain).first()
+            if not tenant:
+                current_app.logger.warning(f"Cannot persist event: No tenant for {self.shop_domain}")
+                return None
+
+            # Parse datetimes
+            date_range_start = None
+            date_range_end = None
+            try:
+                from datetime import datetime
+                date_range_start = datetime.fromisoformat(start_datetime.replace('Z', '+00:00'))
+                date_range_end = datetime.fromisoformat(end_datetime.replace('Z', '+00:00'))
+            except (ValueError, AttributeError):
+                pass
+
+            # Build filters dict
+            filters = {
+                'sources': sources,
+                'collection_ids': collection_ids,
+                'product_tags': product_tags,
+                'audience': audience
+            }
+
+            event = StoreCreditEvent(
+                tenant_id=tenant.id,
+                event_uuid=str(uuid.uuid4()),
+                name=name,
+                description=f"Bulk credit event: {credit_percent}% credit on orders from {start_datetime} to {end_datetime}",
+                credit_amount=0,  # Not flat amount
+                credit_percent=credit_percent,
+                filters=json.dumps(filters),
+                date_range_start=date_range_start,
+                date_range_end=date_range_end,
+                status=StoreCreditEventStatus.COMPLETED.value,
+                customers_targeted=total_customers,
+                customers_processed=successful,
+                customers_skipped=skipped_count,
+                customers_failed=failed_count,
+                total_credit_amount=total_credited,
+                execution_results=json.dumps(results),
+                idempotency_tag=f'received-credit-{job_id}' if job_id else None,
+                created_by='admin',
+                executed_at=datetime.utcnow(),
+                completed_at=datetime.utcnow()
+            )
+
+            db.session.add(event)
+            db.session.commit()
+
+            current_app.logger.info(f"Persisted store credit event {event.id} ({event.event_uuid})")
+            return event
+
+        except Exception as e:
+            current_app.logger.error(f"Failed to persist store credit event: {e}")
+            db.session.rollback()
+            return None
+
     def run_event(
         self,
         start_datetime: str,
@@ -806,20 +911,42 @@ class StoreCreditEventsService:
         skipped = [r for r in results if r.skipped]
         failed = [r for r in results if not r.success]
 
+        total_credited = sum(r.credit_amount for r in successful)
+
+        # Persist event to database for history tracking
+        event_record = self._persist_event(
+            job_id=job_id,
+            name=f"Bulk Credit Event - {job_id or 'Manual'}",
+            start_datetime=start_datetime,
+            end_datetime=end_datetime,
+            sources=sources,
+            credit_percent=credit_percent,
+            collection_ids=collection_ids,
+            product_tags=product_tags,
+            audience=audience,
+            total_customers=len(customers),
+            successful=len(successful),
+            skipped_count=len(skipped),
+            failed_count=len(failed),
+            total_credited=total_credited,
+            results=[asdict(r) for r in results]
+        )
+
         return {
             'event': {
                 'start_datetime': start_datetime,
                 'end_datetime': end_datetime,
                 'sources': sources,
                 'credit_percent': credit_percent,
-                'job_id': job_id
+                'job_id': job_id,
+                'event_id': event_record.id if event_record else None
             },
             'summary': {
                 'total_customers': len(customers),
                 'successful': len(successful),
                 'skipped': len(skipped),
                 'failed': len(failed),
-                'total_credited': sum(r.credit_amount for r in successful)
+                'total_credited': total_credited
             },
             'results': [asdict(r) for r in results]
         }
