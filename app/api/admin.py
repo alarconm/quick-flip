@@ -1102,6 +1102,55 @@ def register_test_store():
         }), 500
 
 
+@admin_bp.route('/set-test-store-token', methods=['POST'])
+def set_test_store_token():
+    """
+    Set the access token for a test store tenant.
+
+    This is used when the tenant was registered manually but needs an access token
+    for full Shopify API functionality.
+
+    Call with: POST /api/admin/set-test-store-token?key=tradeup-schema-fix-2026
+    Body: {"shop_domain": "store-name.myshopify.com", "access_token": "shpat_xxx"}
+    """
+    key = request.args.get('key')
+    if key != 'tradeup-schema-fix-2026':
+        return jsonify({'error': 'Invalid key'}), 403
+
+    data = request.get_json() or {}
+    shop_domain = data.get('shop_domain')
+    access_token = data.get('access_token')
+
+    if not shop_domain:
+        return jsonify({'error': 'shop_domain required'}), 400
+    if not access_token:
+        return jsonify({'error': 'access_token required'}), 400
+
+    try:
+        from ..models import Tenant
+
+        tenant = Tenant.query.filter_by(shopify_domain=shop_domain).first()
+        if not tenant:
+            return jsonify({'error': 'Tenant not found - register it first'}), 404
+
+        tenant.shopify_access_token = access_token
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Access token set successfully',
+            'tenant_id': tenant.id,
+            'shop_domain': tenant.shopify_domain,
+            'note': 'Shopify API calls should now work'
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
 @admin_bp.route('/create-new-feature-tables', methods=['POST'])
 def create_new_feature_tables():
     """
