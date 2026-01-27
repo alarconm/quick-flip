@@ -1084,19 +1084,25 @@ def get_credit_ledger():
         if member_id:
             stats_query = stats_query.filter(StoreCreditLedger.member_id == member_id)
 
-        # Calculate summary
-        summary_stats = db.session.query(
+        # Calculate summary - build filters conditionally
+        summary_query = db.session.query(
             func.sum(sa.case((StoreCreditLedger.amount > 0, StoreCreditLedger.amount), else_=0)).label('total_credited'),
             func.sum(sa.case((StoreCreditLedger.amount < 0, func.abs(StoreCreditLedger.amount)), else_=0)).label('total_debited'),
             func.count(StoreCreditLedger.id).label('total_transactions'),
             func.count(func.distinct(StoreCreditLedger.member_id)).label('unique_members'),
-        ).filter(
-            # Apply same filters
-            True if not start_date else StoreCreditLedger.created_at >= start_dt,
-            True if not end_date else StoreCreditLedger.created_at <= end_dt,
-            True if not event_type else StoreCreditLedger.event_type == event_type,
-            True if not member_id else StoreCreditLedger.member_id == member_id,
-        ).first()
+        )
+
+        # Apply same filters conditionally
+        if start_date:
+            summary_query = summary_query.filter(StoreCreditLedger.created_at >= start_dt)
+        if end_date:
+            summary_query = summary_query.filter(StoreCreditLedger.created_at <= end_dt)
+        if event_type:
+            summary_query = summary_query.filter(StoreCreditLedger.event_type == event_type)
+        if member_id:
+            summary_query = summary_query.filter(StoreCreditLedger.member_id == member_id)
+
+        summary_stats = summary_query.first()
 
         # Build response with member info
         entries = []
