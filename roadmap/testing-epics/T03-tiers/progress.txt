@@ -1,0 +1,79 @@
+## T03-tiers Testing Progress
+
+Date: 2026-01-26
+
+### What I Did
+
+1. **Created Playwright E2E Tests** (`frontend/e2e/tiers.spec.ts`)
+   - Created comprehensive browser-based E2E tests covering all 15 user stories
+   - Tests mock API responses to isolate frontend behavior
+   - Tests verify all tier CRUD operations, pricing, benefits, and bulk operations
+
+2. **Verified API Unit Tests Pass** (`tests/test_api_tiers.py`)
+   - All 20 API tests pass successfully
+   - Tests cover: CRUD operations, tier assignment, bulk assignment, eligibility, promotions
+
+3. **Verified Tier Service Tests** (`tests/test_tier_service.py`)
+   - 40 tests for tier service business logic
+   - Covers: assignment, removal, eligibility, auto-upgrade/downgrade, promotions, subscriptions
+
+### Files Changed/Created
+
+- `frontend/e2e/tiers.spec.ts` - NEW - 600+ lines of E2E tests covering:
+  - T-TIER-001: All tiers display (3 tests)
+  - T-TIER-002: Creating new tier (3 tests)
+  - T-TIER-003: Monthly subscription price (2 tests)
+  - T-TIER-004: Yearly subscription price (2 tests)
+  - T-TIER-005: Trade-in bonus percentage (2 tests)
+  - T-TIER-006: Store credit percentage (1 test)
+  - T-TIER-007: Monthly credit reward (1 test)
+  - T-TIER-008: Custom text benefits (1 test)
+  - T-TIER-009: Modifying existing tier (1 test)
+  - T-TIER-010: Tier reordering (1 test)
+  - T-TIER-011: Tier deactivation (2 tests)
+  - T-TIER-012: Deleting unused tier (2 tests)
+  - T-TIER-013: Member count per tier (1 test)
+  - T-TIER-014: Auto-upgrade rules (1 test)
+  - T-TIER-015: Bulk tier assignment (2 tests)
+
+### Test Coverage Summary
+
+| Test Type | Tests | Status |
+|-----------|-------|--------|
+| API Unit Tests | 20/20 | PASS |
+| Service Unit Tests | 40/40 | PASS (requires LOG_FILE="" workaround) |
+| Playwright E2E | 25 tests | Created - require dev server to run |
+
+### How to Run Tests
+
+```bash
+# API tests
+LOG_FILE="" python -m pytest tests/test_api_tiers.py -v
+
+# Service tests
+LOG_FILE="" python -m pytest tests/test_tier_service.py -v
+
+# Playwright E2E (requires frontend dev server)
+cd frontend && npm run dev  # in one terminal
+cd frontend && npm run test:e2e -- e2e/tiers.spec.ts  # in another
+```
+
+### Learnings
+
+1. The EmbeddedTiers.tsx component uses:
+   - RangeSlider for bonus_rate (stored as decimal, displayed as percentage)
+   - Modal for create/edit forms
+   - ResourceList for tier display
+   - Collapsible for advanced settings (purchase_cashback_pct, monthly_credit_amount)
+
+2. API endpoint is `/api/members/tiers` (not `/api/tiers` for CRUD)
+   - `/api/tiers/*` is used for tier assignment/eligibility operations
+
+3. LOG_FILE env var causes permission issues with pytest - set LOG_FILE="" before running
+
+### Notes for Manual Testing
+
+The E2E tests mock API responses. For true end-to-end testing in the Shopify admin:
+- Navigate to https://admin.shopify.com/store/uy288y-nx/apps/tradeup-by-cardflow-labs
+- Go to "Membership Tiers" or "Settings > Tiers"
+- Verify all CRUD operations work with real data
