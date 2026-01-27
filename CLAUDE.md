@@ -5,7 +5,8 @@
 TradeUp is a **Shopify embedded app** for loyalty programs, trade-in management, and store credit. Built for collectibles stores (sports cards, Pokemon, MTG).
 
 - **Production**: https://app.cardflowlabs.com
-- **Railway Backend**: https://tradeup-production.up.railway.app
+- **Railway Project**: natural-perception (auto-deploys from GitHub)
+- **Railway Domain**: https://web-production-41bb1.up.railway.app
 - **Test Store**: uy288y-nx.myshopify.com (ORB Sports Cards)
 - **Repository**: https://github.com/alarconm/tradeup
 
@@ -353,14 +354,27 @@ curl -H "X-Shopify-Shop-Domain: uy288y-nx.myshopify.com" http://localhost:5000/a
 
 ## Railway Deployment Best Practices
 
+### Project Setup
+The TradeUp backend is deployed to Railway project **"natural-perception"** with service **"web"**.
+
+```bash
+# Link to the correct project (run once per directory)
+railway link -p 'natural-perception' -s 'web'
+
+# Verify you're linked to the right project
+railway status
+```
+
+**IMPORTANT**: Railway auto-deploys from GitHub. Just `git push origin main` and it deploys automatically.
+
 ### Quick Deploy Commands
 ```bash
-# Check deployment status FIRST
+# Check deployment status
 railway deployment list
 
-# Deploy (pick ONE method, not both)
-railway up                    # Direct upload
-git push origin main          # GitHub trigger
+# Deploy methods (Railway auto-deploys from GitHub - preferred)
+git push origin main          # GitHub trigger (auto-deploys)
+railway up                    # Direct upload (manual, avoid)
 
 # Check logs if deployment fails
 railway logs --deployment <id>
