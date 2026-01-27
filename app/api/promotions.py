@@ -1111,7 +1111,7 @@ def get_credit_ledger():
             # Add member info if available
             if entry.member:
                 entry_dict['member_email'] = entry.member.email
-                entry_dict['member_name'] = f"{entry.member.first_name or ''} {entry.member.last_name or ''}".strip() or entry.member.email
+                entry_dict['member_name'] = entry.member.name or entry.member.email
             entries.append(entry_dict)
 
         return jsonify({
