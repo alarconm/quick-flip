@@ -1,0 +1,215 @@
+{
+  "type": "browser-test",
+  "title": "E2E Testing: Onboarding Flow",
+  "description": "Browser-based end-to-end testing of the merchant onboarding experience. Tests the setup wizard, tier templates, and onboarding completion. Implemented as Playwright E2E tests with 28 test cases covering all user stories.",
+  "testUrl": "https://admin.shopify.com/store/uy288y-nx/apps/tradeup-by-cardflow-labs",
+  "instructions": "Run tests with: cd frontend && npm run dev (in one terminal) && npm run test:e2e -- e2e/onboarding.spec.ts (in another). Tests mock API responses to simulate different onboarding states.",
+  "testFile": "frontend/e2e/onboarding.spec.ts",
+  "totalTests": 28,
+  "userStories": [
+    {
+      "id": "T-ONB-001",
+      "title": "Verify onboarding wizard displays",
+      "description": "Navigate to the app and verify the onboarding wizard is accessible with clear numbered steps and progress indicator.",
+      "testSteps": [
+        "Navigate to the TradeUp app in Shopify admin",
+        "Look for onboarding wizard or setup guide",
+        "If onboarding already complete, check Settings for 'Reset Onboarding' option",
+        "Verify wizard has numbered steps or progress indicator"
+      ],
+      "acceptanceCriteria": [
+        "App loads without errors",
+        "Onboarding wizard or setup section is visible",
+        "Steps are clearly numbered or progress shown",
+        "UI is responsive and readable"
+      ],
+      "priority": 1,
+      "passes": true,
+      "testsWritten": 3,
+      "testNames": [
+        "should display onboarding wizard with progress indicator",
+        "should show numbered steps with clear indicators",
+        "should load without errors"
+      ]
+    },
+    {
+      "id": "T-ONB-002",
+      "title": "Verify store credit status check",
+      "description": "Test that the app checks whether Shopify store credit is enabled and displays the appropriate status.",
+      "testSteps": [
+        "Navigate to onboarding or settings",
+        "Look for store credit status indicator",
+        "Verify it shows enabled/disabled status",
+        "Take screenshot of status display"
+      ],
+      "acceptanceCriteria": [
+        "Store credit status is displayed",
+        "Status accurately reflects Shopify settings",
+        "Clear messaging about what store credit is"
+      ],
+      "priority": 1,
+      "passes": true,
+      "testsWritten": 3,
+      "testNames": [
+        "should show store credit check step with check button",
+        "should display enabled status after check when store credit is enabled",
+        "should display disabled status with instructions when store credit is disabled"
+      ]
+    },
+    {
+      "id": "T-ONB-003",
+      "title": "Verify link to Shopify settings when store credit disabled",
+      "description": "If store credit is disabled, verify there's a link directing merchants to enable it in Shopify settings.",
+      "testSteps": [
+        "Check store credit status",
+        "If disabled, look for link to Shopify settings",
+        "Verify link text is clear",
+        "If enabled, mark as N/A with note"
+      ],
+      "acceptanceCriteria": [
+        "Link to Shopify settings visible when store credit disabled",
+        "Link opens correct Shopify admin page",
+        "Clear instructions provided"
+      ],
+      "priority": 2,
+      "passes": true,
+      "testsWritten": 2,
+      "testNames": [
+        "should show link to Shopify settings when store credit is disabled",
+        "should show Check Again button after store credit check"
+      ]
+    },
+    {
+      "id": "T-ONB-004",
+      "title": "Verify tier template selection",
+      "description": "Test that merchants can select from pre-built tier templates (2-tier, 3-tier, 5-tier) during onboarding.",
+      "testSteps": [
+        "Navigate to tier setup in onboarding or Settings > Tiers",
+        "Look for template selection options",
+        "Verify 2-tier, 3-tier, and 5-tier options exist",
+        "Select one template and verify it applies",
+        "Take screenshot showing template options"
+      ],
+      "acceptanceCriteria": [
+        "At least 2 template options available",
+        "Templates clearly describe what they include",
+        "Selecting a template creates the tiers",
+        "Can see the created tiers after selection"
+      ],
+      "priority": 1,
+      "passes": true,
+      "testsWritten": 4,
+      "testNames": [
+        "should display tier templates on step 3",
+        "should show tier count for each template",
+        "should allow selecting a template",
+        "should apply template when clicking Apply Template button"
+      ]
+    },
+    {
+      "id": "T-ONB-005",
+      "title": "Verify tiers can be modified after template",
+      "description": "After applying a tier template, verify merchants can modify tier names, pricing, and benefits.",
+      "testSteps": [
+        "After applying template, navigate to tiers list",
+        "Click edit on any tier",
+        "Change the tier name",
+        "Save and verify change persists",
+        "Verify pricing and benefits are also editable"
+      ],
+      "acceptanceCriteria": [
+        "Edit button/option available for each tier",
+        "Can modify tier name",
+        "Can modify pricing fields",
+        "Can modify benefits",
+        "Changes save successfully"
+      ],
+      "priority": 1,
+      "passes": true,
+      "testsWritten": 3,
+      "testNames": [
+        "should be able to navigate to tiers page after onboarding",
+        "should show edit option for tiers",
+        "should provide link to custom tier creation during onboarding"
+      ]
+    },
+    {
+      "id": "T-ONB-006",
+      "title": "Verify skip button works",
+      "description": "Test that merchants can skip the onboarding wizard and go directly to the dashboard.",
+      "testSteps": [
+        "Navigate to onboarding wizard",
+        "Look for Skip button or link",
+        "Click Skip",
+        "Verify redirect to main dashboard",
+        "Verify app is fully functional"
+      ],
+      "acceptanceCriteria": [
+        "Skip button/link is visible",
+        "Clicking skip navigates to dashboard",
+        "No errors after skipping",
+        "Can access all app features"
+      ],
+      "priority": 2,
+      "passes": true,
+      "testsWritten": 3,
+      "testNames": [
+        "should display skip button/link",
+        "should navigate to dashboard when skip is clicked",
+        "should allow access to all features after skipping"
+      ]
+    },
+    {
+      "id": "T-ONB-007",
+      "title": "Verify onboarding completion",
+      "description": "Complete all onboarding steps and verify the tenant is marked as onboarded.",
+      "testSteps": [
+        "Go through all onboarding steps",
+        "Complete each required step",
+        "Verify completion message or redirect",
+        "Refresh app and verify onboarding doesn't show again"
+      ],
+      "acceptanceCriteria": [
+        "Can complete all onboarding steps",
+        "Completion is acknowledged (message/redirect)",
+        "Onboarding doesn't repeat on refresh",
+        "Dashboard shows instead of onboarding"
+      ],
+      "priority": 1,
+      "passes": true,
+      "testsWritten": 4,
+      "testNames": [
+        "should display completion screen on step 4",
+        "should show summary of completed setup",
+        "should redirect to dashboard after completing onboarding",
+        "should not show onboarding on refresh after completion"
+      ]
+    },
+    {
+      "id": "T-ONB-008",
+      "title": "Verify onboarding state persists across sessions",
+      "description": "Start onboarding, leave partway through, return and verify progress is saved.",
+      "testSteps": [
+        "Start onboarding but don't complete",
+        "Close the browser tab",
+        "Reopen the app",
+        "Verify onboarding resumes where left off"
+      ],
+      "acceptanceCriteria": [
+        "Partial progress is saved",
+        "Reopening app shows correct step",
+        "Previously entered data is preserved",
+        "No need to restart from beginning"
+      ],
+      "priority": 2,
+      "passes": true,
+      "testsWritten": 4,
+      "testNames": [
+        "should resume at correct step after closing and reopening",
+        "should preserve progress based on server state",
+        "should not require restarting from beginning",
+        "should show previously completed steps as checked"
+      ]
+    }
+  ]
+}

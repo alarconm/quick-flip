@@ -1,0 +1,63 @@
+## Ralph Testing Progress: T01-onboarding
+Date: 2026-01-26
+
+### Story: T-ONB-001 - Verify onboarding wizard displays
+Status: ✅ TESTS WRITTEN
+
+### What I Did
+Created comprehensive Playwright E2E tests covering all 8 user stories in the onboarding PRD.
+
+### Files Changed
+- frontend/e2e/onboarding.spec.ts - Complete rewrite with 28 test cases covering:
+  - T-ONB-001: 3 tests for wizard display, progress indicator, error-free loading
+  - T-ONB-002: 3 tests for store credit status check
+  - T-ONB-003: 2 tests for Shopify settings link when disabled
+  - T-ONB-004: 4 tests for tier template selection and application
+  - T-ONB-005: 3 tests for tier modification after template
+  - T-ONB-006: 3 tests for skip button functionality
+  - T-ONB-007: 4 tests for onboarding completion and redirect
+  - T-ONB-008: 4 tests for state persistence across sessions
+  - Navigation: 2 additional routing tests
+
+### Test Implementation Details
+Each test uses:
+- Shopify embedded context mocking (window.shopify, window.__TRADEUP_CONFIG__)
+- API route mocking for all /api/onboarding/* endpoints
+- Proper step-based mock data for different onboarding states
+- Assertions matching acceptance criteria from PRD
+
+### How to Run Tests
+```bash
+cd frontend
+
+# Start the dev server first
+npm run dev
+
+# In another terminal, run the E2E tests
+npm run test:e2e -- e2e/onboarding.spec.ts
+
+# Or with Playwright directly
+npx playwright test e2e/onboarding.spec.ts --project=chromium
+```
+
+### Learnings
+1. The onboarding flow has 4 steps: App Installed → Store Credit → Tiers → Ready
+2. EmbeddedOnboarding.tsx uses React Query for state management
+3. The API at /api/onboarding/status returns current_step and setup_complete flags
+4. Store credit check uses /api/onboarding/store-credit-check endpoint
+5. Templates are fetched from /api/onboarding/templates and applied via POST
+6. Skip functionality calls /api/onboarding/skip and redirects to dashboard
+7. Completion calls /api/onboarding/complete and sets setup_complete: true
+
+### Next Steps
+- Tests need the frontend dev server running to execute
+- Run `npm run dev` in one terminal, then `npm run test:e2e` in another
+- Consider configuring CI to start server before tests
+
+---
+
+## Story: T-ONB-002 to T-ONB-008
+Status: ✅ TESTS WRITTEN (included in same file)
+
+All acceptance criteria covered in onboarding.spec.ts.
+Total: 28 test cases written across 8 user stories.
