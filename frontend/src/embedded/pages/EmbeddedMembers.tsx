@@ -114,13 +114,15 @@ async function fetchMembers(
   shop: string | null,
   page: number,
   search: string,
-  tier: string
+  tier: string,
+  status: string
 ): Promise<MembersResponse> {
   const params = new URLSearchParams();
   params.set('page', String(page));
   params.set('per_page', '20');
   if (search) params.set('search', search);
   if (tier) params.set('tier', tier);
+  if (status) params.set('status', status);
 
   const response = await authFetch(`${getApiUrl()}/members?${params}`, shop);
   if (!response.ok) throw new Error('Failed to fetch members');
@@ -158,6 +160,7 @@ export function EmbeddedMembers({ shop }: MembersProps) {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [selectedTier, setSelectedTier] = useState<string[]>([]);
+  const [selectedStatus, setSelectedStatus] = useState<string[]>([]);
   const [detailMember, setDetailMember] = useState<Member | null>(null);
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [addMemberModalOpen, setAddMemberModalOpen] = useState(false);
@@ -168,8 +171,8 @@ export function EmbeddedMembers({ shop }: MembersProps) {
   const debouncedSearch = useDebouncedValue(search, 150);
 
   const { data, isLoading, error, isFetching } = useQuery({
-    queryKey: ['members', shop, page, debouncedSearch, selectedTier[0]],
-    queryFn: () => fetchMembers(shop, page, debouncedSearch, selectedTier[0] || ''),
+    queryKey: ['members', shop, page, debouncedSearch, selectedTier[0], selectedStatus[0]],
+    queryFn: () => fetchMembers(shop, page, debouncedSearch, selectedTier[0] || '', selectedStatus[0] || ''),
     enabled: !!shop,
     retry: 1,
     staleTime: 5000, // Short cache for fresh results
@@ -208,6 +211,7 @@ export function EmbeddedMembers({ shop }: MembersProps) {
   const handleClearFilters = useCallback(() => {
     setSearch('');
     setSelectedTier([]);
+    setSelectedStatus([]);
     setPage(1);
   }, []);
 
@@ -278,34 +282,73 @@ export function EmbeddedMembers({ shop }: MembersProps) {
       }))
     : [];
 
-  const filters = tierChoices.length > 0
-    ? [
-        {
-          key: 'tier',
-          label: 'Tier',
-          filter: (
-            <ChoiceList
-              title="Tier"
-              titleHidden
-              choices={tierChoices}
-              selected={selectedTier}
-              onChange={handleTierChange}
-            />
-          ),
-          shortcut: true,
-        },
-      ]
-    : [];
+  // Status filter choices
+  const statusChoices = [
+    { label: 'Active', value: 'active' },
+    { label: 'Suspended', value: 'suspended' },
+    { label: 'Cancelled', value: 'cancelled' },
+  ];
 
-  const appliedFilters = selectedTier.length > 0
-    ? [
-        {
-          key: 'tier',
-          label: `Tier: ${selectedTier[0]}`,
-          onRemove: () => setSelectedTier([]),
-        },
-      ]
-    : [];
+  const handleStatusChange = (value: string[]) => {
+    setSelectedStatus(value);
+    setPage(1);
+  };
+
+  const filters = [
+    ...(tierChoices.length > 0
+      ? [
+          {
+            key: 'tier',
+            label: 'Tier',
+            filter: (
+              <ChoiceList
+                title="Tier"
+                titleHidden
+                choices={tierChoices}
+                selected={selectedTier}
+                onChange={handleTierChange}
+              />
+            ),
+            shortcut: true,
+          },
+        ]
+      : []),
+    {
+      key: 'status',
+      label: 'Status',
+      filter: (
+        <ChoiceList
+          title="Status"
+          titleHidden
+          choices={statusChoices}
+          selected={selectedStatus}
+          onChange={handleStatusChange}
+        />
+      ),
+      shortcut: true,
+    },
+  ];
+
+  const appliedFilters = [
+    ...(selectedTier.length > 0
+      ? [
+          {
+            key: 'tier',
+            label: `Tier: ${selectedTier[0]}`,
+            onRemove: () => setSelectedTier([]),
+          },
+        ]
+      : []),
+    ...(selectedStatus.length > 0
+      ? [
+          {
+            key: 'status',
+            label: `Status: ${selectedStatus[0]}`,
+            onRemove: () => setSelectedStatus([]),
+          },
+        ]
+      : []),
+  ];
 
   return (
     <>
